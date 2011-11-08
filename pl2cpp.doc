@@ -134,7 +134,7 @@ use C++ global constructors for registering foreign predicates.
 \end{description}
 
 The required C(++) function header and registration of a predicate
-is arranged through a macro called \funcref{PREDICATE}{}.
+is arranged through a macro called \cfuncref{PREDICATE}{}.
 
 
 \section{Examples}
@@ -569,7 +569,7 @@ PREDICATE(write_list, 1)
 
 The class \class{PlTermv} represents an array of term-references.  This
 type is used to pass the arguments to a foreignly defined predicate,
-construct compound terms (see \funcref{PlTerm::PlTerm}{const char *name,
+construct compound terms (see \cfuncref{PlTerm::PlTerm}{const char *name,
 PlTermv arguments}) and to create queries (see \class{PlQuery}).
 
 The only useful member function is the overloading of \const{[]},

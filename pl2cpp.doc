@@ -1113,7 +1113,7 @@ non-deterministic predicates.  It would not be hard to add this.
 \section{Conclusions}				\label{sec:conclusions}
 
 In this document, we presented a high-level interface to Prolog
-exploying automatic type-conversion and exception-handling defined in
+exploiting automatic type-conversion and exception-handling defined in
 C++.
 
 Programming using this interface is much more natural and requires only

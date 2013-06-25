@@ -707,7 +707,7 @@ __inline int PlTerm::operator =(const PlTerm &t2)	/* term = term */
   return rc;
 }
 
-__inline int PlTerm::operator =(const PlAtom &a) 	/* term = atom */
+__inline int PlTerm::operator =(const PlAtom &a)	/* term = atom */
 { int rc = PL_unify_atom(ref, a.handle);
   term_t ex;
 
@@ -1006,8 +1006,9 @@ public:
   char *message;
 
   PlError(const char *msg)
-  { message = new char[strlen(msg+1)];
-    strcpy(message, msg);
+  { size_t len = strlen(msg)+1;
+    message = new char[len];
+    strncpy(message, msg, len);
   }
 };
 

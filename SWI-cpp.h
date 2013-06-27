@@ -1008,7 +1008,14 @@ public:
   PlError(const char *msg)
   { size_t len = strlen(msg)+1;
     message = new char[len];
+#ifdef _MSC_VER				/* Yek */
+#pragma warning( push )
+#pragma warning (disable:4996)
+#endif
     strncpy(message, msg, len);
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif
   }
 };
 

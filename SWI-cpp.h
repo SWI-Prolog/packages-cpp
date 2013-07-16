@@ -589,7 +589,7 @@ PlAtom::PlAtom(const PlTerm &t)
 __inline PlTerm::operator char *(void) const
 { char *s;
 
-  if ( PL_get_chars(ref, &s, CVT_ALL|CVT_WRITE|BUF_RING) )
+  if ( PL_get_chars(ref, &s, CVT_ALL|CVT_WRITEQ|BUF_RING) )
     return s;
 
   throw PlTypeError("text", ref);

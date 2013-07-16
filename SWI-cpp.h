@@ -849,7 +849,7 @@ __inline int PlTerm::operator ==(const PlAtom &a)
 
 
 		 /*******************************
-		 *	COMPPOUND (BODY)	*
+		 *	   COMPOUND (BODY)	*
 		 *******************************/
 
 

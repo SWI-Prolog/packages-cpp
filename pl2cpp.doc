@@ -78,11 +78,11 @@ implementation and documentation of this package.
 
 The most useful area for exploiting C++ features is type-conversion.
 Prolog variables are dynamically typed and all information is passed
-around using the C-interface type \type{term_t}.  In C++, \type{term_t}
+around using the C-interface type \type{term_t}. In C++, \type{term_t}
 is embedded in the \jargon{lightweight} class \class{PlTerm}.
 Constructors and operator definitions provide flexible operations and
-integration with important C-types (\type{char *}, \type{long} and
-\type{double}).
+integration with important C-types (\type{char *}, \type{wchar_t*},
+\type{long} and \type{double}).
 
 The list below summarises the classes defined in the C++ interface.
 
@@ -163,8 +163,8 @@ PREDICATE(hello, 1)
 The arguments to PREDICATE() are the name and arity of the predicate.
 The macros A<n> provide access to the predicate arguments by position
 and are of the type \class{PlTerm}. Casting a \class{PlTerm} to a
-\type{char *} provides the natural type-conversion for most Prolog
-data-types, using the output of write/1 otherwise:
+\type{char *} or \type{wchar_t *} provides the natural type-conversion
+for most Prolog data-types, using the output of write/1 otherwise:
 
 \begin{code}
 ?- hello(world).
@@ -255,6 +255,8 @@ term-reference into an instance of \class{PlTerm}.  Note that, being a
 lightweight class, this is a no-op at the machine-level!
     \constructor{PlTerm}{const char *text}
 Creates a term-references holding a Prolog atom representing \arg{text}.
+    \constructor{PlTerm}{const wchar_t *text}
+Creates a term-references holding a Prolog atom representing \arg{text}.
     \constructor{PlTerm}{const PlAtom \&atom}
 Creates a term-references holding a Prolog atom from an atom-handle.
     \constructor{PlTerm}{long n}
@@ -303,6 +305,8 @@ Same as for \type{long}, but might represent fewer bits.
     \cppcast{PlTerm}{double}
 Yields the value as a C double if \class{PlTerm} represents a
 Prolog integer or float.
+    \cppcast{PlTerm}{wchar_t *}
+    \nodescription
     \cppcast{PlTerm}{char *}
 Converts the Prolog argument using PL_get_chars() using the flags
 \const{CVT_ALL|CVT_WRITE|BUF_RING}, which implies Prolog atoms and
@@ -321,9 +325,9 @@ by PlTerm::PlTerm(void*).
 \begin{description}
     \cfunction{int}{PlTerm::operator =}{Type}
 The operator \const{=} is defined for the \arg{Types} \class{PlTerm},
-\type{long}, \type{double}, \type{char *} and \class{PlAtom}. It
-performs Prolog unification and returns \const{TRUE} if successful and
-\const{FALSE} otherwise.
+\type{long}, \type{double}, \type{char *}, \type{wchar_t*} and
+\class{PlAtom}. It performs Prolog unification and returns \const{TRUE}
+if successful and \const{FALSE} otherwise.
 
 The boolean return-value leads to somewhat unconventional-looking code
 as normally, assignment returns the value assigned in C.  Unification
@@ -376,6 +380,8 @@ Convert \class{PlTerm} to a \type{long} and perform standard
 C-comparison between the two long integers. If \class{PlTerm} cannot be
 converted a \except{type_error} is raised.
 
+    \cfunction{int}{PlTerm::operator ==}{const wchar_t *}
+    \nodescription
     \cfunction{int}{PlTerm::operator ==}{const char *}
 Yields \const{TRUE} if the \class{PlTerm} is an atom or string
 representing the same text as the argument, \const{FALSE} if the
@@ -471,10 +477,15 @@ can be used to contain arbitrary C-data structures.
 
 
 \begin{description}
+    \constructor{PlString}{const wchar_t *text}
+    \nodescription
     \constructor{PlString}{const char *text}
 Create a SWI-Prolog string object from a 0-terminated C-string.  The
 \arg{text} is copied.
-    \constructor{PlString}{const char *text, int len}
+
+    \constructor{PlString}{const wchar_t *text, size_t len}
+    \nodescription
+    \constructor{PlString}{const char *text, size_t len}
 Create a SWI-Prolog string object from a C-string with specified length.
 The \arg{text} may contain 0-characters and is copied.
 \end{description}
@@ -483,6 +494,8 @@ The \arg{text} may contain 0-characters and is copied.
 \label{sec:cpp-codelist}
 
 \begin{description}
+    \constructor{PlCodeList}{const wchar_t *text}
+    \nodescription
     \constructor{PlCodeList}{const char *text}
 Create a Prolog list of ASCII codes from a 0-terminated C-string.
 \end{description}
@@ -494,6 +507,8 @@ Create a Prolog list of ASCII codes from a 0-terminated C-string.
 Character lists are compliant to Prolog's atom_chars/2 predicate.
 
 \begin{description}
+    \constructor{PlCharList}{const wchar_t *text}
+    \nodescription
     \constructor{PlCharList}{const char *text}
 Create a Prolog list of one-character atoms from a 0-terminated
 C-string.
@@ -504,10 +519,15 @@ C-string.
 \label{sec:cpp-plcompound}
 
 \begin{description}
+    \constructor{PlCompound}{const wchar_t *text}
+    \nodescription
     \constructor{PlCompound}{const char *text}
 Create a term by parsing (as read/1) the \arg{text}.  If the \arg{text}
 is not valid Prolog syntax, a \except{syntax_error} exception is raised.
 Otherwise a new term-reference holding the parsed text is created.
+
+    \constructor{PlCompound}{const wchar_t *functor, PlTermv args}
+    \nodescription
     \constructor{PlCompound}{const char *functor, PlTermv args}
 Create a compound term with the given name from the given vector of
 arguments.  See \class{PlTermv} for details.  The example below
@@ -705,12 +725,16 @@ the need for global atom constructors.
     \constructor{PlAtom}{atom_t handle}
 Create from C-interface atom handle.  Used internally and for
 integration with the C-interface.
+    \constructor{PlAtom}{const wchar_t *text}
+    \nodescription
     \constructor{PlAtom}{const char *text}
-Create from a string.  The \arg{text} is copied if a new atom
+Create an atom from a string.  The \arg{text} is copied if a new atom
 is created.
     \constructor{PlAtom}{const PlTerm \&t}
 If \arg{t} represents an atom, the new instance represents this
 atom.  Otherwise a \except{type_error} is thrown.
+    \cfunction{int}{PlAtom::operator ==}{const wchar_t *text}
+    \nodescription
     \cfunction{int}{PlAtom::operator ==}{const char *text}
 Yields \const{TRUE} if the atom represents \arg{text}, \const{FALSE}
 otherwise.  Performs a strcmp() for this.
@@ -805,6 +829,8 @@ result of next_solution() or an exception.
     \cfunction{int}{PlCall}{const char *module, const char *predicate,
 			    const PlTermv \&av}
 Same, locating the predicate in the named module.
+    \cfunction{int}{PlCall}{const wchar_t *goal}
+    \nodescription
     \cfunction{int}{PlCall}{const char *goal}
 Translates \arg{goal} into a term and calls this term as the other
 PlCall() variations. Especially suitable for simple goals such as making
@@ -971,6 +997,8 @@ Currently defined methods are:
     \constructor{PlException}{const PlTerm \&t}
 Create an exception from a general Prolog term.  This is provides the
 interface for throwing any Prolog terms as an exception.
+    \cppcast{PlException}{wchar_t *}
+    \nodescription
     \cppcast{PlException}{char *}
 The exception is translated into a message as produced by
 print_message/2.  The character data is stored in a ring.  Example:

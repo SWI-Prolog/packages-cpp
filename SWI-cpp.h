@@ -27,6 +27,7 @@
 
 #include <SWI-Prolog.h>
 #include <string.h>
+#include <wchar.h>
 #ifndef __APPLE__
 #include <malloc.h>
 #endif
@@ -56,6 +57,9 @@ public:
   PlFunctor(const char *name, int arity)
   { functor = PL_new_functor(PL_new_atom(name), arity);
   }
+  PlFunctor(const wchar_t *name, int arity)
+  { functor = PL_new_functor(PL_new_atom_wchars(wcslen(name), name), arity);
+  }
 };
 
 
@@ -70,14 +74,23 @@ public:
   PlAtom(const char *text)
   { handle = PL_new_atom(text);
   }
+  PlAtom(const wchar_t *text)
+  { handle = PL_new_atom_wchars(wcslen(text), text);
+  }
   PlAtom(const PlTerm &t);
 
   operator const char *(void)
   { return PL_atom_chars(handle);
   }
+  operator const wchar_t *(void)
+  { return PL_atom_wchars(handle, NULL);
+  }
 
   int operator ==(const char *s)
   { return strcmp(s, PL_atom_chars(handle)) == 0;
+  }
+  int operator ==(const wchar_t *s)
+  { return wcscmp(s, PL_atom_wchars(handle, NULL)) == 0;
   }
   int operator ==(const PlAtom &a)
   { return handle == a.handle;
@@ -101,6 +114,7 @@ public:
 
 					/* C --> PlTerm */
   PlTerm(const char *text);
+  PlTerm(const wchar_t *text);
   PlTerm(long val);
   PlTerm(double val);
   PlTerm(const PlAtom &a);
@@ -111,6 +125,7 @@ public:
   { return ref;
   }
   operator char *(void) const;
+  operator wchar_t *(void) const;
   operator long(void) const;
   operator int(void) const;
   operator double(void) const;
@@ -130,6 +145,7 @@ public:
   int operator =(const PlTerm &t2);	/* term */
   int operator =(const PlAtom &a);	/* atom */
   int operator =(const char *v);	/* atom (from char *) */
+  int operator =(const wchar_t *v);	/* atom (from wchar_t *) */
   int operator =(long v);		/* integer */
   int operator =(int v);		/* integer */
   int operator =(double v);		/* float */
@@ -164,6 +180,7 @@ public:
 
 					/* comparison (string) */
   int operator ==(const char *s);
+  int operator ==(const wchar_t *s);
   int operator ==(const PlAtom &a);
 };
 
@@ -206,7 +223,9 @@ class PlCompound : public PlTerm
 public:
 
   PlCompound(const char *text);
+  PlCompound(const wchar_t *text);
   PlCompound(const char *functor, const PlTermv &args);
+  PlCompound(const wchar_t *functor, const PlTermv &args);
 };
 
 
@@ -215,7 +234,9 @@ class PlString : public PlTerm
 public:
 
   PlString(const char *text);
-  PlString(const char *text, int len);
+  PlString(const char *text, size_t len);
+  PlString(const wchar_t *text);
+  PlString(const wchar_t *text, size_t len);
 };
 
 
@@ -224,6 +245,7 @@ class PlCodeList : public PlTerm
 public:
 
   PlCodeList(const char *text);
+  PlCodeList(const wchar_t *text);
 };
 
 
@@ -232,6 +254,7 @@ class PlCharList : public PlTerm
 public:
 
   PlCharList(const char *text);
+  PlCharList(const wchar_t *text);
 };
 
 
@@ -255,6 +278,7 @@ public:
   }
 
   operator const char *(void);
+  operator const wchar_t *(void);
 
   int plThrow()
   { return PL_raise_exception(ref);
@@ -347,6 +371,13 @@ PlTerm::PlTerm(const char *text)
 }
 
 __inline
+PlTerm::PlTerm(const wchar_t *text)
+{ if ( !(ref = PL_new_term_ref()) ||
+       !PL_unify_wchars(ref, PL_ATOM, (size_t)-1, text) )
+    throw PlResourceError();
+}
+
+__inline
 PlTerm::PlTerm(long val)
 { if ( !(ref = PL_new_term_ref()) ||
        !PL_put_integer(ref, val) )
@@ -387,8 +418,20 @@ PlString::PlString(const char *text) : PlTerm()
 }
 
 __inline
-PlString::PlString(const char *text, int len) : PlTerm()
+PlString::PlString(const char *text, size_t len) : PlTerm()
 { if ( !PL_put_string_nchars(ref, len, text) )
+    throw PlResourceError();
+}
+
+__inline
+PlString::PlString(const wchar_t *text) : PlTerm()
+{ if ( !PL_unify_wchars(ref, PL_STRING, (size_t)-1, text) )
+    throw PlResourceError();
+}
+
+__inline
+PlString::PlString(const wchar_t *text, size_t len) : PlTerm()
+{ if ( !PL_unify_wchars(ref, PL_STRING, len, text) )
     throw PlResourceError();
 }
 
@@ -401,6 +444,18 @@ PlCodeList::PlCodeList(const char *text) : PlTerm()
 __inline
 PlCharList::PlCharList(const char *text) : PlTerm()
 { if ( !PL_put_list_chars(ref, text) )
+    throw PlResourceError();
+}
+
+__inline
+PlCodeList::PlCodeList(const wchar_t *text) : PlTerm()
+{ if ( !PL_unify_wchars(ref, PL_CODE_LIST, (size_t)-1, text) )
+    throw PlResourceError();
+}
+
+__inline
+PlCharList::PlCharList(const wchar_t *text) : PlTerm()
+{ if ( !PL_unify_wchars(ref, PL_CHAR_LIST, (size_t)-1, text) )
     throw PlResourceError();
 }
 
@@ -563,6 +618,12 @@ PlCall(const char *goal)
   return q.next_solution();
 }
 
+__inline int
+PlCall(const wchar_t *goal)
+{ PlQuery q("call", PlTermv(PlCompound(goal)));
+  return q.next_solution();
+}
+
 
 
 		 /*******************************
@@ -590,6 +651,16 @@ __inline PlTerm::operator char *(void) const
 { char *s;
 
   if ( PL_get_chars(ref, &s, CVT_ALL|CVT_WRITEQ|BUF_RING) )
+    return s;
+
+  throw PlTypeError("text", ref);
+  PL_THROWN(NULL);
+}
+
+__inline PlTerm::operator wchar_t *(void) const
+{ wchar_t *s;
+
+  if ( PL_get_wchars(ref, NULL, &s, CVT_ALL|CVT_WRITEQ|BUF_RING) )
     return s;
 
   throw PlTypeError("text", ref);
@@ -725,6 +796,15 @@ __inline int PlTerm::operator =(const char *v)		/* term = atom */
   return rc;
 }
 
+__inline int PlTerm::operator =(const wchar_t *v)	/* term = atom */
+{ int rc = PL_unify_wchars(ref, PL_ATOM, (size_t)-1, v);
+  term_t ex;
+
+  if ( !rc && (ex=PL_exception(0)) )
+    throw PlResourceError(ex);
+  return rc;
+}
+
 __inline int PlTerm::operator =(long v)
 { int rc = PL_unify_integer(ref, v);
   term_t ex;
@@ -836,6 +916,15 @@ __inline int PlTerm::operator ==(const char *s)
   PL_THROWN(0);
 }
 
+__inline int PlTerm::operator ==(const wchar_t *s)
+{ wchar_t *s0;
+
+  if ( PL_get_wchars(ref, NULL, &s0, CVT_ALL) )
+    return wcscmp(s0, s) == 0;
+
+  throw PlTypeError("text", ref);
+  PL_THROWN(0);
+}
 
 __inline int PlTerm::operator ==(const PlAtom &a)
 { atom_t v;
@@ -863,11 +952,30 @@ PlCompound::PlCompound(const char *text) : PlTerm()
   PL_put_term(ref, t);
 }
 
+PlCompound::PlCompound(const wchar_t *text) : PlTerm()
+{ term_t t = PL_new_term_ref();
+
+  if ( !PL_wchars_to_term(text, t) )
+    throw PlException(t);
+
+  PL_put_term(ref, t);
+}
+
 __inline
 PlCompound::PlCompound(const char *functor, const PlTermv &args) : PlTerm()
 { if ( !PL_cons_functor_v(ref,
 			  PL_new_functor(PL_new_atom(functor), args.size),
 			  args.a0) )
+    throw PlResourceError();
+}
+
+__inline
+PlCompound::PlCompound(const wchar_t *functor, const PlTermv &args) : PlTerm()
+{ if ( !PL_cons_functor_v(
+	    ref,
+	    PL_new_functor(PL_new_atom_wchars(wcslen(functor), functor),
+			   args.size),
+	    args.a0) )
     throw PlResourceError();
 }
 
@@ -953,6 +1061,27 @@ __inline PlException::operator const char *(void)
     return (char *)av[1];
 #endif
   return "[ERROR: Failed to generate message.  Internal error]\n";
+}
+
+
+__inline PlException::operator const wchar_t *(void)
+{ PlFrame fr;
+#ifdef USE_PRINT_MESSAGE
+  PlTermv av(2);
+
+  av[0] = PlCompound("print_message",
+		     PlTermv("error", ref));
+  PlQuery q("$write_on_string", av);
+  if ( q.next_solution() )
+    return (wchar_t *)av[1];
+#else
+  PlTermv av(2);
+  av[0] = PlTerm(ref);
+  PlQuery q("$messages", "message_to_string", av);
+  if ( q.next_solution() )
+    return (wchar_t *)av[1];
+#endif
+  return L"[ERROR: Failed to generate message.  Internal error]\n";
 }
 
 

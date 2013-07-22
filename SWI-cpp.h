@@ -952,6 +952,7 @@ PlCompound::PlCompound(const char *text) : PlTerm()
   PL_put_term(ref, t);
 }
 
+__inline
 PlCompound::PlCompound(const wchar_t *text) : PlTerm()
 { term_t t = PL_new_term_ref();
 

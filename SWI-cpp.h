@@ -1183,39 +1183,43 @@ public:
 #define PROLOG_MODULE (const char*)NULL
 #endif
 
-#define PREDICATE(name, arity) \
+#define NAMED_PREDICATE(plname, name, arity) \
 	static foreign_t \
 	pl_ ## name ## __ ## arity(PlTermv PL_av); \
 	static foreign_t \
 	_pl_ ## name ## __ ## arity(term_t t0, int a, control_t c) \
-	{ try \
+	{ (void)a; (void)c; \
+          try \
 	  { \
 	    return pl_ ## name ## __ ## arity(PlTermv(arity, t0)); \
 	  } catch ( PlException &ex ) \
 	  { return ex.plThrow(); \
 	  } \
 	} \
-	static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, #name, arity, \
+	static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, plname, arity, \
 					    _pl_ ## name ## __ ## arity); \
 	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av)
 
-
-#define PREDICATE_NONDET(name, arity)          \
+#define NAMED_PREDICATE_NONDET(plname, name, arity)          \
 	static foreign_t \
 	pl_ ## name ## __ ## arity(PlTermv PL_av, foreign_t handle);       \
 	static foreign_t \
 	_pl_ ## name ## __ ## arity(term_t t0, int a, control_t c) \
-	{ try \
+	{ (void)a; \
+          try \
 	  { \
 	    return pl_ ## name ## __ ## arity(PlTermv(arity, t0), (foreign_t)c); \
 	  } catch ( PlException &ex ) \
 	  { return ex.plThrow(); \
 	  } \
 	} \
-        static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, #name, arity, \
+        static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, plname, arity, \
                                                     _pl_ ## name ## __ ## arity, \
                                                     PL_FA_NONDETERMINISTIC | PL_FA_VARARGS); \
 	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av, foreign_t handle)
+
+#define PREDICATE(name, arity)        PREDICATE(#name, name, arity)
+#define PREDICATE_NONDET(name, arity) NAMED_PREDICATE_NONDET(#name, name, arity)
 
 #define PL_A1  PL_av[0]
 #define PL_A2  PL_av[1]

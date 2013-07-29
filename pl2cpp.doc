@@ -908,11 +908,12 @@ PREDICATE(hello, 1)
 is the same as writing:
 
 \begin{code}
-static foreign_t pl_hello__1(PlTermv _av);
+static foreign_t pl_hello__1(PlTermv PL_av);
 
 static foreign_t
 _pl_hello__1(term_t t0, int arity, control_t ctx)
-{ try
+{ (void)arity; (void)ctx;
+  try
   { return pl_hello__1(PlTermv(1, t0));
   } catch ( PlTerm &ex )
   { return ex.raise();
@@ -922,7 +923,7 @@ _pl_hello__1(term_t t0, int arity, control_t ctx)
 static PlRegister _x_hello__1("hello", 1, _pl_hello__1);
 
 static foreign_t
-pl_hello__1(PlTermv _av)
+pl_hello__1(PlTermv PL_av)
 \end{code}
 
 The first function converts the parameters passed from the Prolog
@@ -930,6 +931,32 @@ kernel to a \class{PlTermv} instance and maps exceptions raised in
 the body to Prolog exceptions.  The \class{PlRegister} global
 constructor registers the predicate.  Finally, the function header
 for the implementation is created.
+
+\subsection{Variations of the PREDICATE macro}
+
+The PREDICATE() macros has a number of variations that deal with
+special cases.
+
+\begin{description}
+    \cmacro{}{PREDICATE0}{name}
+This is the same as PREDICATE(name, 0).  It avoids a compiler warning
+about that \const{PL_av} is not used.
+
+    \cmacro{}{NAMED_PREDICATE}{plname, cname, arity}
+This version can be used to create predicates whose name is not a valid
+C++ identifier. Here is a ---hypothetical--- example, which unifies the
+second argument with a stringified version of the first. The `cname' is
+used to create a name for the functions. The concrete name does not
+matter, but must be unique. Typically it is a descriptive name using the
+limitations imposed by C++ indentifiers.
+
+    \begin{code}
+    NAMED_PREDICATE("#", hash, 2)
+    { A2 = (wchar_t*)A1;
+    }
+    \end{code}
+\end{description}
+
 
 \subsection{Controlling the Prolog destination module}
 \label{sec:cpp-module}

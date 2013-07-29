@@ -1196,7 +1196,7 @@ public:
 	  { return ex.plThrow(); \
 	  } \
 	} \
-	static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, plname, arity, \
+	static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, #plname, arity, \
 					    _pl_ ## name ## __ ## arity); \
 	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av)
 
@@ -1213,13 +1213,13 @@ public:
 	  { return ex.plThrow(); \
 	  } \
 	} \
-        static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, plname, arity, \
+        static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, #plname, arity, \
                                                     _pl_ ## name ## __ ## arity, \
                                                     PL_FA_NONDETERMINISTIC | PL_FA_VARARGS); \
 	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av, foreign_t handle)
 
-#define PREDICATE(name, arity)        PREDICATE(#name, name, arity)
-#define PREDICATE_NONDET(name, arity) NAMED_PREDICATE_NONDET(#name, name, arity)
+#define PREDICATE(name, arity)        NAMED_PREDICATE(name, name, arity)
+#define PREDICATE_NONDET(name, arity) NAMED_PREDICATE_NONDET(name, name, arity)
 
 #define PL_A1  PL_av[0]
 #define PL_A2  PL_av[1]

@@ -1185,7 +1185,7 @@ public:
 
 #define PREDICATE(name, arity) \
 	static foreign_t \
-	pl_ ## name ## __ ## arity(PlTermv _av); \
+	pl_ ## name ## __ ## arity(PlTermv PL_av); \
 	static foreign_t \
 	_pl_ ## name ## __ ## arity(term_t t0, int a, control_t c) \
 	{ try \
@@ -1197,12 +1197,12 @@ public:
 	} \
 	static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, #name, arity, \
 					    _pl_ ## name ## __ ## arity); \
-	static foreign_t pl_ ## name ## __ ## arity(PlTermv _av)
+	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av)
 
 
 #define PREDICATE_NONDET(name, arity)          \
 	static foreign_t \
-	pl_ ## name ## __ ## arity(PlTermv _av, foreign_t handle);       \
+	pl_ ## name ## __ ## arity(PlTermv PL_av, foreign_t handle);       \
 	static foreign_t \
 	_pl_ ## name ## __ ## arity(term_t t0, int a, control_t c) \
 	{ try \
@@ -1215,17 +1215,30 @@ public:
         static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, #name, arity, \
                                                     _pl_ ## name ## __ ## arity, \
                                                     PL_FA_NONDETERMINISTIC | PL_FA_VARARGS); \
-	static foreign_t pl_ ## name ## __ ## arity(PlTermv _av, foreign_t handle)
+	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av, foreign_t handle)
 
-#define A1  _av[0]
-#define A2  _av[1]
-#define A3  _av[2]
-#define A4  _av[3]
-#define A5  _av[4]
-#define A6  _av[5]
-#define A7  _av[6]
-#define A8  _av[7]
-#define A9  _av[8]
-#define A10 _av[9]
+#define PL_A1  PL_av[0]
+#define PL_A2  PL_av[1]
+#define PL_A3  PL_av[2]
+#define PL_A4  PL_av[3]
+#define PL_A5  PL_av[4]
+#define PL_A6  PL_av[5]
+#define PL_A7  PL_av[6]
+#define PL_A8  PL_av[7]
+#define PL_A9  PL_av[8]
+#define PL_A10 PL_av[9]
+
+#ifndef PL_SAFE_ARG_MACROS
+#define A1	PL_A1
+#define A2	PL_A2
+#define A3	PL_A3
+#define A4	PL_A4
+#define A5	PL_A5
+#define A6	PL_A6
+#define A7	PL_A7
+#define A8	PL_A8
+#define A9	PL_A9
+#define A10	PL_A10
+#endif
 
 #endif /*_SWI_CPP_H*/

@@ -149,8 +149,8 @@ a few examples illustrating the `feel' of the interface.
 \subsection{Hello(World)}
 \label{sec:cpp-hello-world}
 
-This very simple example shows the basic definition of the predicate
-hello/1 and how a Prolog argument is converted to C-data:
+This simple example shows the basic definition of the predicate hello/1
+and how a Prolog argument is converted to C-data:
 
 \begin{code}
 PREDICATE(hello, 1)

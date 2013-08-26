@@ -933,6 +933,7 @@ constructor registers the predicate.  Finally, the function header
 for the implementation is created.
 
 \subsection{Variations of the PREDICATE macro}
+\label{sec:cpp-predicate-macro-variations}
 
 The PREDICATE() macros has a number of variations that deal with
 special cases.

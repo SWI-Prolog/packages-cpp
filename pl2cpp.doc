@@ -19,10 +19,9 @@
 
 \title{A C++ interface to SWI-Prolog}
 \author{Jan Wielemaker \\
-	SWI, \\
-	University of Amsterdam \\
+	VU University of Amsterdam \\
 	The Netherlands \\
-	E-mail: \email{jan@swi.psy.uva.nl}}
+	E-mail: \email{jan@swi-prolog.org}}
 
 \maketitle
 
@@ -956,6 +955,10 @@ limitations imposed by C++ indentifiers.
     { A2 = (wchar_t*)A1;
     }
     \end{code}
+
+    \cmacro{}{NAMED_PREDICATE_NONDET}{plname, cname, arity}
+Define a non-deterministic Prolog predicate in C++. See
+\file{SWI-cpp.h}.  FIXME: Needs cleanup and an example.
 \end{description}
 
 
@@ -1163,11 +1166,9 @@ slighly complicating the interface.
 \label{sec:cpp-linking}
 
 The mechanisms outlined in this document can be used for static linking
-with the SWI-Prolog kernel using \manref{plld}{1}.  In general the C++
-linker should be used to deal with the C++ runtime libraries and global
-constructors. As of SWI-Prolog 3.2.9, PL_register_foreign() can be
-called {\em before} PL_initialise(), which is required to handle the
-calls from the global \class{PlRegister} calls.
+with the SWI-Prolog kernel using \manref{swipl-ld}{1}. In general the
+C++ linker should be used to deal with the C++ runtime libraries and
+global constructors.
 
 \subsection{Status and compiler versions}
 \label{sec:cpp-status}
@@ -1180,26 +1181,7 @@ schemas can cooperate smoothly.
 Also, changes to the header file have no consequences to binary
 compatibility with the SWI-Prolog kernel. This makes it possible to have
 different versions of the header file with few compatibility
-consequences.  If the interface stabilises we will consider options to
-share more code.
-
-
-\subsection{Limitations}
-\label{sec:cpp-limits}
-
-Currently, the following limitations are recognised:
-
-\begin{itemlist}
-    \item [Predicate naming]
-Using the PREDICATE() macro, only predicates with a name that is valid
-as part of a C-symbol can be defined.  Notably this makes the definition
-of predicates with names consisting of \jargon{symbol characters}
-impossible.
-    \item [Non-deterministic predicates]
-The current interface does not provide for foreign-defined
-non-deterministic predicates.  It would not be hard to add this.
-\end{itemlist}
-
+consequences.
 
 \section{Conclusions}				\label{sec:conclusions}
 \label{sec:cpp-conclusions}

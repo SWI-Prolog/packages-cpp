@@ -41,6 +41,14 @@
 #define PL_THROWN(v)		(void)0
 #endif
 
+#ifndef ARITY_T
+#ifdef PL_ARITY_AS_SIZE
+#define ARITY_T size_t
+#else
+#define ARITY_T int
+#endif
+#endif
+
 class PlTerm;
 class PlTermv;
 
@@ -53,10 +61,10 @@ class PlFunctor
 public:
   functor_t functor;
 
-  PlFunctor(const char *name, int arity)
+  PlFunctor(const char *name, ARITY_T arity)
   { functor = PL_new_functor(PL_new_atom(name), arity);
   }
-  PlFunctor(const wchar_t *name, int arity)
+  PlFunctor(const wchar_t *name, ARITY_T arity)
   { functor = PL_new_functor(PL_new_atom_wchars(wcslen(name), name), arity);
   }
 };
@@ -136,8 +144,8 @@ public:
   }
 
 					/* Compounds */
-  PlTerm operator [](int index) const;
-  int arity();
+  PlTerm operator [](ARITY_T index) const;
+  ARITY_T arity();
   const char *name();
 
 					/* UNIFY */
@@ -718,7 +726,7 @@ __inline PlTerm::operator void *(void) const
 					/* compounds */
 
 __inline PlTerm
-PlTerm::operator [](int index) const
+PlTerm::operator [](ARITY_T index) const
 { PlTerm t;
 
   if ( PL_get_arg(index, ref, t.ref) )
@@ -739,10 +747,10 @@ PlTerm::operator [](int index) const
 }
 
 
-__inline int
+__inline ARITY_T
 PlTerm::arity()
 { atom_t name;
-  int arity;
+  ARITY_T arity;
 
   if ( PL_get_name_arity(ref, &name, &arity) )
     return arity;
@@ -755,7 +763,7 @@ PlTerm::arity()
 __inline const char *
 PlTerm::name()
 { atom_t name;
-  int arity;
+  ARITY_T arity;
 
   if ( PL_get_name_arity(ref, &name, &arity) )
     return PL_atom_chars(name);
@@ -1088,7 +1096,7 @@ __inline void
 PlException::cppThrow()
 { term_t a = PL_new_term_ref();
   atom_t name;
-  int arity;
+  ARITY_T arity;
 
   if ( PL_get_arg(1, ref, a) &&
        PL_get_name_arity(a, &name, &arity) )

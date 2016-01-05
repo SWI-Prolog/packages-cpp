@@ -1,7 +1,7 @@
 ################################################################
 # SWI-Prolog C++ interface
 # Author:    Jan Wielemaker. jan@swi.psy.uva.nl
-# Copyright: LGPL (see COPYING or www.gnu.org
+# Copyright: Simplified BSD license
 ################################################################
 
 .SUFFIXES: .tex .dvi .doc .pl

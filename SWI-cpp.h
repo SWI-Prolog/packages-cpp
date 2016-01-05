@@ -528,23 +528,23 @@ public:
 
   PlRegister(const char *module, const char *name, int arity,
 	    foreign_t (f)(term_t t0, int a, control_t ctx))
-  { PL_register_foreign_in_module(module, name, arity, reinterpret_cast<void (*)()>(f), PL_FA_VARARGS);
+  { PL_register_foreign_in_module(module, name, arity, reinterpret_cast<pl_function_t>(f), PL_FA_VARARGS);
   }
 
   PlRegister(const char *module, const char *name, foreign_t (*f)(PlTerm a0))
-  { PL_register_foreign_in_module(module, name, 1, reinterpret_cast<void (*)()>(f), 0);
+  { PL_register_foreign_in_module(module, name, 1, reinterpret_cast<pl_function_t>(f), 0);
   }
   PlRegister(const char *module, const char *name, foreign_t (*f)(PlTerm a0, PlTerm a1))
-  { PL_register_foreign_in_module(module, name, 2, reinterpret_cast<void (*)()>(f), 0);
+  { PL_register_foreign_in_module(module, name, 2, reinterpret_cast<pl_function_t>(f), 0);
   }
   PlRegister(const char *module, const char *name, foreign_t (*f)(PlTerm a0, PlTerm a1, PlTerm a2))
-  { PL_register_foreign_in_module(module, name, 3, reinterpret_cast<void (*)()>(f), 0);
+  { PL_register_foreign_in_module(module, name, 3, reinterpret_cast<pl_function_t>(f), 0);
   }
 
   // for non-deterministic calls
   PlRegister(const char *module, const char *name, int arity,
              foreign_t (f)(term_t t0, int a, control_t ctx), short flags)
-  { PL_register_foreign_in_module(module, name, arity, reinterpret_cast<void (*)()>(f), flags);
+  { PL_register_foreign_in_module(module, name, arity, reinterpret_cast<pl_function_t>(f), flags);
   }
 };
 

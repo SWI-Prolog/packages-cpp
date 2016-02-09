@@ -1237,13 +1237,13 @@ public:
 
 #define NAMED_PREDICATE_NONDET(plname, name, arity)          \
 	static foreign_t \
-	pl_ ## name ## __ ## arity(PlTermv PL_av, foreign_t handle);       \
+	pl_ ## name ## __ ## arity(PlTermv PL_av, control_t handle);       \
 	static foreign_t \
 	_pl_ ## name ## __ ## arity(term_t t0, int a, control_t c) \
 	{ (void)a; \
           try \
 	  { \
-	    return pl_ ## name ## __ ## arity(PlTermv(arity, t0), (foreign_t)c); \
+	    return pl_ ## name ## __ ## arity(PlTermv(arity, t0), c); \
 	  } catch ( PlException &ex ) \
 	  { return ex.plThrow(); \
 	  } \
@@ -1251,7 +1251,7 @@ public:
         static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, plname, arity, \
                                                     _pl_ ## name ## __ ## arity, \
                                                     PL_FA_NONDETERMINISTIC | PL_FA_VARARGS); \
-	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av, foreign_t handle)
+	static foreign_t pl_ ## name ## __ ## arity(PlTermv PL_av, control_t handle)
 
 #define PREDICATE0(name)              NAMED_PREDICATE0(#name, name)
 #define PREDICATE(name, arity)        NAMED_PREDICATE(#name, name, arity)

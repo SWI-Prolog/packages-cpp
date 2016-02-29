@@ -315,8 +315,10 @@ public:
 
   PlTypeError(const char *expected, PlTerm actual) :
     PlException(PlCompound("error",
-			   PlTermv(PlCompound("type_error",
-					      PlTermv(expected, actual)),
+			   PlTermv(PL_is_variable(actual.ref) ?
+				     PlTerm("instantiation_error") :
+				     PlCompound("type_error",
+						PlTermv(expected, actual)),
 				   PlTerm())))
   {
   }

@@ -98,20 +98,20 @@ public:
   }
   PlAtom(const PlTerm &t);
 
-  operator const char *(void)
+  operator const char *(void) const
   { return PL_atom_chars(handle);
   }
-  operator const wchar_t *(void)
+  operator const wchar_t *(void) const
   { return PL_atom_wchars(handle, NULL);
   }
 
-  int operator ==(const char *s)
+  int operator ==(const char *s) const
   { return strcmp(s, PL_atom_chars(handle)) == 0;
   }
-  int operator ==(const wchar_t *s)
+  int operator ==(const wchar_t *s) const
   { return wcscmp(s, PL_atom_wchars(handle, NULL)) == 0;
   }
-  int operator ==(const PlAtom &a)
+  int operator ==(const PlAtom &a) const
   { return handle == a.handle;
   }
 };
@@ -151,14 +151,14 @@ public:
   operator PlAtom(void) const;
   operator void *(void) const;
 
-  int type()
+  int type() const
   { return PL_term_type(ref);
   }
 
 					/* Compounds */
   PlTerm operator [](ARITY_T index) const;
-  ARITY_T arity();
-  const char *name();
+  ARITY_T arity() const;
+  const char *name() const;
 
 					/* UNIFY */
   int operator =(const PlTerm &t2);	/* term */
@@ -171,36 +171,36 @@ public:
   int operator =(const PlFunctor &f);	/* functor */
 
 					/* Comparison standard order terms */
-  int operator ==(const PlTerm &t2)
+  int operator ==(const PlTerm &t2) const
   { return PL_compare(ref, t2.ref) == 0;
   }
-  int operator !=(const PlTerm &t2)
+  int operator !=(const PlTerm &t2) const
   { return PL_compare(ref, t2.ref) != 0;
   }
-  int operator <(const PlTerm &t2)
+  int operator <(const PlTerm &t2) const
   { return PL_compare(ref, t2.ref) < 0;
   }
-  int operator >(const PlTerm &t2)
+  int operator >(const PlTerm &t2) const
   { return PL_compare(ref, t2.ref) > 0;
   }
-  int operator <=(const PlTerm &t2)
+  int operator <=(const PlTerm &t2) const
   { return PL_compare(ref, t2.ref) <= 0;
   }
-  int operator >=(const PlTerm &t2)
+  int operator >=(const PlTerm &t2) const
   { return PL_compare(ref, t2.ref) >= 0;
   }
 					/* comparison (long) */
-  int operator ==(long v);
-  int operator !=(long v);
-  int operator <(long v);
-  int operator >(long v);
-  int operator <=(long v);
-  int operator >=(long v);
+  int operator ==(long v) const;
+  int operator !=(long v) const;
+  int operator <(long v) const;
+  int operator >(long v) const;
+  int operator <=(long v) const;
+  int operator >=(long v) const;
 
 					/* comparison (string) */
-  int operator ==(const char *s);
-  int operator ==(const wchar_t *s);
-  int operator ==(const PlAtom &a);
+  int operator ==(const char *s) const;
+  int operator ==(const wchar_t *s) const;
+  int operator ==(const PlAtom &a) const;
 };
 
 
@@ -762,7 +762,7 @@ PlTerm::operator [](ARITY_T index) const
 
 
 __inline ARITY_T
-PlTerm::arity()
+PlTerm::arity() const
 { atom_t name;
   ARITY_T arity;
 
@@ -775,7 +775,7 @@ PlTerm::arity()
 
 
 __inline const char *
-PlTerm::name()
+PlTerm::name() const
 { atom_t name;
   ARITY_T arity;
 
@@ -864,7 +864,7 @@ __inline int PlTerm::operator =(const PlFunctor &f)
 					/* comparison */
 
 
-__inline int PlTerm::operator ==(long v)
+__inline int PlTerm::operator ==(long v) const
 { long v0;
 
   if ( PL_get_long(ref, &v0) )
@@ -874,7 +874,7 @@ __inline int PlTerm::operator ==(long v)
   PL_THROWN(0);
 }
 
-__inline int PlTerm::operator !=(long v)
+__inline int PlTerm::operator !=(long v) const
 { long v0;
 
   if ( PL_get_long(ref, &v0) )
@@ -884,7 +884,7 @@ __inline int PlTerm::operator !=(long v)
   PL_THROWN(0);
 }
 
-__inline int PlTerm::operator <(long v)
+__inline int PlTerm::operator <(long v) const
 { long v0;
 
   if ( PL_get_long(ref, &v0) )
@@ -894,7 +894,7 @@ __inline int PlTerm::operator <(long v)
   PL_THROWN(0);
 }
 
-__inline int PlTerm::operator >(long v)
+__inline int PlTerm::operator >(long v) const
 { long v0;
 
   if ( PL_get_long(ref, &v0) )
@@ -904,7 +904,7 @@ __inline int PlTerm::operator >(long v)
   PL_THROWN(0);
 }
 
-__inline int PlTerm::operator <=(long v)
+__inline int PlTerm::operator <=(long v) const
 { long v0;
 
   if ( PL_get_long(ref, &v0) )
@@ -914,7 +914,7 @@ __inline int PlTerm::operator <=(long v)
   PL_THROWN(0);
 }
 
-__inline int PlTerm::operator >=(long v)
+__inline int PlTerm::operator >=(long v) const
 { long v0;
 
   if ( PL_get_long(ref, &v0) )
@@ -926,7 +926,7 @@ __inline int PlTerm::operator >=(long v)
 
 				      /* comparison (string) */
 
-__inline int PlTerm::operator ==(const char *s)
+__inline int PlTerm::operator ==(const char *s) const
 { char *s0;
 
   if ( PL_get_chars(ref, &s0, CVT_ALL) )
@@ -936,7 +936,7 @@ __inline int PlTerm::operator ==(const char *s)
   PL_THROWN(0);
 }
 
-__inline int PlTerm::operator ==(const wchar_t *s)
+__inline int PlTerm::operator ==(const wchar_t *s) const
 { wchar_t *s0;
 
   if ( PL_get_wchars(ref, NULL, &s0, CVT_ALL) )
@@ -946,7 +946,7 @@ __inline int PlTerm::operator ==(const wchar_t *s)
   PL_THROWN(0);
 }
 
-__inline int PlTerm::operator ==(const PlAtom &a)
+__inline int PlTerm::operator ==(const PlAtom &a) const
 { atom_t v;
 
   if ( PL_get_atom(ref, &v) )

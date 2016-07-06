@@ -114,6 +114,9 @@ public:
   int operator ==(const PlAtom &a) const
   { return handle == a.handle;
   }
+  int operator ==(atom_t to) const
+  { return handle == to;
+  }
 };
 
 		 /*******************************

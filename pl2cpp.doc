@@ -120,6 +120,9 @@ Subclass of \class{PlException} for representing a Prolog
     \classitem{PlExistenceError}
 Subclass of \class{PlException} for representing a Prolog
 \except{existence_error} exception.
+    \classitem{PlPermissionError}
+Subclass of \class{PlException} for representing a Prolog
+\except{permission_error} exception.
     \classitem{PlAtom}
 Allow for manipulating atoms in their internal Prolog representation
 for fast comparison.

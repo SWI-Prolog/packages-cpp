@@ -360,6 +360,22 @@ public:
 };
 
 
+class PlPermissionError : public PlException
+{
+public:
+
+  PlPermissionError(const PlTerm &t) : PlException(t) {}
+
+  PlPermissionError(const char *op, const char *type, PlTerm obj) :
+    PlException(PlCompound("error",
+			   PlTermv(PlCompound("permission_error",
+					      PlTermv(op, type, obj)),
+				   PlTerm())))
+  {
+  }
+};
+
+
 class PlResourceError : public PlException
 {
 public:

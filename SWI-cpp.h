@@ -341,6 +341,22 @@ public:
 };
 
 
+class PlExistenceError : public PlException
+{
+public:
+
+  PlExistenceError(const PlTerm &t) : PlException(t) {}
+
+  PlExistenceError(const char *type, PlTerm actual) :
+    PlException(PlCompound("error",
+			   PlTermv(PlCompound("existence_error",
+					      PlTermv(type, actual)),
+				   PlTerm())))
+  {
+  }
+};
+
+
 class PlResourceError : public PlException
 {
 public:

@@ -626,6 +626,11 @@ class PlQuery
 public:
   qid_t qid;
 
+  PlQuery(predicate_t pred, const PlTermv &av)
+  { qid = PL_open_query((module_t)0, PL_Q_CATCH_EXCEPTION, pred, av.a0);
+    if ( !qid )
+      throw PlResourceError();
+  }
   PlQuery(const char *name, const PlTermv &av)
   { predicate_t p = PL_predicate(name, av.size, "user");
 

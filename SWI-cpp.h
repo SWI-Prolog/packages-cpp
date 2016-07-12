@@ -344,6 +344,21 @@ public:
 };
 
 
+class PlInstantiationError : public PlException
+{
+public:
+
+  PlInstantiationError(const PlTerm &t) : PlException(t) {}
+
+  PlInstantiationError() :
+    PlException(PlCompound("error",
+			   PlTermv("instantiation_error",
+				   PlTerm())))
+  {
+  }
+};
+
+
 class PlExistenceError : public PlException
 {
 public:

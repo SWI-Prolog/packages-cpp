@@ -642,14 +642,14 @@ public:
   qid_t qid;
 
   PlQuery(predicate_t pred, const PlTermv &av)
-  { qid = PL_open_query((module_t)0, PL_Q_CATCH_EXCEPTION, pred, av.a0);
+  { qid = PL_open_query((module_t)0, PL_Q_PASS_EXCEPTION, pred, av.a0);
     if ( !qid )
       throw PlResourceError();
   }
   PlQuery(const char *name, const PlTermv &av)
   { predicate_t p = PL_predicate(name, av.size, "user");
 
-    qid = PL_open_query((module_t)0, PL_Q_CATCH_EXCEPTION, p, av.a0);
+    qid = PL_open_query((module_t)0, PL_Q_PASS_EXCEPTION, p, av.a0);
     if ( !qid )
       throw PlResourceError();
   }
@@ -662,13 +662,14 @@ public:
     PL_unregister_atom(ma);
     PL_unregister_atom(na);
 
-    qid = PL_open_query(m, PL_Q_CATCH_EXCEPTION, p, av.a0);
+    qid = PL_open_query(m, PL_Q_PASS_EXCEPTION, p, av.a0);
     if ( !qid )
       throw PlResourceError();
   }
 
   ~PlQuery()
-  { PL_cut_query(qid);
+  { if ( qid )
+      PL_cut_query(qid);
   }
 
   int next_solution();
@@ -1194,7 +1195,10 @@ PlQuery::next_solution()
   if ( !(rval = PL_next_solution(qid)) )
   { term_t ex;
 
-    if ( (ex = PL_exception(qid)) )
+    PL_close_query(qid);
+    qid = 0;
+
+    if ( (ex = PL_exception(0)) )
       PlException(ex).cppThrow();
   }
   return rval;

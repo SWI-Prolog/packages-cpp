@@ -348,7 +348,11 @@ class PlInstantiationError : public PlException
 {
 public:
 
-  PlInstantiationError(const PlTerm &t) : PlException(t) {}
+  PlInstantiationError(const PlTerm &t) :
+  PlException(PL_is_variable(t) ?
+	      PlCompound("error",
+			 PlTermv("instantiation_error",
+				 t)) : t) {}
 
   PlInstantiationError() :
     PlException(PlCompound("error",

@@ -18,6 +18,6 @@ person(paul).
 person(jane).
 
 happy(X) :-
-	person(X),
-	likes(Y, X),
-	person(Y).
+    person(X),
+    likes(Y, X),
+    person(Y).

@@ -11,10 +11,8 @@ SHELL=/bin/sh
 PL=@PL@
 PLBASE=@PLBASE@
 PKGDOC=$(PLBASE)/doc/packages
-PCEHOME=../xpce
 
-DOCTOTEX=$(PCEHOME)/bin/doc2tex
-PLTOTEX=$(PCEHOME)/bin/pl2tex
+DOCTOTEX=../../man/doc2tex
 DOC=pl2cpp
 TEX=$(DOC).tex
 DVI=$(DOC).dvi

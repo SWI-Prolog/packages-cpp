@@ -246,8 +246,6 @@ public:
 
   PlCompound(const char *text);
   PlCompound(const wchar_t *text);
-  PlCompound(const char *name, size_t arity);
-  PlCompound(const wchar_t *name, size_t arity);
   PlCompound(const char *functor, const PlTermv &args);
   PlCompound(const wchar_t *functor, const PlTermv &args);
 };
@@ -1041,30 +1039,6 @@ PlCompound::PlCompound(const wchar_t *text) : PlTerm()
   if ( !PL_wchars_to_term(text, t) )
     throw PlException(t);
 
-  PL_put_term(ref, t);
-}
-
-__inline
-PlCompound::PlCompound(const char *name, size_t arity) : PlTerm()
-{ term_t t = PL_new_term_ref();
-  atom_t a = PL_new_atom(name);
-  functor_t f = PL_new_functor(a, arity);
-
-  if ( !PL_unify_compound(t, f) )
-    throw PlResourceError();
-  PL_unregister_atom(a);
-  PL_put_term(ref, t);
-}
-
-__inline
-PlCompound::PlCompound(const wchar_t *name, size_t arity) : PlTerm()
-{ term_t t = PL_new_term_ref();
-  atom_t a = PL_new_atom_wchars(wcslen(name), name);
-  functor_t f = PL_new_functor(a, arity);
-
-  if ( !PL_unify_compound(t, f) )
-    throw PlResourceError();
-  PL_unregister_atom(a);
   PL_put_term(ref, t);
 }
 

@@ -531,13 +531,6 @@ Create a term by parsing (as read/1) the \arg{text}.  If the \arg{text}
 is not valid Prolog syntax, a \except{syntax_error} exception is raised.
 Otherwise a new term-reference holding the parsed text is created.
 
-    \constructor{PlCompound}{const wchar_t *name, size_t arity}
-    \nodescription
-    \constructor{PlCompound}{const char *name, size_t arity}
-Create a term with the given name and arity and unbound (variable)
-arguments.  If \arg{arity} equals 0 (zero), a compound with arity
-0 is created, e.g., \verb$a()$.
-
     \constructor{PlCompound}{const wchar_t *functor, PlTermv args}
     \nodescription
     \constructor{PlCompound}{const char *functor, PlTermv args}

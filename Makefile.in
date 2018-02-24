@@ -10,7 +10,7 @@ SHELL=/bin/sh
 
 PL=@PL@
 PLBASE=@PLBASE@
-PKGDOC=$(PLBASE)/doc/packages
+PKGDOCDIR=$(PLBASE)/doc/packages
 
 DOCTOTEX=../../man/doc2tex
 DOC=pl2cpp
@@ -38,12 +38,12 @@ ln-install::
 rpm-install:	install
 
 pdf-install::
-		mkdir -p $(DESTDIR)$(PKGDOC)
-		$(INSTALL_DATA) $(DOC).pdf $(DESTDIR)$(PKGDOC)
+		mkdir -p $(DESTDIR)$(PKGDOCDIR)
+		$(INSTALL_DATA) $(DOC).pdf $(DESTDIR)$(PKGDOCDIR)
 
 html-install::
-		mkdir -p $(DESTDIR)$(PKGDOC)
-		$(INSTALL_DATA) $(DOC).html $(DESTDIR)$(PKGDOC)
+		mkdir -p $(DESTDIR)$(PKGDOCDIR)
+		$(INSTALL_DATA) $(DOC).html $(DESTDIR)$(PKGDOCDIR)
 
 uninstall::
 		rm -f $(PLBASE)/include/SWI-cpp.h

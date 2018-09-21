@@ -59,7 +59,6 @@ html:		$(HTML)
 
 $(HTML):	$(TEX)
 		latex2html $(DOC)
-		mv html/index.html $@
 
 $(PDF):		$(TEX)
 		$(RUNTEX) --pdf $(DOC)

@@ -9,4 +9,6 @@ install_src(pkg_cpp_headers
 
 swipl_examples(test.cpp likes.cpp likes.pl)
 
-pkg_doc(pl2cpp)
+pkg_doc(
+    pl2cpp
+    DEPENDS pkg_cpp_headers)

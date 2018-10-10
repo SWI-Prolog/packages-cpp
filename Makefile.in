@@ -24,6 +24,9 @@ INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
 INSTALL_DATA=@INSTALL_DATA@
 
+LATEX2HTML=	$(PL) $(PLBASE)/library/latex2html/latex2html.pl -- \
+		--texinputs=lib:: --quiet
+
 all:
 		@echo "Nothing to do for this package"
 
@@ -58,7 +61,7 @@ pdf:		$(PDF)
 html:		$(HTML)
 
 $(HTML):	$(TEX)
-		latex2html $(DOC)
+		$(LATEX2HTML) $(DOC)
 
 $(PDF):		$(TEX)
 		$(RUNTEX) --pdf $(DOC)

@@ -11,6 +11,12 @@ This code may be compiled using
 and subsequently loading using
 
     swipl test.pl
+
+Next, run example predicates such as below.  Scan through this file
+to find the predicates provided by this C++ code.
+
+    ?- hello(world).
+    Hello world
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #define PROLOG_MODULE "user"

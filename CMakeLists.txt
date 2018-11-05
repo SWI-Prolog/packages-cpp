@@ -7,7 +7,7 @@ install_src(pkg_cpp_headers
 	    FILES SWI-cpp.h DESTINATION
 	    ${SWIPL_INSTALL_INCLUDE})
 
-swipl_examples(test.cpp likes.cpp likes.pl)
+swipl_examples(test.cpp likes.cpp likes.pl test.pl)
 
 pkg_doc(
     pl2cpp

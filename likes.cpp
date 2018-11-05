@@ -1,10 +1,7 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     This example code is in the public domain
 */
-
 
 #include "SWI-cpp.h"
 #include <iostream>
@@ -19,7 +16,7 @@ using namespace std;
 
    Compile using:
 
-   plld -o likes -ld g++ -goal true likes.cpp likes.pl
+   swipl-ld -o likes -ld g++ -goal true likes.cpp likes.pl
 */
 
 int

@@ -1,9 +1,17 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     This example code is in the public domain
 */
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+This code may be compiled using
+
+    swipl-ld -shared -o test test.cpp
+
+and subsequently loading using
+
+    swipl test.pl
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #define PROLOG_MODULE "user"
 #include "SWI-cpp.h"

@@ -53,11 +53,13 @@
 #define PL_THROWN(v)		(void)0
 #endif
 
-#ifndef ARITY_T
-#ifndef PL_ARITY_AS_SIZE
+/* Define as 1 if undefined or defined as empty */
+#if !defined(PL_ARITY_AS_SIZE) || (0-PL_ARITY_AS_SIZE-1)==1
+#undef PL_ARITY_AS_SIZE
 #define PL_ARITY_AS_SIZE 1
 #endif
 
+#ifndef ARITY_T
 #if PL_ARITY_AS_SIZE
 #define ARITY_T size_t
 #else

@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2016, University of Amsterdam
+    Copyright (c)  2000-2020, University of Amsterdam
                               Vu University Amsterdam
     All rights reserved.
 
@@ -54,7 +54,11 @@
 #endif
 
 #ifndef ARITY_T
-#ifdef PL_ARITY_AS_SIZE
+#ifndef PL_ARITY_AS_SIZE
+#define PL_ARITY_AS_SIZE 1
+#endif
+
+#if PL_ARITY_AS_SIZE
 #define ARITY_T size_t
 #else
 #define ARITY_T int

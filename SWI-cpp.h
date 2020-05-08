@@ -1236,6 +1236,11 @@ public:
 #pragma warning( pop )
 #endif
   }
+
+  ~PlError()
+  {
+    delete[] message;
+  }
 };
 
 

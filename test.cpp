@@ -163,3 +163,16 @@ PREDICATE(square_roots, 2)
 
   return list.close();
 }
+
+/* Create a dependency on malloc().  If the main system uses
+ * tcmalloc (default when available), the shared object should
+ * __not__ be linked against tcmalloc.  This code crashes when
+ * compiled using
+ *
+ *     swipl-ld -o test -ltcmalloc -shared test.cpp
+ */
+
+PREDICATE(malloc, 2)
+{ void *ptr = malloc(A1);
+  return A2 = ptr;
+}

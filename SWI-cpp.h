@@ -130,6 +130,7 @@ public:
   term_t ref;
 
   PlTerm();
+  PlTerm(const PlTerm &other) : ref(other.ref) {}
   PlTerm(term_t t)
   { ref = t;
   }

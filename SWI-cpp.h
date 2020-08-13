@@ -462,9 +462,8 @@ PlTerm::PlTerm(long val)
 
 __inline
 PlTerm::PlTerm(double val)
-{ ref = PL_new_term_ref();
-
-  if ( !PL_put_float(ref, val) )
+{ if ( !(ref = PL_new_term_ref()) ||
+       !PL_put_float(ref, val) )
     throw PlResourceError();
 }
 

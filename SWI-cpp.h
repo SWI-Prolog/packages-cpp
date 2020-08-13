@@ -1001,6 +1001,12 @@ __inline int PlTerm::operator ==(const PlAtom &a) const
 		 *	   COMPOUND (BODY)	*
 		 *******************************/
 
+__inline void
+PlPutTerm(term_t to, term_t from)
+{ if ( !PL_put_term(to, from) )
+    throw PlResourceError();
+}
+
 
 __inline
 PlCompound::PlCompound(const char *text) : PlTerm()
@@ -1009,7 +1015,7 @@ PlCompound::PlCompound(const char *text) : PlTerm()
   if ( !PL_chars_to_term(text, t) )
     throw PlException(t);
 
-  PL_put_term(ref, t);
+  PlPutTerm(ref, t);
 }
 
 __inline
@@ -1019,7 +1025,7 @@ PlCompound::PlCompound(const wchar_t *text) : PlTerm()
   if ( !PL_wchars_to_term(text, t) )
     throw PlException(t);
 
-  PL_put_term(ref, t);
+  PlPutTerm(ref, t);
 }
 
 __inline
@@ -1054,28 +1060,28 @@ __inline PlTermv::PlTermv(PlTerm m0, PlTerm m1)
 { size = 2;
   if ( !(a0 = PL_new_term_refs(2)) )
     throw PlResourceError();
-  PL_put_term(a0+0, m0);
-  PL_put_term(a0+1, m1);
+  PlPutTerm(a0+0, m0);
+  PlPutTerm(a0+1, m1);
 }
 
 __inline PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2)
 { size = 3;
   if ( !(a0 = PL_new_term_refs(3)) )
     throw PlResourceError();
-  PL_put_term(a0+0, m0);
-  PL_put_term(a0+1, m1);
-  PL_put_term(a0+2, m2);
+  PlPutTerm(a0+0, m0);
+  PlPutTerm(a0+1, m1);
+  PlPutTerm(a0+2, m2);
 }
 
 __inline PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2, PlTerm m3)
 { size = 4;
   if ( !(a0 = PL_new_term_refs(4)) )
     throw PlResourceError();
-  PL_put_term(a0+0, m0);
-  PL_put_term(a0+1, m1);
-  PL_put_term(a0+2, m2);
+  PlPutTerm(a0+0, m0);
+  PlPutTerm(a0+1, m1);
+  PlPutTerm(a0+2, m2);
 
-  PL_put_term(a0+3, m3);
+  PlPutTerm(a0+3, m3);
 }
 
 __inline PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2,
@@ -1083,11 +1089,11 @@ __inline PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2,
 { size = 5;
   if ( !(a0 = PL_new_term_refs(5)) )
     throw PlResourceError();
-  PL_put_term(a0+0, m0);
-  PL_put_term(a0+1, m1);
-  PL_put_term(a0+2, m2);
-  PL_put_term(a0+3, m3);
-  PL_put_term(a0+4, m4);
+  PlPutTerm(a0+0, m0);
+  PlPutTerm(a0+1, m1);
+  PlPutTerm(a0+2, m2);
+  PlPutTerm(a0+3, m3);
+  PlPutTerm(a0+4, m4);
 }
 
 

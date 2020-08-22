@@ -39,7 +39,7 @@
 #include <SWI-Prolog.h>
 #include <string.h>
 #include <wchar.h>
-#ifndef __APPLE__
+#if !(defined(__APPLE__) || defined(__FreeBSD__))
 #include <malloc.h>
 #endif
 

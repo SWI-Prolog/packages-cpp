@@ -2,7 +2,7 @@
 
 ## Embedding SWI-Prolog in a C++ program
 
-The files likes.pl and  likes.cpp  provide   a  simple  example emedding
+The files likes.pl and likes.cpp  provide   a  simple  example embedding
 SWI-Prolog. To compile, run
 
     swipl-ld -o likes likes.cpp likes.pl

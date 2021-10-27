@@ -217,13 +217,21 @@ class PlTermv
 {
 public:
   term_t a0;
-  int    size;
+  size_t size;
 
   PlTermv(int n)
   { a0   = PL_new_term_refs(n);
-    size = n;
+    size = static_cast<size_t>(n);
   }
   PlTermv(int n, term_t t0)
+  { a0   = t0;
+    size = static_cast<size_t>(n);
+  }
+  PlTermv(size_t n)
+  { a0   = PL_new_term_refs(static_cast<int>(n));
+    size = n;
+  }
+  PlTermv(size_t n, term_t t0)
   { a0   = t0;
     size = n;
   }
@@ -235,7 +243,7 @@ public:
   PlTermv(PlTerm m0, PlTerm m1, PlTerm m2, PlTerm m3);
   PlTermv(PlTerm m0, PlTerm m1, PlTerm m2, PlTerm m3, PlTerm m4);
 
-  PlTerm operator [](int n) const;
+  PlTerm operator [](size_t n) const;
 };
 
 		 /*******************************
@@ -418,7 +426,7 @@ class PlTermvDomainError : public PlException
 {
 public:
 
-  PlTermvDomainError(int size, int n) :
+  PlTermvDomainError(size_t size, size_t n) :
     PlException(PlCompound("error",
 			   PlTermv(PlCompound("domain_error",
 					      PlTermv(PlCompound("argv",
@@ -651,7 +659,7 @@ public:
       throw PlResourceError();
   }
   PlQuery(const char *name, const PlTermv &av)
-  { predicate_t p = PL_predicate(name, av.size, "user");
+  { predicate_t p = PL_predicate(name, static_cast<int>(av.size), "user");
 
     qid = PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION, p, av.a0);
     if ( !qid )
@@ -800,9 +808,9 @@ PlTerm::operator [](ARITY_T index) const
     return t;
 
   if ( !PL_is_compound(ref) )
-    throw PlTypeError("compound", ref);
-  else
-  { if ( !PL_put_integer(t.ref, index) )
+  { throw PlTypeError("compound", ref);
+  } else
+  { if ( !PL_put_uint64(t.ref, index) )
       throw PlResourceError();
 
     if ( index < 1 )
@@ -1099,8 +1107,8 @@ __inline PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2,
 
 
 __inline PlTerm
-PlTermv::operator [](int n) const
-{ if ( n < 0 || n >= size )
+PlTermv::operator [](size_t n) const
+{ if ( n >= size )
     throw PlTermvDomainError(size, n);
 
   return PlTerm(a0+n);
@@ -1126,7 +1134,7 @@ __inline PlException::operator const char *(void)
   av[0] = PlTerm(ref);
   PlQuery q("$messages", "message_to_string", av);
   if ( q.next_solution() )
-    return (char *)av[1];
+    return static_cast<char*>(av[1]);
 #endif
   return "[ERROR: Failed to generate message.  Internal error]\n";
 }
@@ -1147,7 +1155,7 @@ __inline PlException::operator const wchar_t *(void)
   av[0] = PlTerm(ref);
   PlQuery q("$messages", "message_to_string", av);
   if ( q.next_solution() )
-    return (wchar_t *)av[1];
+    return static_cast<wchar_t*>(av[1]);
 #endif
   return L"[ERROR: Failed to generate message.  Internal error]\n";
 }
@@ -1236,7 +1244,7 @@ public:
 
   PlEngine(char *av0)
   { int ac = 0;
-    char **av = (char **)malloc(sizeof(char *) * 2);
+    char **av = static_cast<char**>(malloc(sizeof(char *) * 2));
 
     av[ac++] = av0;
 

@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2020, University of Amsterdam
-                              Vu University Amsterdam
+    Copyright (c)  2000-2021, University of Amsterdam
+                              VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -303,8 +304,8 @@ public:
   operator const char *(void);
   operator const wchar_t *(void);
 
-  int plThrow()
-  { return PL_raise_exception(ref);
+  foreign_t plThrow()
+  { return static_cast<foreign_t>(PL_raise_exception(ref));
   }
 
   void cppThrow();
@@ -422,7 +423,7 @@ public:
 			   PlTermv(PlCompound("domain_error",
 					      PlTermv(PlCompound("argv",
 								 size),
-						      PlTerm((long)n))),
+						      PlTerm(static_cast<long>(n)))),
 				   PlTerm())))
   {
   }
@@ -449,7 +450,7 @@ PlTerm::PlTerm(const char *text)
 __inline
 PlTerm::PlTerm(const wchar_t *text)
 { if ( !(ref = PL_new_term_ref()) ||
-       !PL_unify_wchars(ref, PL_ATOM, (size_t)-1, text) )
+       !PL_unify_wchars(ref, PL_ATOM, static_cast<size_t>(-1), text) )
     throw PlResourceError();
 }
 
@@ -500,7 +501,7 @@ PlString::PlString(const char *text, size_t len) : PlTerm()
 
 __inline
 PlString::PlString(const wchar_t *text) : PlTerm()
-{ if ( !PL_unify_wchars(ref, PL_STRING, (size_t)-1, text) )
+{ if ( !PL_unify_wchars(ref, PL_STRING, static_cast<size_t>(-1), text) )
     throw PlResourceError();
 }
 
@@ -524,13 +525,13 @@ PlCharList::PlCharList(const char *text) : PlTerm()
 
 __inline
 PlCodeList::PlCodeList(const wchar_t *text) : PlTerm()
-{ if ( !PL_unify_wchars(ref, PL_CODE_LIST, (size_t)-1, text) )
+{ if ( !PL_unify_wchars(ref, PL_CODE_LIST, static_cast<size_t>(-1), text) )
     throw PlResourceError();
 }
 
 __inline
 PlCharList::PlCharList(const wchar_t *text) : PlTerm()
-{ if ( !PL_unify_wchars(ref, PL_CHAR_LIST, (size_t)-1, text) )
+{ if ( !PL_unify_wchars(ref, PL_CHAR_LIST, static_cast<size_t>(-1), text) )
     throw PlResourceError();
 }
 
@@ -645,14 +646,14 @@ public:
   qid_t qid;
 
   PlQuery(predicate_t pred, const PlTermv &av)
-  { qid = PL_open_query((module_t)0, PL_Q_PASS_EXCEPTION, pred, av.a0);
+  { qid = PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION, pred, av.a0);
     if ( !qid )
       throw PlResourceError();
   }
   PlQuery(const char *name, const PlTermv &av)
   { predicate_t p = PL_predicate(name, av.size, "user");
 
-    qid = PL_open_query((module_t)0, PL_Q_PASS_EXCEPTION, p, av.a0);
+    qid = PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION, p, av.a0);
     if ( !qid )
       throw PlResourceError();
   }
@@ -866,7 +867,7 @@ __inline int PlTerm::operator =(const char *v)		/* term = atom */
 }
 
 __inline int PlTerm::operator =(const wchar_t *v)	/* term = atom */
-{ int rc = PL_unify_wchars(ref, PL_ATOM, (size_t)-1, v);
+{ int rc = PL_unify_wchars(ref, PL_ATOM, static_cast<size_t>(-1), v);
   term_t ex;
 
   if ( !rc && (ex=PL_exception(0)) )

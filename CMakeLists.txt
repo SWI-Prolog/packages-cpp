@@ -12,3 +12,14 @@ swipl_examples(test.cpp likes.cpp likes.pl test.pl README.md)
 pkg_doc(
     pl2cpp
     DEPENDS pkg_cpp_headers)
+
+# FFI tests. The `TEST_ONLY` for the plugin declaration prevents
+# installing the generated module.
+
+test_libs(ffi)
+
+swipl_plugin(
+    test_ffi
+    TEST_ONLY
+    MODULE range_ffi4pl
+    C_SOURCES range_ffi4pl.c)

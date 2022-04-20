@@ -68,7 +68,9 @@ range_ffi(term_t t_low, term_t t_high, term_t t_result, control_t handle)
 	 result >= high ||
 	 !PL_unify_integer(t_result, result) )
       PL_fail;
-    PL_retry(result + 1);
+    if ( result + 1 == high )
+      PL_succeed; /* Last result: succeed without a choice point */
+    PL_retry(result + 1); /* Succeed with a choice point */
   }
 }
 
@@ -112,7 +114,11 @@ range_ffialloc(term_t t_low, term_t t_high, term_t t_result, control_t handle)
       PL_fail;
     }
     ctxt->i += 1;
-    PL_retry_address(ctxt);
+    if ( ctxt->i == high )
+    { free(ctxt);
+      PL_succeed; /* Last result: succeed without a choice point */
+    }
+    PL_retry_address(ctxt); /* Succeed with a choice point */
   }
 }
 

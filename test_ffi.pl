@@ -65,6 +65,10 @@ test(range4b, fail) :-
     range_ffi(0, 0, _X).
 test(range4c, fail) :-
     range_ffi(-1, -1, _X).
+test(range4d, fail) :-
+    range_ffi(1, 2, 2).
+test(range_ffi5, X == 1) :- % Will produce warning if non-deterministic
+    range_ffi(1, 2, X).
 
 test(range_ffialloc1, all(X == [1,2])) :-
     range_ffialloc(1, 3, X).
@@ -82,5 +86,9 @@ test(range_ffialloc4a, fail) :-
     range_ffialloc(0, 0, _X).
 test(range_ffialloc4a, fail) :-
     range_ffialloc(-1, -1, _X).
+test(range_ffialloc4d, fail) :-
+    range_ffialloc(1, 2, 2).
+test(range_ffialloc5, X == 1) :- % Will produce warning if non-deterministic
+    range_ffialloc(1, 2, X).
 
 :- end_tests(ffi).

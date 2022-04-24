@@ -104,6 +104,7 @@ range_ffialloc(term_t t_low, term_t t_high, term_t t_result, control_t handle)
       PL_succeed;
     default:
       assert(0);
+      PL_fail;
   }
 
   { long high;

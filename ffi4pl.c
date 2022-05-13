@@ -127,9 +127,43 @@ static char* range_ffi_str;
 #define RANGE_FFI_STR_LEN 100
 #define RANGE_FFI_STR_CONTENTS "RANGE_FFI"
 
+#include <stdio.h> /* TODO: remove when fwprintf() is removed */
+static foreign_t
+w_atom_ffi_(term_t stream, term_t t)
+{ IOSTREAM* s;
+  atom_t a;
+  if ( !PL_get_stream(stream, &s, SIO_INPUT) ||
+       !PL_get_atom_ex(t, &a) )
+    return FALSE;
+  PL_STRINGS_MARK();
+  { size_t len;
+    const pl_wchar_t *sa = PL_atom_wchars(a, &len);
+    Sfprintf(s, "/%Ws/%zd", sa, len);
+    fwprintf(stderr, L"*** W_ATOM_FFI/%ls/ ***/%zd\n", sa, len); /* TODO: remove */
+    fflush(stderr); /* TODO: remove */
+  }
+  PL_STRINGS_RELEASE();
+  return TRUE;
+}
+
+static foreign_t
+atom_ffi_(term_t stream, term_t t)
+{ IOSTREAM* s;
+  atom_t a;
+  if ( !PL_get_stream(stream, &s, SIO_INPUT) ||
+       !PL_get_atom_ex(t, &a) )
+    return FALSE;
+  PL_STRINGS_MARK();
+  { const char *sa = PL_atom_chars(a);
+    Sfprintf(s, "/%s/", sa);
+  }
+  PL_STRINGS_RELEASE();
+  return TRUE;
+}
+
 
 install_t
-install_range_ffi4pl(void)
+install_ffi4pl(void)
 { PL_register_foreign("range_ffi", 3, range_ffi, PL_FA_NONDETERMINISTIC);
   PL_register_foreign("range_ffialloc", 3, range_ffialloc, PL_FA_NONDETERMINISTIC);
   range_ffi_str = malloc(RANGE_FFI_STR_LEN);
@@ -139,10 +173,13 @@ install_range_ffi4pl(void)
   #ifdef O_DEBUG
     Sdprintf("install_range_ffi4pl %s\n", range_ffi_str);
   #endif
+
+  PL_register_foreign("w_atom_ffi_", 2, w_atom_ffi_, 0);
+  PL_register_foreign("atom_ffi_", 2, atom_ffi_, 0);
 }
 
 install_t
-uninstall_range_ffi4pl(void)
+uninstall_ffi4pl(void)
 { /* If run with ASAN, this also tests that cleanup is done */
   #ifdef O_DEBUG
     Sdprintf("uninstall_range_ffi4pl %s\n", range_ffi_str);
@@ -150,4 +187,3 @@ uninstall_range_ffi4pl(void)
   assert(0 == strncmp(range_ffi_str, RANGE_FFI_STR_CONTENTS, RANGE_FFI_STR_LEN));
   free(range_ffi_str);
 }
-

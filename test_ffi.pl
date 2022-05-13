@@ -1,3 +1,5 @@
+% -*- mode: Prolog; coding: utf-8 -*-
+
 /*  Part of SWI-Prolog
 
     Author:        Peter Ludemann
@@ -39,12 +41,15 @@
           [ test_ffi/0
           ]).
 
+:- encoding(utf8).
+
 :- use_module(library(plunit)).
 
-:- use_foreign_library(foreign(range_ffi4pl)).
+:- use_foreign_library(foreign(ffi4pl)).
 
 test_ffi :-
-    run_tests([ ffi
+    run_tests([ ffi,
+                wchar
 	      ]).
 
 :- begin_tests(ffi).
@@ -92,3 +97,35 @@ test(range_ffialloc5, X == 1) :- % Will produce warning if non-deterministic
     range_ffialloc(1, 2, X).
 
 :- end_tests(ffi).
+
+
+:- begin_tests(wchar).
+
+% The following "wchar" tests are regression tests related
+% to https://github.com/SWI-Prolog/packages-pcre/issues/20
+
+test(wchar_1, all(Result == ["//0", "/ /1", "/abC/3", "/Hello World!/12", "/хелло/5", "/хелло 世界/8", "/網目錦へび [àmímé níshíkíhéꜜbì]/26"])) :-
+    (   w_atom_ffi('',             Result)
+    ;   w_atom_ffi(' ',            Result)
+    ;   w_atom_ffi('abC',          Result)
+    ;   w_atom_ffi('Hello World!', Result)
+    ;   w_atom_ffi('хелло',        Result)
+    ;   w_atom_ffi('хелло 世界',   Result)
+    ;   w_atom_ffi('網目錦へび [àmímé níshíkíhéꜜbì]', Result)
+    ).
+
+test(char_1, all(Result == ["//", "/ /", "/abC/", "/Hello World!/"])) :-
+    (   atom_ffi('',               Result)
+    ;   atom_ffi(' ',              Result)
+    ;   atom_ffi('abC',            Result)
+    ;   atom_ffi('Hello World!',   Result)
+    ).
+
+:- end_tests(wchar).
+
+
+w_atom_ffi(Atom, String) :-
+    with_output_to(string(String), w_atom_ffi_(current_output, Atom)).
+
+atom_ffi(Atom, String) :-
+    with_output_to(string(String), atom_ffi_(current_output, Atom)).

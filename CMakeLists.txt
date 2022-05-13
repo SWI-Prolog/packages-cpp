@@ -21,5 +21,5 @@ test_libs(ffi)
 swipl_plugin(
     test_ffi
     TEST_ONLY
-    MODULE range_ffi4pl
-    C_SOURCES range_ffi4pl.c)
+    MODULE ffi4pl
+    C_SOURCES ffi4pl.c)

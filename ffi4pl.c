@@ -139,8 +139,6 @@ w_atom_ffi_(term_t stream, term_t t)
   { size_t len;
     const pl_wchar_t *sa = PL_atom_wchars(a, &len);
     Sfprintf(s, "/%Ws/%zd", sa, len);
-    fwprintf(stderr, L"*** W_ATOM_FFI/%ls/ ***/%zd\n", sa, len); /* TODO: remove */
-    fflush(stderr); /* TODO: remove */
   }
   PL_STRINGS_RELEASE();
   return TRUE;

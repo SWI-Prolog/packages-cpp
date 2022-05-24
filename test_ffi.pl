@@ -114,6 +114,31 @@ test(wchar_1, all(Result == ["//0", "/ /1", "/abC/3", "/Hello World!/12", "/хе
     ;   w_atom_ffi('網目錦へび [àmímé níshíkíhéꜜbì]', Result)
     ).
 
+test(wchar_2,
+     [condition(\+ current_prolog_flag(windows, true)), % Windows doesn't like Unicode > 0xffff
+      all(Result == ["/⛰⛱⛲⛾⛿/5","/\U0001FB00/1","/ᢰᢱ\x18FF\/3","/⻰⻱⻲⻳/4"])]) :-
+    (   w_atom_ffi('⛰⛱⛲⛾⛿', Result)
+    ;   w_atom_ffi('\U0001FB00', Result)
+    ;   w_atom_ffi('ᢰᢱ\u18FF', Result)
+    ;   w_atom_ffi('⻰⻱⻲⻳', Result)
+    ).
+
+test(wchar_2b, % Same as wchar_2, but uses atom_codes
+     [condition(\+ current_prolog_flag(windows, true)), % Windows doesn't like Unicode > 0xffff
+      all(Result == [[47, 0x26f0, 0x26f1, 0x26f2, 0x26fe, 0x26ff, 47, 53],
+                     [47, 0x1FB00, 47, 49],
+                     [47, 0x18b0, 0x18b1, 0x18ff, 47, 51],
+                     [47, 0x2ef0, 0x2ef1, 0x2ef2, 0x2ef3, 47, 52]])]) :-
+    (   atom_codes(A, [0x26f0, 0x26f1, 0x26f2, 0x26fe, 0x26ff]),
+        w_atom_ffi(A, Result0), string_codes(Result0, Result)
+    ;   atom_codes(A, [0x1FB00]),
+        w_atom_ffi(A, Result0), string_codes(Result0, Result)
+    ;   atom_codes(A, [0x18b0, 0x18b1, 0x18ff]),
+        w_atom_ffi(A, Result0), string_codes(Result0, Result)
+    ;   atom_codes(A, [0x2ef0, 0x2ef1, 0x2ef2, 0x2ef3]),
+        w_atom_ffi(A, Result0), string_codes(Result0, Result)
+    ).
+
 test(char_1, all(Result == ["//", "/ /", "/abC/", "/Hello World!/"])) :-
     (   atom_ffi('',               Result)
     ;   atom_ffi(' ',              Result)

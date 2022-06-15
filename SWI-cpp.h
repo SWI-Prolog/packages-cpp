@@ -80,6 +80,14 @@ public:
   PlFunctor(const wchar_t *name, ARITY_T arity)
   { functor = PL_new_functor(PL_new_atom_wchars(wcslen(name), name), arity);
   }
+
+  operator const functor_t(void) const
+  { return functor;
+  }
+
+  int operator ==(functor_t to) const
+  { return functor == to;
+  }
 };
 
 

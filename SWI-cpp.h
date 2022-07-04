@@ -160,6 +160,8 @@ public:
   operator wchar_t *(void) const;
   operator long(void) const;
   operator int(void) const;
+  operator uint32_t(void) const;
+  operator bool(void) const;
   operator double(void) const;
   operator PlAtom(void) const;
   operator void *(void) const;
@@ -777,6 +779,24 @@ __inline PlTerm::operator int(void) const
     return v;
 
   throw PlTypeError("integer", ref);
+}
+
+__inline PlTerm::operator uint32_t(void) const
+{ uint64_t v;
+
+  if ( PL_get_uint64(ref, &v) && v > UINT32_MAX )
+    return v;
+
+  throw PlTypeError("uint32_t", ref);
+}
+
+__inline PlTerm::operator bool(void) const
+{ int v;
+
+  if ( PL_get_bool(ref, &v) )
+    return v;
+
+  throw PlTypeError("bool", ref);
 }
 
 __inline PlTerm::operator double(void) const

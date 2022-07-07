@@ -784,7 +784,7 @@ __inline PlTerm::operator int(void) const
 __inline PlTerm::operator uint32_t(void) const
 { uint64_t v;
 
-  if ( PL_get_uint64(ref, &v) && v > UINT32_MAX )
+  if ( PL_get_uint64(ref, &v) && v <= UINT32_MAX )
     return v;
 
   throw PlTypeError("uint32_t", ref);

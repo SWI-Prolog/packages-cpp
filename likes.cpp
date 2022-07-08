@@ -3,7 +3,7 @@
     This example code is in the public domain
 */
 
-#include "SWI-cpp.h"
+#include "SWI-cpp2.h"
 #include <iostream>
 using namespace std;
 

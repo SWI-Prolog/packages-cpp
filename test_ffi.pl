@@ -96,6 +96,7 @@ test(range_ffialloc4d, fail) :-
 test(range_ffialloc5, X == 1) :- % Will produce warning if non-deterministic
     range_ffialloc(1, 2, X).
 
+
 :- end_tests(ffi).
 
 

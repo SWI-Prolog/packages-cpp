@@ -41,6 +41,7 @@
 #include <SWI-Stream.h>
 #include <assert.h>
 #include <string.h>
+#include <wctype.h>
 
 /* range_ffi/3 is used in regression tests
    - PL_foreign_context() passing an int for the context.
@@ -127,7 +128,6 @@ static char* range_ffi_str;
 #define RANGE_FFI_STR_LEN 100
 #define RANGE_FFI_STR_CONTENTS "RANGE_FFI"
 
-#include <stdio.h> /* TODO: remove when fwprintf() is removed */
 static foreign_t
 w_atom_ffi_(term_t stream, term_t t)
 { IOSTREAM* s;

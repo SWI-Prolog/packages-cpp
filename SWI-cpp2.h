@@ -573,7 +573,7 @@ public:
   PlTerm_string(const char *text);
   PlTerm_string(const char *text, size_t len);
   PlTerm_string(const wchar_t *text);
-  PlTerm_string(const wchar_t *text, size_t len); 
+  PlTerm_string(const wchar_t *text, size_t len);
   PlTerm_string(const std::string& text);
   PlTerm_string(const std::wstring& text);
 };
@@ -860,35 +860,35 @@ PlTerm_pointer::PlTerm_pointer(void *ptr)
 inline const char *
 PlTerm::c_str() const
 { char *s;
-  if ( PL_get_chars(C_, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK) )
+  if ( PL_get_chars(C_, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION) )
     return s;
-  throw PlTypeError("text", *this);
+  throw PlException();
 }
 
 inline const wchar_t *
 PlTerm::wc_str() const
 { wchar_t *s;
-  if ( PL_get_wchars(C_, nullptr, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK) )
+  if ( PL_get_wchars(C_, nullptr, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION) )
     return s;
-  throw PlTypeError("text", *this);
+  throw PlException();
 }
 
 inline std::string
 PlTerm::string() const
 { char *s;
   size_t len;
-  if ( PL_get_nchars(C_, &len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK) )
+  if ( PL_get_nchars(C_, &len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION) )
     return std::string(s, len);
-  throw PlTypeError("text", *this);
+  throw PlException();
 }
 
 inline std::wstring
 PlTerm::wstring() const
 { wchar_t *s;
   size_t len;
-  if ( PL_get_wchars(C_, &len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK) )
+  if ( PL_get_wchars(C_, &len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION) )
     return std::wstring(s, len);
-  throw PlTypeError("text", *this);
+  throw PlException();
 }
 
 inline long
@@ -913,13 +913,12 @@ PlTerm::get_int32_t() const
 
 inline uint32_t
 PlTerm::get_uint32_t() const
-{ uint64_t v;
+{ uint32_t v;
   int rc;
-  // TODO: test for range
-  if ( (rc = PL_get_uint64_ex(C_, &v)) && v <= UINT32_MAX )
+  if ( (rc = PL_cvt_i_uint(C_, &v)) )
     return v;
   check(rc);
-  throw PlTypeError("uint32", *this); // if uint64 succeeds
+  return 0;  // check(rc) always throws - but make the compiler happy
 }
 
 inline int64_t
@@ -928,8 +927,7 @@ PlTerm::get_int64_t() const
   int rc;
   if ( (rc=PL_get_int64_ex(C_, &v)) )
     return v;
-  check(rc);
-  return 0;  // check(rc) always throws - but make the compiler happy
+  throw PlException();
 }
 
 inline uint64_t
@@ -938,8 +936,7 @@ PlTerm::get_uint64_t() const
   int rc;
   if ( (rc=PL_get_uint64_ex(C_, &v)) )
     return v;
-  check(rc);
-  return 0;  // check(rc) always throws - but make the compiler happy
+  throw PlException();
 }
 
 inline size_t
@@ -948,8 +945,7 @@ PlTerm::get_size_t() const
   int rc;
   if ( (rc=PL_get_uint64_ex(C_, &v)) && v <= SIZE_MAX )
     return v;
-  check(rc);
-  throw PlTypeError("size_t", *this); // if uint64 succeeds
+  throw PlException();
 }
 
 inline bool
@@ -958,8 +954,7 @@ PlTerm::get_bool() const
   int rc;
   if ( (rc=PL_get_bool_ex(C_, &v)) )
     return v;
-  check(rc);
-  return 0;  // check(rc) always throws - but make the compiler happy
+  throw PlException();
 }
 
 inline double
@@ -968,8 +963,7 @@ PlTerm::get_float() const
   int rc;
   if ( (rc=PL_get_float_ex(C_, &v)) )
     return v;
-  check(rc);
-  return 0;  // check(rc) always throws - but make the compiler happy
+  throw PlException();
 }
 
 inline PlAtom
@@ -978,23 +972,22 @@ PlTerm::atom() const
   int rc;
   if ( (rc=PL_get_atom_ex(C_, &v)) )
     return PlAtom(v);
-  check(rc);
-  return PlAtom();  // check(rc) always throws - but make the compiler happy
+  throw PlException();
 }
 
 inline void *
 PlTerm::pointer() const
 { void *ptr;
-  if ( PL_get_pointer(C_, &ptr) )
+  if ( PL_get_pointer_ex(C_, &ptr) )
     return ptr;
-  throw PlTypeError("pointer", *this);
+  throw PlException();
 }
 
 inline void
 PlTerm::nchars(size_t *len, char **s, unsigned int flags)
-{ if ( PL_get_nchars(C_, len, s, flags) )
+{ if ( PL_get_nchars(C_, len, s, flags|CVT_EXCEPTION) )
     return;
-  throw PlTypeError("nchars", *this);
+  throw PlException();
 }
 
 

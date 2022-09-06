@@ -2,8 +2,12 @@ cmake_minimum_required(VERSION 3.5)
 project(swipl-cpp)
 
 include("../cmake/PrologPackage.cmake")
+include("../cmake/Sockets.cmake")
 
 set(CMAKE_CXX_STANDARD 17) # TODO: is this needed?
+
+check_function_exists(gethostname HAVE_GETHOSTNAME)
+configure_file(config.h.cmake config.h)
 
 install_src(pkg_cpp_headers
 	    FILES SWI-cpp.h SWI-cpp2.h DESTINATION
@@ -30,4 +34,5 @@ swipl_plugin(
     test_cpp
     TEST_ONLY
     MODULE cpp4pl
+    C_LIBS ${SOCKET_LIBRARIES}
     C_SOURCES cpp4pl.cpp)

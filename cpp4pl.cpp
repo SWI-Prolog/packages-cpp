@@ -63,6 +63,7 @@ how the various predicates can be called from Prolog.
 #include <unistd.h>
 #include <math.h>
 #include <string>
+#include "config.h"
 using namespace std;
 
 
@@ -312,6 +313,7 @@ PREDICATE(make_int64, 2)
   return true;
 }
 
+#ifdef HAVE_GETHOSTNAME
 PREDICATE(hostname, 1)
 { char buf[255+1]; // SUSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
 
@@ -328,6 +330,7 @@ PREDICATE(hostname2, 1)
   A1.unify_atom_ex(buf);
   return true;
 }
+#endif
 
 
 PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)

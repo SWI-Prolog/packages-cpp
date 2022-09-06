@@ -1,0 +1,1 @@
+#cmakedefine HAVE_GETHOSTNAME           @HAVE_GETHOSTNAME@

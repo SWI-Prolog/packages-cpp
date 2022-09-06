@@ -315,6 +315,9 @@ public:
   void integer(uint32_t *v) const { *v = get_uint32_t(); }
   void integer( int64_t *v) const { *v = get_int64_t(); }
   void integer(uint64_t *v) const { *v = get_uint64_t(); }
+  #if LONG_MAX == 0x7fffffff
+  void integer(unsigned long *v) const { *v = get_uint32_t(); }
+  #endif
   [[nodiscard]] bool            get_bool() const; // atoms 'true', 'false'
   [[nodiscard]] double          get_float() const;
   [[nodiscard]] double          get_double() const { return get_float(); }
@@ -371,6 +374,9 @@ public:
   [[nodiscard]] bool unify_integer(uint32_t v) { return check(PL_unify_integer(C_, v)); }
   [[nodiscard]] bool unify_integer(int64_t v)  { return check(PL_unify_int64(C_, v)); }
   [[nodiscard]] bool unify_integer(uint64_t v) { return check(PL_unify_uint64(C_, v)); }
+  #if LONG_MAX == 0x7fffffff
+  [[nodiscard]] bool unify_integer(long v)  { return check(PL_unify_integer(C_, v)); }
+  #endif
   [[nodiscard]] bool unify_float(double v) { return check(PL_unify_float(C_, v)); }
   [[nodiscard]] bool unify_string(const std::string& v) { return check(PL_unify_string_nchars(C_, v.size(), v.data())); }
   [[nodiscard]] bool unify_string(const std::wstring& v) { return check(PL_unify_wchars(C_, PL_STRING, v.size(), v.data())); }
@@ -497,6 +503,10 @@ public:
   explicit PlTerm_integer(uint32_t i);
   explicit PlTerm_integer(int64_t i);
   explicit PlTerm_integer(uint64_t i);
+  #if LONG_MAX == 0x7fffffff
+  explicit PlTerm_integer(long i);
+  explicit PlTerm_integer(unsigned long i);
+  #endif
 };
 
 class PlTerm_float : public PlTerm
@@ -837,6 +847,21 @@ PlTerm_integer::PlTerm_integer(uint64_t val)
   : PlTerm(PL_new_term_ref())
 { PlCheck(PL_put_uint64(C_, val));
 }
+
+#if LONG_MAX == 0x7fffffff
+inline
+PlTerm_integer::PlTerm_integer(long val)
+  : PlTerm(PL_new_term_ref())
+{ PlCheck(PL_put_integer(C_, val));
+}
+
+inline
+PlTerm_integer::PlTerm_integer(unsigned long val)
+  : PlTerm(PL_new_term_ref())
+{ PlCheck(PL_put_uint64(C_, val)); // There's no put_uint32 - TODO: check range?
+}
+#endif
+
 
 inline
 PlTerm_float::PlTerm_float(double val)

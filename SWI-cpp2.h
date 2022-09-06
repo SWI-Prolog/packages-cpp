@@ -968,7 +968,7 @@ inline size_t
 PlTerm::get_size_t() const
 { size_t v;
   int rc;
-  if ( (rc=PL_get_uint64_ex(C_, &v)) && v <= SIZE_MAX )
+  if ( (rc=PL_get_size_ex(C_, &v)) )
     return v;
   throw PlException();
 }

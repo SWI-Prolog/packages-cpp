@@ -34,6 +34,25 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*********************************************************************
+
+SWI-cpp2.h is a significant rewrite of SWI-cpp.h, taking into account
+experiences with the original code. A discussion of these changes is
+in https://swi-prolog.discourse.group/t/changes-to-swi-cpp-h/5601
+and in the "Rational" section of the documentation
+https://www.swi-prolog.org/pldoc/doc_for?object=section(%27packages/pl2cpp.html%27)
+
+For porting from SWI-cpp.h to SWI-cpp2.h, please see the documentation
+https://www.swi-prolog.org/pldoc/doc_for?object=section(%27packages/pl2cpp.html%27)
+
+Wherever possible, SWI-cpp2.h tries to maintain backwards compatiblity
+with SWI-cpp.h, but often that has not been possible due to a
+combination of design choices in SWI-Prolog.h and the ways that
+various compilers have implemented details of the C++ standard,
+particularly integer conversions.
+
+*********************************************************************/
+
 #ifndef _SWI_CPP_H
 #define _SWI_CPP_H
 

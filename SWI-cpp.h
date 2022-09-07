@@ -34,6 +34,8 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
+#warning "SWI-cpp.h is obsolete and replaced by SWI-cpp2.h"
+
 #ifndef _SWI_CPP_H
 #define _SWI_CPP_H
 

@@ -49,6 +49,8 @@ exceptions, making queries to Prolog and registering foreign predicates.
 \section{Summary of changes between Versions 1 and 2}
 \label{sec:summary-cpp-changes}
 
+Version 1 is in \file{SWI-cpp.h}; version 2 is in \file{SWI-cpp2.h}.
+
 The overall structure of the API has been retained - that is,
 it is a thin layer on top of the interface provided by
 \file{SWI-Prolog.h}. Based on experience with the API,
@@ -59,6 +61,16 @@ been replaced by subclasses for the various types.
 More specifically:
 \begin{itemize}
   \item
+    The constructor \cfuncref{PlTerm}{} is not available - instead, you
+    should use \cfuncref{PlTerm_var}{}, \cfuncref{PlTerm_atom}{a},
+    \cfuncref{PlTerm_term_t}{t}, \cfuncref{PlTerminteger}{i},
+    \cfuncref{PlTerm_float}{v}, or PlTerm_pointer{}{p}.
+  \item
+    Instead of returning \const{false} from a predicate to indicate
+    failure, you can use \exam{throw PlFail()}. The \cfuncref{PlCheck}{rc}
+    will throw this for checking the return codes from functions
+    in \file{SWI-Prolog.h}
+  \item
     The "cast" operators (e.g., \exam{(char*)t}) have been deprecated,
     replaced by "getters" (e.g., \exam{t.c_str()}).
   \item
@@ -67,7 +79,7 @@ More specifically:
     etc.
   \item
     Various \exam{XXX_ex()} functions have been added, which check
-    for failure and throw an exception.
+    for failure and throw an failure exception.
   \item
     Type-checking methods have been added: type(), is_variable(), is_atom(), etc.
   \item
@@ -83,7 +95,7 @@ More specifically:
     made private - they can be accessed by the field \exam{C_}.
 \end{itemize}
 
-More details are given in \secref{cpp-changes}.
+More details are given in \secref{cpp-rationale} and \secref{cpp-porting-1-2}.
 
 \section{Introduction}
 \label{sec:cpp-intro}
@@ -445,7 +457,7 @@ Average = 10.333333333333334.
 \end{code}
 
 \section{Rational for changes from version 1}
-\label{sec:cpp-changes}
+\label{sec:cpp-rational}
 
 The original version of the C++ interface heavily used implicit
 constructors and conversion operators. This allowed, for example:
@@ -531,6 +543,74 @@ available (except for the implicit constructors and operators), but
 marked as "deprecated"; code that depends on the parts that have been
 removed can be easily changed to use the new interface.
 
+\section{Porting from version 1 to version 2}
+\label{sec:cpp-porting-1-2}
+
+The easiest way of porting from \file{SWI-cpp.h} to \file{SWI-cpp2.h}
+is to change the \exam{#include "SWI-cpp.h"} to \exam{#include "SWI-cpp2.h"}
+and look at the warning and error messages. Where possible, version 2
+keeps old interfaces with a "deprecated" flag if there is a better way
+of doing things with version 2.
+
+Here is a list of typical changes:
+\begin{itemize}
+  \item
+    Replace \cfuncref{PlTerm}{} constructor with
+    \cfuncref{PlTerm_var}{} for uninstantiated variables,
+    \cfuncref{PlTerm_atom}{a} for atoms, \cfuncref{PlTerm_term_t}{t}
+    for the raw \ctype{term_t}, \cfuncref{PlTerm_integer}{i},
+    \cfuncref{PlTerm_float}{v}, or \cfuncref{PlTerm_pointer}{p}.
+
+  \item
+    Examine uses of \ctype{char*} or \ctype{wchar_t} and replace them by
+    \ctype{std::string} or \ctype{std::wstring} if appropriate.
+    For example, \exam{cout << "Hello " << A1.c_str() << endl}
+    can be replaced by \exam{cout << "Hello " << A1.string() << endl}.
+
+  \item
+    Instead of returning \const{false} from a predicate for failure,
+    you can do \exam{throw PlFail()}. This mechanism is also used
+    by \cfuncref{PlCheck}{rc} and the various unification methods
+    whose name ends with \exam{_ex}.
+
+  \item
+    You can use the \cfuncref{PlCheck}{rc} to check the return code
+    from a function in \file{SWI-Prolog} and throw a \cfuncref{PlFail}{}
+    exception to short-circuit execution and return failure (\const{false})
+    to Prolog.
+
+  \item
+    \exam{PlAtom::handle} has been replaced by \exam{PlAtom::C_}.
+
+  \item
+    \exam{PlTerm::ref} has been replaced by \exam{PlAtom::C_}.
+
+  \item
+    \exam{PlFunctor::functor} has been replaced by \exam{PlAtom::C_}.
+
+  \item
+    The operator \exam{=} for unification has been deprecated,
+    replaced by various \exam{unify_XXX}` methods
+    (\cfuncref{PlTerm::unify_term}{t2},
+    \cfuncref{PlTerm::unify_atom}{a}, etc.). If you expect the
+    unification to always succeed, you should use the various
+    unification methods whose names end with \exam{_ex}, which will
+    throw \exam{PlFail()} to immediately report failure.
+
+  \item
+    The various "cast" operators have been deprecated or deleted;
+    you should use the various "getter" methods. For example,
+    \exam{static_cast<char*>(t)} is replaced by \exam{t.c_str()};
+    \exam{static_cast<int32_t>(t)} is replaced by \exam{t.get_32_t()}.
+
+  \item
+    It is recommended that you do not use \ctype{int} or
+    \ctype{long} because of problems porting between Unix and Windows
+    platforms; instead, use \ctype{int32_t}, \ctype{int64_t},
+    \ctype{uint32_t}, \ctype{uint64_t}, etc.
+
+\end{itemize}
+
 \section{The class PlFail}
 \label{sec:cpp-plfail}
 
@@ -548,14 +628,23 @@ can be written
 \begin{code}
   void
   some_function(PlTerm t)
-  { PlCheck(PL_put_integer(t.C_, 0));
+  { if ( !PL_put_integer(t.C_, 0) )
+      throw PlFail();
+  }
+\end{code}
+or, equivalently:
+\begin{code}
+  void
+  some_function(PlTerm t)
+  { PlCheck( PL_put_integer(t.C_, 0) );
   }
 \end{code}
 and any errors will be handled in the code generated by
 the \cfuncref{PREDICATE}{} macro.
 
 In general, wherever there is a method that wraps a C "PL_"
-function, \cfuncref{PlCheck}{} is used, e.g.:
+function, \cfuncref{PlCheck}{} can be used to return failure
+to Prolog from the "PL_" function.
 
 
 \section{The class PlTerm}
@@ -661,7 +750,7 @@ Extracts pointer value from a term. The term should have been created
 by PlTerm::PlTerm(void*).
 \end{description}
 
-In addition, the Prolog type (`PL_VARIABLE`, `PL_ATOM`, ... `PL_DICT`
+In addition, the Prolog type (`PL_VARIABLE`, `PL_ATOM`, ... `PL_DICT`)
 can be determined using the type() method. There are also boolean
 methods that check the type:
 \begin{description}

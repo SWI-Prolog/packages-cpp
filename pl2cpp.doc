@@ -92,7 +92,12 @@ More specifically:
     return a C++ \ctype{bool}.
   \item
     The wrapped C types (\ctype{term_t}, \ctype{atom_t}, etc.) have been
-    made private - they can be accessed by the field \exam{C_}.
+    renamed from \exam{handle}, \exam{ref}, etc. to \exam{C_} (this is
+    done by subclassing from \ctype{Wrapped<term_t>},
+    \ctype{Wrapped<atom_t>}, etc., which define the field \exam{C_},
+    standard constructors, the methods \cfuncref{is_null}{},
+    \cfuncref{not_null}{}, \cfuncref{reset}{}, and
+    \cfuncref{reset}{v}, plus the constant \const{null}.
 \end{itemize}
 
 More details are given in \secref{cpp-rationale} and \secref{cpp-porting-1-2}.
@@ -159,7 +164,10 @@ The list below summarises the classes defined in the C++ interface.
 
 \begin{description}
     \classitem{PlTerm}
-Generic Prolog term that wraps \ctype{term_t}.
+Generic Prolog term that wraps \ctype{term_t} (for more details on
+\ctype{term_t}, see
+\href{https://www.swi-prolog.org/pldoc/man?section=foreigntypes}{Interface
+Data Types}).
 This is a "base class" whose constructor is
 protected; subclasses specify the actual contents. Additional methods
 allow checking the Prolog type, unification, comparison, conversion to
@@ -232,9 +240,12 @@ Subclass of \class{PlException} for representing a Prolog
 \end{description}
 
     \classitem{PlAtom}
-Allow for manipulating atoms (\ctype{atom_t}) in their internal Prolog representation
-for fast comparison.
-    \classitem{PlFunctor}
+Allow for manipulating atoms (\ctype{atom_t}) in their internal Prolog
+representation for fast comparison. (For more details on
+\ctype{atom_t}, see
+\href{https://www.swi-prolog.org/pldoc/man?section=foreigntypes}{Interface
+Data Types}).
+\classitem{PlFunctor}
 A wrapper for \class{functor_t}, which maps to the internal
 representation of a name/arity pair.
     \classitem{PlQuery}
@@ -287,7 +298,8 @@ The wrapper classes all define the following methods and constants:
   \item
     \exam{reset(new_value)} - set the wrapped value
   \item
-    The \class{bool} operator is turned off - use not_null() instead.
+    The \class{bool} operator is turned off - you should
+    use not_null() instead.
     (The reason: a \class{bool} conversion
     causes ambiguity with \exam{PlAtom(PlTterm)}
     and \exam{PlAtom(atom_t)})

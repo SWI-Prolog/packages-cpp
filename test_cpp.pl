@@ -66,6 +66,8 @@ test(hello3_1) :-
 
 test(add_3, Result == 666) :-
     add(667, -1, Result).
+test(add_3, Result == 123) :-
+    add(100.0, 23, Result).
 test(add_3_err, error(type_error(integer,0.1))) :-
     add(666, 0.1, _).
 
@@ -109,10 +111,11 @@ test(can_unify_2b) :-
     can_unify(a(X), a(1)),
     assertion(var(X)).
 
-test(unify_ex_2a, X == a) :-
-    unify_ex(foo(X), foo(a)).
-test(unify_ex_2b, fail) :-
-    unify_ex(foo(_X), bar(a)).
+% Note: unify_error has additional tests for eq1/2
+test(eq1_2a, X == a) :-
+    eq1(foo(X), foo(a)).
+test(eq1_2b, fail) :-
+    eq1(foo(_X), bar(a)).
 
 test(make_integer_2a, X == 123) :-
     make_uint64(123, X).
@@ -124,9 +127,13 @@ test(make_integer_2b) :-
     make_uint64(X, Y).
 test(make_integer_2c, fail) :-
     make_uint64(123, 124).
+
+:- if(current_prolog_flag(bounded,false)).
 test(make_integer_2d, error(representation_error(uint64_t))) :-
     Val is 0xffffffffffffffff + 999, % uses extended integers
     make_uint64(Val, _Y).
+:- endif.
+
 test(make_integer_2e, error(domain_error(not_less_than_zero,-1))) :-
     make_uint64(-1, _Y).
 
@@ -140,9 +147,13 @@ test(make_integer_2b) :-
     make_int64(X, Y).
 test(make_integer_2c, fail) :-
     make_int64(123, 124).
+
+:- if(current_prolog_flag(bounded,false)).
 test(make_integer_2d, error(representation_error(int64_t))) :-
     Val is 0xffffffffffffffff + 999, % uses extended integers
     make_int64(Val, _Y).
+:- endif.
+
 test(make_integer_2e, Y == -1) :-
     make_int64(-1, Y).
 
@@ -161,8 +172,83 @@ test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.732050807568877
 test(square_roots_2b, error(resource_error(stack))) :-
     square_roots(1000000000, _).
 
+test(malloc_1) :-
+    malloc(1000, Result), % smoke test
+    free(Result).
+
+too_big_alloc_request(Request) :-
+    current_prolog_flag(address_bits, Bits),
+    (   Bits == 32
+    ->  Request = 0x7fffffff
+    ;   Bits == 64
+    ->  Request = 0x7fffffffffffffff
+        %         0x10000000000 is ASAN maximum on 64-bit machines
+    ;   assertion(memberchk(Bits, [32,64]))
+    ).
+
+:- if(current_prolog_flag(bounded,false)).
+
+too_many_bits_alloc_request(Request) :-
+    current_prolog_flag(address_bits, Bits),
+    (   Bits == 32
+    ->  Request is 0x7fffffffffffffffff
+    ;   Bits == 64
+    ->  Request is 0x7fffffffffffffffff
+    ;   assertion(memberchk(Bits, [32,64]))
+    ).
+
+:- endif.
+
 test(malloc_2) :-
-    malloc(1000, _Result). % smoke test
+    too_big_alloc_request(Request),
+    malloc(Request, Result),
+    assertion(Result == 0),
+    free(Result).
+
+:- if(current_prolog_flag(bounded,false)).
+
+test(malloc_3) :-
+    % This assumes size_t is no more than 64 bits:
+    too_many_bits_alloc_request(Request),
+    catch( ( malloc(Request, Result),
+             free(Result)
+           ),
+           error(E,_), true),
+    assertion(memberchk(E, [representation_error(size_t),
+                            type_error(integer,_)])).
+
+:- endif.
+
+test(new_chars_1) :-
+    new_chars(1000, Result), % smoke test
+    delete_chars(Result).
+
+:- if(\+ address_sanitizer).
+% ASAN has maximum 0x10000000000
+%   see ASAN_OPTIONS=allocator_may_return_null=1:soft_rss_limit_mb=...:hard_rss_limit_mb=...
+% https://github.com/google/sanitizers/issues/295
+% https://github.com/google/sanitizers/issues/740
+
+test(new_chars_2, error(resource_error(memory))) :-
+    too_big_alloc_request(Request),
+    new_chars(Request, Result),
+    delete_chars(Result).
+
+:- endif.
+
+:- if(current_prolog_flag(bounded,false)).
+
+test(new_chars_3) :-
+    % This assumes size_t is no more than 64 bits:
+    too_many_bits_alloc_request(Request),
+    catch( ( new_chars(Request, Result),
+             delete_chars(Result)
+           ),
+           error(E,_), true),
+    assertion(memberchk(E, [representation_error(size_t),
+                            type_error(integer,_)])).
+
+:- endif.
 
 test(name_arity_1) :-
     name_arity(foo(bar,zot)).
@@ -194,5 +280,125 @@ test(make_functor_3e, fail) :-
 test(make_functor_3f, Z==6.66) :-
     make_functor(bbb, Z, F),
     F = bbb(6.66).
+
+% The following are for verifying some documentation details, and for
+% ensuring that various mechanisms for reporting failure and
+% exceptions behave as expected.
+
+test(c_PL_unify_nil_ex, X == []) :-
+    c_PL_unify_nil_ex(X).
+test(c_PL_unify_nil_ex) :-
+    c_PL_unify_nil_ex([]).
+
+% The following are for verifying that an exception in
+% PL_occurs_term() is handled properly - exceptions such as
+% out-of-stack should behave the same way, if they don't result in a
+% fatal error. The same set of tests are repeated for eq1/2, eq2/2,
+% eq3/2, eq4/2.
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, error) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    error(occurs_check(B,f(B))) ]) :-
+    eq1(X, f(X)).
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, true) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    fail]) :-
+    eq1(X, f(X)).
+
+test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
+                               set_prolog_flag(occurs_check, false) )),
+                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
+                    true]) :-
+    eq1(X, f(X)).
+
+% Repeat the unify_error test, using eq2/2:
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, error) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    error(occurs_check(B,f(B))) ]) :-
+    eq2(X, f(X)).
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, true) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    fail]) :-
+    eq2(X, f(X)).
+
+test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
+                               set_prolog_flag(occurs_check, false) )),
+                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
+                    true]) :-
+    eq2(X, f(X)).
+
+% Repeat the unify_error test, using eq3/2:
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, error) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    error(occurs_check(B,f(B))) ]) :-
+    eq3(X, f(X)).
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, true) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    fail]) :-
+    eq3(X, f(X)).
+
+test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
+                               set_prolog_flag(occurs_check, false) )),
+                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
+                    true]) :-
+    eq3(X, f(X)).
+
+% Repeat the unify_error test, using eq4/2:
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, error) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    error(occurs_check(B,f(B))) ]) :-
+    eq4(X, f(X)).
+
+test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
+                                set_prolog_flag(occurs_check, true) )),
+                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+                    fail]) :-
+    eq4(X, f(X)).
+
+test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
+                               set_prolog_flag(occurs_check, false) )),
+                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
+                    true]) :-
+    eq4(X, f(X)).
+
+% Tests from test_ffi.pl, for functions translated from ffi4pl.c:
+
+test(range_cpp1, all(X == [1,2])) :-
+    range_cpp(1, 3, X).
+test(range_cpp2, all(X == [-2,-1,0,1,2])) :-
+    range_cpp(-2, 3, X).
+test(range_cpp3a, all(X == [0])) :-
+    range_cpp(0, 1, X).
+test(range_cpp3b, all(X == [10])) :-
+    range_cpp(10, 11, X).
+test(range_cpp3c, all(X == [-2])) :-
+    range_cpp(-2, -1, X).
+test(range_cpp4a, fail) :-
+    range_cpp(1, 1, _X).
+test(range_cpp4a, fail) :-
+    range_cpp(0, 0, _X).
+test(range_cpp4a, fail) :-
+    range_cpp(-1, -1, _X).
+test(range_cpp4d, fail) :-
+    range_cpp(1, 2, 2).
+test(range_cpp5, X == 1) :- % Will produce warning if non-deterministic
+    range_cpp(1, 2, X).
+test(range_cpp6b, error(type_error(integer,a))) :-
+    range_cpp(a, 10, _).
+test(range_cpp6b, error(type_error(integer,foo))) :-
+    range_cpp(1, foo, _).
 
 :- end_tests(cpp).

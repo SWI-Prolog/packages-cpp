@@ -95,7 +95,10 @@ test(range_ffialloc4d, fail) :-
     range_ffialloc(1, 2, 2).
 test(range_ffialloc5, X == 1) :- % Will produce warning if non-deterministic
     range_ffialloc(1, 2, X).
-
+test(range_ffialloc6a, error(type_error(integer,a))) :-
+    range_ffialloc(a, 10, _).
+test(range_ffialloc6b, error(type_error(integer,foo))) :-
+    range_ffialloc(1, foo, _).
 
 :- end_tests(ffi).
 

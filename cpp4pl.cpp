@@ -62,6 +62,7 @@ how the various predicates can be called from Prolog.
 #include <iostream>
 #include <unistd.h>
 #include <math.h>
+#include <cassert>
 #include <string>
 using namespace std;
 
@@ -94,24 +95,17 @@ PREDICATE(hello3, 1)
 }
 
 PREDICATE(add, 3)
-{ return A3.unify_integer(A1.get_long() + A2.get_long());
+{ // as_long() converts integral floats to integers
+  return A3.unify_integer(A1.as_long() + A2.as_long());
 }
 
 PREDICATE(add_num, 3)
-{ double a1, a2;
-  if ( A1.type() == PL_INTEGER )
-    a1 = A1.get_int64_t();
-  else
-    a1 = A1.get_float();
-  if ( A2.type() == PL_INTEGER )
-    a2 = A2.get_int64_t();
-  else
-    a2 = A2.get_float();
-
-  double sum = a1 + a2;
+{ auto x = A1, y = A2, result = A3;
+  // Note that as_float() handles floats
+  double sum = x.as_float() + y.as_float();
   if ( double(long(sum)) == sum ) /* Can float be represented as int? */
-    return A3.unify_integer(long(sum));
-  return A3.unify_float(sum);
+    return result.unify_integer(long(sum));
+  return result.unify_float(sum);
 }
 
 PREDICATE(name_arity, 1)
@@ -125,8 +119,8 @@ PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
   PlTerm name(A2);
   PlTerm arity(A3);
 
-  name.unify_atom_ex(term.name());
-  arity.unify_integer_ex(term.arity());
+  name.unify_atom_check(term.name());
+  arity.unify_integer_check(term.arity());
 
   return true;
 }
@@ -151,7 +145,7 @@ PREDICATE(average, 3)			/* average(+Templ, :Goal, -Average) */
   */
   PlQuery q("call", PlTermv(A2));
   while( q.next_solution() )
-  { sum += A1.get_long();
+  { sum += A1.as_long();
     n++;
   }
   return A3.unify_float(double(sum) / double(n));
@@ -194,12 +188,24 @@ PREDICATE(can_unify, 2)
   return rval;
 }
 
-
-PREDICATE(unify_ex, 2)
-{ A1.unify_term_ex(A2);
+PREDICATE(eq1, 2)
+{ A1.unify_term_check(A2);
   return true;
 }
 
+PREDICATE(eq2, 2)
+{ PlCheck(A1.unify_term(A2));
+  return true;
+}
+
+PREDICATE(eq3, 2)
+{ return A1.unify_term(A2);
+}
+
+PREDICATE(eq4, 2)
+{ PlCheck(PL_unify(A1.C_, A2.C_));
+  return true;
+}
 
 PREDICATE(write_list, 1)
 { PlTerm_tail tail(A1);
@@ -246,7 +252,7 @@ PREDICATE(call_atom, 1)
 */
 
 PREDICATE(square_roots, 2)
-{ int end = A1.get_int();
+{ int end = A1.as_int();
   PlTerm_tail list(A2);
 
   for(int i=0; i<end; i++)
@@ -264,12 +270,62 @@ PREDICATE(square_roots, 2)
  */
 
 PREDICATE(malloc, 2)
-{ void *ptr = malloc(A1.get_size_t());
+{ void *ptr = malloc(A1.as_size_t());
   return A2.unify_pointer(ptr);
 }
 
+PREDICATE(free, 1)
+{ void *ptr = A1.pointer();
+  free(ptr);
+  return true;
+}
 
-class MyClass {
+PREDICATE(new_chars, 2)
+{ char *ptr = new char[A1.as_size_t()];
+  return A2.unify_pointer(ptr);
+}
+
+PREDICATE(delete_chars, 1)
+{ char *ptr = static_cast<char *>(A1.pointer());
+  delete[] ptr;
+  return true;
+}
+
+// TODO: the following code for detecting address-sanitizer
+//       is taken from pl-incl.h. See discussion about this
+//       in https://github.com/SWI-Prolog/swipl-devel/pull/1044
+
+/* Clang way to detect address_sanitizer */
+#ifndef __has_feature
+  #define __has_feature(x) 0
+#endif
+#ifndef __SANITIZE_ADDRESS__
+#if __has_feature(address_sanitizer)
+#define __SANITIZE_ADDRESS__
+#endif
+#endif
+
+
+PREDICATE(address_sanitizer, 0)
+{
+  #if defined(__SANITIZE_ADDRESS__)
+  return true;
+  #else
+  return false;
+  #endif
+}
+
+PREDICATE(address_sanitizer, 1)
+{
+  #if defined(__SANITIZE_ADDRESS__)
+  return A1.unify_bool(1);
+  #else
+  return A1.unify_bool(0);
+  #endif
+}
+
+class MyClass
+{
 public:
   const char* contents;
   MyClass() : contents("foo-bar") { }
@@ -300,7 +356,7 @@ PREDICATE(make_functor, 3)  // make_functor(foo, x, foo(x))
 }
 
 PREDICATE(make_uint64, 2)
-{ A2.unify_integer_ex(A1.get_uint64_t());
+{ A2.unify_integer_check(A1.as_uint64_t());
   return true;
 }
 
@@ -308,7 +364,7 @@ PREDICATE(make_int64, 2)
 { int64_t i;
   // This function is for testing PlCheck()
   PlCheck(PL_get_int64_ex(A1.C_, &i));
-  A2.unify_integer_ex(i);
+  A2.unify_integer_check(i);
   return true;
 }
 
@@ -325,7 +381,7 @@ PREDICATE(hostname2, 1)
 { char buf[255+1]; // SUSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
   if ( gethostname(buf, sizeof buf) != 0 )
     throw PlFail();
-  A1.unify_atom_ex(buf);
+  A1.unify_atom_check(buf);
   return true;
 }
 
@@ -350,15 +406,15 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   const wchar_t *x02 = p01.wc_str();
   const std::string x01a = p01.string();
   const std::wstring x01b = p01.wstring();
-  long           x04 = p03.get_long();
-  int            x05 = p04.get_int();
-  uint32_t       x06 = p01.get_uint32_t();
-  uint64_t       x07 = p01.get_uint64_t();
-  int64_t        x08 = p01.get_int64_t();
-  size_t         x09 = p01.get_size_t();
-  bool           x10 = p01.get_bool();
-  double         x11 = p01.get_float();
-  double         x12 = p01.get_double();
+  long           x04 = p03.as_long();
+  int            x05 = p04.as_int();
+  uint32_t       x06 = p01.as_uint32_t();
+  uint64_t       x07 = p01.as_uint64_t();
+  int64_t        x08 = p01.as_int64_t();
+  size_t         x09 = p01.as_size_t();
+  bool           x10 = p01.as_bool();
+  double         x11 = p01.as_float();
+  double         x12 = p01.as_double();
   PlAtom         x13 = p01.atom();
   void *         x14 = p01.pointer();
   PlTerm         x20 = p01[1];
@@ -395,21 +451,96 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   (void)p09.unify_functor(PlFunctor("f", 3));
   (void)p10.unify_pointer(&p01);
 
-  p01.unify_term_ex(p02);
-  p01.unify_atom_ex(PlAtom("an atom"));
-  p01.unify_atom_ex("chars");
-  p01.unify_atom_ex(L"CHARS");
-  p01.unify_integer_ex(1);
-  p01.unify_integer_ex(2);
-  p01.unify_integer_ex(3);
-  p01.unify_integer_ex(sizeof p01);
-  p01.unify_float_ex(3.14159);
-  p01.unify_functor_ex(PlFunctor("f", 3));
-  p01.unify_pointer_ex(&p01);
-  s01.unify_atom_ex(x01);
-  s01.unify_term_ex(s01);
-  s02.unify_term_ex(s01);
-  s03.unify_term_ex(s03);
+  p01.unify_term_check(p02);
+  p01.unify_atom_check(PlAtom("an atom"));
+  p01.unify_atom_check("chars");
+  p01.unify_atom_check(L"CHARS");
+  p01.unify_integer_check(1);
+  p01.unify_integer_check(2);
+  p01.unify_integer_check(3);
+  p01.unify_integer_check(sizeof p01);
+  p01.unify_float_check(3.14159);
+  p01.unify_functor_check(PlFunctor("f", 3));
+  p01.unify_pointer_check(&p01);
+  s01.unify_atom_check(x01);
+  s01.unify_term_check(s01);
+  s02.unify_term_check(s01);
+  s03.unify_term_check(s03);
 
   return true;
 }
+
+// The following are for verifying some documentation details.
+
+PREDICATE(c_PL_unify_nil, 1)          { return PL_unify_nil(A1.C_); }
+
+PREDICATE(cpp_unify_nil, 1)           { return A1.unify_nil(); }
+
+PREDICATE(check_c_PL_unify_nil, 1)    { PlCheck(PL_unify_nil(A1.C_));    return true; }
+
+PREDICATE(cpp_unify_nil_check, 1)     { A1.unify_nil_check();            return true; }
+
+// Repeat the above 4, for *_ex():
+
+PREDICATE(c_PL_unify_nil_ex, 1)       { return PL_unify_nil_ex(A1.C_); }
+
+PREDICATE(cpp_unify_nil_ex, 1)        { return A1.unify_nil_ex(); }
+
+PREDICATE(check_c_PL_unify_nil_ex, 1) { PlCheck(PL_unify_nil_ex(A1.C_)); return true; }
+
+PREDICATE(cpp_unify_nil_ex_check, 1)  { A1.unify_nil_ex_check();         return true; }
+
+
+
+PREDICATE(c_PL_get_nil, 1)            { return PL_get_nil(A1.C_); }
+
+PREDICATE(cpp_as_nil, 1)              { A1.as_nil();                     return true; }
+
+PREDICATE(check_c_PL_get_nil, 1)      { PlCheck(PL_get_nil(A1.C_));      return true; }
+
+PREDICATE(check_c_PL_get_nil_ex, 1)   { PlCheck(PL_get_nil_ex(A1.C_));   return true; }
+
+// Functions re-implemented from ffi4pl.c
+
+// range_cpp/3 is equivalent to range_ffialloc/3
+
+/* range_cpp/3 is used in regression tests
+   - PL_foreign_context_address() and malloc()-ed context.
+*/
+struct RangeContext
+{ long i;
+  long high;
+  explicit RangeContext(long i, long high)
+    : i(i), high(high) { }
+};
+
+PREDICATE_NONDET(range_cpp, 3)
+{ auto t_low = A1, t_high = A2, t_result = A3;
+  PlForeignContextPtr<RangeContext> ctxt(handle);
+
+  switch( PL_foreign_control(handle) )
+  { case PL_FIRST_CALL:
+      ctxt.set(new RangeContext(t_low.as_long(),
+                                t_high.as_long()));
+      break;
+    case PL_REDO:
+      break;
+    case PL_PRUNED:
+      return true;
+    default:
+      assert(0);
+      return false;
+  }
+
+  if ( ctxt->i >= ctxt->high ||
+       !t_result.unify_integer(ctxt->i) )
+    return false;
+
+  ctxt->i += 1;
+  if ( ctxt->i == ctxt->high )
+    return true; // Last result: succeed without a choice point
+
+  ctxt.keep();
+  PL_retry_address(ctxt.get()); // Succeed with a choice point
+}
+

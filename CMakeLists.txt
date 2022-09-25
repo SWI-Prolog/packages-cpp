@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(swipl-cpp)
 
+add_compile_options(-Wall -Wextra -Wconversion -Warith-conversion -Wsign-conversion -Wfloat-conversion -Wno-unused-parameter -Werror)
+
 include("../cmake/PrologPackage.cmake")
 include("../cmake/Sockets.cmake")
 

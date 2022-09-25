@@ -48,12 +48,15 @@
  */
 static foreign_t
 range_ffi(term_t t_low, term_t t_high, term_t t_result, control_t handle)
-{ long result;
+{ intptr_t result = 0;
 
   switch( PL_foreign_control(handle) )
   { case PL_FIRST_CALL:
-      if ( !PL_get_long_ex(t_low, &result) )
-	PL_fail;
+      { long r;
+	if ( !PL_get_long_ex(t_low, &r) )
+	  PL_fail;
+	result = r;
+      }
       break;
     case PL_REDO:
       result = PL_foreign_context(handle);
@@ -92,7 +95,7 @@ range_ffialloc(term_t t_low, term_t t_high, term_t t_result, control_t handle)
 	if ( !PL_get_long_ex(t_low, &low) )
 	  PL_fail;
 	if ( !(ctxt = malloc(sizeof *ctxt) ) )
-	  return PL_resource_error("memory");
+	  return (foreign_t)PL_resource_error("memory");
 	ctxt->i = low;
       }
       break;

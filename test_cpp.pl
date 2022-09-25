@@ -294,7 +294,7 @@ test(c_PL_unify_nil_ex) :-
 % PL_occurs_term() is handled properly - exceptions such as
 % out-of-stack should behave the same way, if they don't result in a
 % fatal error. The same set of tests are repeated for eq1/2, eq2/2,
-% eq3/2, eq4/2.
+% eq3/2.
 
 test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
                                 set_prolog_flag(occurs_check, error) )),
@@ -354,26 +354,6 @@ test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
                     true]) :-
     eq3(X, f(X)).
 
-% Repeat the unify_error test, using eq4/2:
-
-test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, error) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    error(occurs_check(B,f(B))) ]) :-
-    eq4(X, f(X)).
-
-test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, true) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    fail]) :-
-    eq4(X, f(X)).
-
-test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
-                               set_prolog_flag(occurs_check, false) )),
-                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
-                    true]) :-
-    eq4(X, f(X)).
-
 % Tests from test_ffi.pl, for functions translated from ffi4pl.c:
 
 test(range_cpp1, all(X == [1,2])) :-
@@ -401,4 +381,23 @@ test(range_cpp6b, error(type_error(integer,a))) :-
 test(range_cpp6b, error(type_error(integer,foo))) :-
     range_cpp(1, foo, _).
 
+% This is test wchar_1 in test_ffi.pl:
+test(wchar_1, all(Result == ["//0", "/ /1",
+                             "/abC/3",
+                             "/Hello World!/12",
+                             "/хелло/5",
+                             "/хелло 世界/8",
+                             "/網目錦へび [àmímé níshíkíhéꜜbì]/26"])) :-
+    (   w_atom_cpp('',             Result)
+    ;   w_atom_cpp(' ',            Result)
+    ;   w_atom_cpp('abC',          Result)
+    ;   w_atom_cpp('Hello World!', Result)
+    ;   w_atom_cpp('хелло',        Result)
+    ;   w_atom_cpp('хелло 世界',   Result)
+    ;   w_atom_cpp('網目錦へび [àmímé níshíkíhéꜜbì]', Result)
+    ).
+
 :- end_tests(cpp).
+
+w_atom_cpp(Atom, String) :-
+    with_output_to(string(String), w_atom_cpp_(current_output, Atom)).

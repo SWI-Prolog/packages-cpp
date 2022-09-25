@@ -108,7 +108,13 @@ test(range_ffialloc6b, error(type_error(integer,foo))) :-
 % The following "wchar" tests are regression tests related
 % to https://github.com/SWI-Prolog/packages-pcre/issues/20
 
-test(wchar_1, all(Result == ["//0", "/ /1", "/abC/3", "/Hello World!/12", "/хелло/5", "/хелло 世界/8", "/網目錦へび [àmímé níshíkíhéꜜbì]/26"])) :-
+test(wchar_1, all(Result == ["//0",
+                             "/ /1",
+                             "/abC/3",
+                             "/Hello World!/12",
+                             "/хелло/5",
+                             "/хелло 世界/8",
+                             "/網目錦へび [àmímé níshíkíhéꜜbì]/26"])) :-
     (   w_atom_ffi('',             Result)
     ;   w_atom_ffi(' ',            Result)
     ;   w_atom_ffi('abC',          Result)

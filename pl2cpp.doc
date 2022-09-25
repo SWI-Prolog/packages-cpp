@@ -27,12 +27,15 @@
 
 \begin{abstract}
 This document describes a C++ interface to SWI-Prolog. SWI-Prolog could
-be used with C++ for a very long time, but only by calling the extern
-"C" functions of the C-interface. The interface described herein
+be used with C++ for a very long time, but only by calling the
+\exam{extern "C"}
+functions of the C-interface. The interface described herein
 provides a true C++ layer around the C-interface for much more concise
 and natural programming from C++. The interface deals with
 type-conversion to and from native C data-types, transparent mapping of
 exceptions, making queries to Prolog and registering foreign predicates.
+Performance is essentially the same as using the native C data-types
+and functions.
 \end{abstract}
 
 \vfill
@@ -72,7 +75,9 @@ More specifically:
     The constructor \cfuncref{PlTerm}{} is not available - instead,
     you should use the appropriate subclass' constructor
     (\cfuncref{PlTerm_var}{}, \cfuncref{PlTerm_atom}{a},
-    \cfuncref{PlTerm_term_t}{t}, \cfuncref{PlTerminteger}{i},
+    \cfuncref{PlTerm_term_t}{t}, \cfuncref{PlTerm_integer}{i},
+    \cfuncref{PlTerm_int64}{i}, \cfuncref{PlTerm_uint64}{i},
+    \cfuncref{PlTerm_size_t}{i},
     \cfuncref{PlTerm_float}{v}, or PlTerm_pointer{}{p}).
   \item
     Instead of returning \const{false} from a predicate to indicate
@@ -87,11 +92,8 @@ More specifically:
     more verbose: \exam{static_cast<char*>(t)}.}
   \item
     The overloaded assignment operator for unification is deprecated;
-    replaced by unify_term(), unify_atom(), unify_term_check(),
-    unify_atom_check(), etc.
-  \item
-    Various \exam{XXX_check()} functions have been added, which check
-    for failure and throw a failure (\ctype{PlFail}) exception.
+    replaced by unify_term(), unify_atom(), etc., and the helper
+    PlCheck().
   \item
     Type-checking methods have been added: type(), is_variable(), is_atom(), etc.
   \item
@@ -114,6 +116,13 @@ More specifically:
     A convenience class \ctype{PlForeignContextPtr<\emph{ContextType}>}
     has been added, to simplify dynamic memory allocation in
     non-deterministic predicates.
+  \item
+    A convenience function \cfuncref{PlRewindOnFail}{} has been added,
+    to simplify non-deterministic code that does backtracking by
+    checking unification results.
+  \item
+    \ctype{PlStringBuffers} provides a simpler interface for allocating
+    strings on the stack than PL_STRINGS_MARK() and PL_STRINGS_RELEASE().
 \end{itemize}
 
 More details are given in \secref{cpp-rationale} and \secref{cpp-porting-1-2}.
@@ -193,31 +202,24 @@ PlCheck(), which will do \exam{throw PlFail()} to exit from the top
 level of the foreign predicate, and handle the failure or exception
 appropriately.
 
-The following four snippets do the same thing (for implementing the
+The following three snippets do the same thing (for implementing the
 equivalent of =/2):
 
 \begin{code}
-PREDICATE(eq1, 2)
-{ A1.unify_term_check(A2);
-  return true;
-}
-\end{code}
-
-\begin{code}
-PREDICATE(eq2, 2)
+PREDICATE(eq, 2)
 { PlCheck(A1.unify_term(A2));
   return true;
 }
 \end{code}
 
 \begin{code}
-PREDICATE(eq3, 2)
+PREDICATE(eq, 2)
 { return A1.unify_term(A2);
 }
 \end{code}
 
 \begin{code}
-PREDICATE(eq4, 2)
+PREDICATE(eq, 2)
 { PlCheck(PL_unify(A1.C_, A2.C_));
   return true;
 }
@@ -262,9 +264,19 @@ this term is then unified with another object.
     \classitem{PlTerm_term_t}
 Subclass of \ctype{PlTerm} with constructors for building
 a term from a C \ctype{term_t}.
-    \classitem{PlTerm_int}
+    \classitem{PlTerm_integer}
+Subclass of \ctype{PlTerm} with constructors for building a term that
+contains a Prolog integer from a
+\ctype{long}.\footnote{PL_put_integer() takes a \ctype{long} argument.}
+    \classitem{PlTerm_int64}
 Subclass of \ctype{PlTerm} with constructors for building
-a term that contains a Prolog integer.
+a term that contains a Prolog integer from a \ctype{int64_t}.
+    \classitem{PlTerm_uint64}
+Subclass of \ctype{PlTerm} with constructors for building
+a term that contains a Prolog integer from a \ctype{uint64_t}.
+    \classitem{PlTerm_size_t}
+Subclass of \ctype{PlTerm} with constructors for building
+a term that contains a Prolog integer from a \ctype{size_t}.
     \classitem{PlTerm_float}
 Subclass of \ctype{PlTerm} with constructors for building
 a term that contains a Prolog float.
@@ -328,6 +340,8 @@ representation of a name/arity pair.
 Represents opening and enumerating the solutions to a Prolog query.
     \classitem{PlFail}
 Can be thrown to short-circuit processing and return failure to Prolog.
+Performance-critical code should use \exam{return false} instead if
+failure is expected.
     \classitem{PlFrame}
 This utility-class can be used to discard unused term-references as well
 as to do `\jargon{data-backtracking}'.
@@ -380,11 +394,6 @@ The wrapper classes all define the following methods and constants:
     and \exam{PlAtom(atom_t)}.}
 \end{itemize}
 
-The unification methods come in two flavours: one that returns a
-\ctype{bool} (and gives a compile-time warning if the return value is
-ignored) and one that checks the result and throws an exception on
-failure. The methods that throw an exception end with "_check".
-
 For functions in \file{SWI-Prolog.h} that don't have a C++ equivalent
 in \file{SWI-cpp2.h}, PlCheck() is a convenience function that checks
 the return code and throws a \ctype{PlFail} exception on failure. The
@@ -395,22 +404,30 @@ unification failed because of an out-of-memory condition), the foreign
 function caller will detect that situation and convert the failure to
 an exception.
 
-The "getter" methods for \ctype{PlTerm} do not end with "_ex" -
-they all throw an exception if the term isn't of the expected
-Prolog type. Where possible, the "getters" have the same name
-as the underlying type; but this isn't possible for types such
-as \ctype{int} or \ctype{float}, so for these the name is
+The "getter" methods for \ctype{PlTerm} all throw an exception if the
+term isn't of the expected Prolog type. Where possible, the "getters"
+have the same name as the underlying type; but this isn't possible for
+types such as \ctype{int} or \ctype{float}, so for these the name is
 prepended with "as_".
 
 "Getters" for integers have an additionnal problem, in that C++
 doesn't define the sizes of \ctype{int} and \ctype{long}, nor for
-\ctype{size_t}.  To get around this problem, there are overloaded
-integer() methods that take a pointer; for example, this allows the
-following code without knowing the exact definition of \ctype{size_t}:
+\ctype{size_t}. It seems to be impossible to make an overload() method
+that works for all the various combinations of integer types on all
+compilers, so there are specific methods for \ctype{int64_t},
+\ctype{uint64_t}, \ctype{size_t}.
+
+In some cases,it is possible to overload methods; for example, this
+allows the following code without knowing the exact definition of
+\ctype{size_t}:
 \begin{code}
 size_t sz;
 t.integer(&sz);
 \end{code}
+
+\emph{It is strongly recommended that you enable conversion checking.}
+For example, with GNU C++, these options (possibly with \exam{-Werror}:
+\exam{-Wconversion -Warith-conversion -Wsign-conversion -Wfloat-conversion}.
 
 There is an additional problem with characters - C promotes
 them to \ctype{int} but C++ doesn't. In general, this shouldn't
@@ -487,9 +504,7 @@ and throws a C++ exception if the Prolog argument is not a Prolog
 integer or float that can be converted without loss to a
 \ctype{long}. The unify_integer() method of \ctype{PlTerm} is defined
 to perform unification and returns \const{true} or \const{false}
-depending on the result.  A similar unify_integer_check() method
-throws an exception if the unificaton fails (and this exception
-becomes failure when control returns to Prolog).
+depending on the result.
 
 \begin{code}
 ?- add(1, 2, X).
@@ -656,9 +671,10 @@ Here is a list of typical changes:
 
   \item
     Instead of returning \const{false} from a predicate for failure,
-    you can do \exam{throw PlFail()}. This mechanism is also used
-    by \cfuncref{PlCheck}{rc} and the various unification methods
-    whose name ends with \exam{_ex}.
+    you can do \exam{throw PlFail()}. This mechanism is also used by
+    \cfuncref{PlCheck}{rc}. Note that throwing an exception is
+    significantly slower than returning \const{false}, so
+    performance-critical code should avoid \cfuncref{PlCheck}{rc}.
 
   \item
     You can use the \cfuncref{PlCheck}{rc} to check the return code
@@ -702,32 +718,63 @@ Here is a list of typical changes:
 \label{sec:cpp-plfail}
 
 The \ctype{PlFail} class is used for short-circuiting a function when
-failure or an exception occurs. For example, this code:
+failure or an exception occurs and any errors will be handled in the
+code generated by the \cfuncref{PREDICATE}{} macro.
+
+For example, this code:
 \begin{code}
-  bool
-  some_function(PlTerm t)
-  { if ( !PL_put_integer(t.C_, 0) )
+  PREDICATE(unify_zero, 1)
+  { if ( !PL_unify_integer(A1.C_, 0) )
       return false;
     return true;
   }
 \end{code}
-can be written
+can be written this way (but with a performance penalty for handling
+the \exam{throw}):
 \begin{code}
   void
-  some_function(PlTerm t)
-  { if ( !PL_put_integer(t.C_, 0) )
+  PREDICATE(unify_zero, 1)
+  { if ( !PL_unify_integer(A1.C_, 0) )
       throw PlFail();
+    return true;
   }
 \end{code}
 or, equivalently:
 \begin{code}
-  void
-  some_function(PlTerm t)
-  { PlCheck( PL_put_integer(t.C_, 0) );
+  PREDICATE(unify_zero, 1)
+  { PlCheck(PL_unify_integer(t.C_, 0));
+    return true;
   }
 \end{code}
-and any errors will be handled in the code generated by
-the \cfuncref{PREDICATE}{} macro.
+or:
+\begin{code}
+PREDICATE(unify_zero, 1)
+{ PlCheck(A1.unify_integer(0));
+  return true;
+}
+\end{code}
+or:
+\begin{code}
+PREDICATE(unify_zero, 1)
+{ return A1.unify_integer(0);
+}
+\end{code}
+
+Using \exam{throw PlFail()} in performance-critical can cause a
+signficant slowdown. A simple benchmark showed a 15x to 20x slowdown
+using \exam{throw PlFail()} compared to \exam{return false} (comparing
+the first code sample above with the second and third samples; the
+speed difference seems to have been because in the second sample, the
+compiler did a better job of inlining)
+
+There was no significant performance difference between the C++
+version and this C version:
+\begin{code}
+static foreign_t
+unify_zero(term_t a1)
+{ return PL_unify_integer(a1, 0);
+}
+\end{code}
 
 In general, wherever there is a method that wraps a C "PL_"
 function, \cfuncref{PlCheck}{} can be used to return failure
@@ -907,6 +954,8 @@ methods that check the type:
 
 \subsection{Unification}
 \label{sec:cpp-plterm-unification}
+
+See also \secref{cpp-foreign-frame}.
 
 \begin{description}
     \cfunction{bool}{PlTerm::unify_term}{PlTerm}
@@ -1398,7 +1447,7 @@ the need for global atom constructors.
 
 \begin{description}
     \constructor{PlAtom}{atom_t handle}
-Create from C-interface atom handle (\ctype{atom_t}.  Used internally and for
+Create from C-interface atom handle (\ctype{atom_t}).  Used internally and for
 integration with the C-interface.
     \constructor{PlAtom}{const char_t *text}
     \nodescription
@@ -1461,6 +1510,26 @@ See PL_unregister_atom().
 See PL_blob_data().
 \end{description}
 
+\section{Unification and foreign frames}
+\label{sec:cpp-foreign-frame}
+
+As documented with PL_unify(), if a unification call fails and control isn't
+made immediately to Prolog, any changes made by unification must be undone.
+The functions PL_open_foreign_frame(), PL_rewind_foreign_frame(), and
+PL_close_foreign_frame() are encapsulated in the class \ctype{PlFrame},
+whose destructor calls PL_close_foreign_frame(). Using this, the example
+code with PL_unify() can be written:
+\begin{code}
+{ PlFrame frame;
+  ...
+  if ( !t1.unify_term(t2) )
+    frame.rewind();
+  ...
+}
+\end{code}
+Note that \cfuncref{PlTerm::unify_term}{} checks for an exception and
+throws an exception to Prolog; if you with to handle exceptions, you
+must call \exam{PL_unify_term(t1.C_,t2.C_)}.
 
 \section{The class PlRegister}
 \label{sec:cpp-plregister}
@@ -1612,6 +1681,25 @@ PREDICATE(can_unify, 2)
 }
 \end{code}
 
+PlRewindOnFail() is a convenience function that does a frame rewind if
+unification fails. Here is an example, where \exam{name_to_term}
+contains a map from names to terms (which are made global by using the
+PL_record() function):
+
+\begin{code}
+static const std::map<const std::string, record_t> name_to_term =
+    { {"a", PlTerm(...).record()}, ...};
+
+bool lookup_term(const std::string name, PlTerm result)
+{ const auto it = name_to_term.find(name);
+  if ( it == name_to_term.cend() )
+    return false;
+
+  PlTerm t = PlTerm_recorded(it->second);
+  return PlRewindOnFail([result,t]() -> bool { return result.unify_term(t); });
+}
+\end{code}
+
 \section{The PREDICATE and PREDICATE_NONDET macros}
 \label{sec:cpp-predicate-macro}
 
@@ -1624,7 +1712,7 @@ PREDICATE(hello, 1)
 \end{code}
 
 is the same as writing:\footnote{There are a few more details,
-such as catching \exam{std::bad_alloc}.} 
+such as catching \exam{std::bad_alloc}.}:
 
 \begin{code}
 static foreign_t pl_hello__1(PlTermv PL_av);
@@ -1958,7 +2046,7 @@ compatibility with the SWI-Prolog kernel. This makes it possible to have
 different versions of the header file with few compatibility
 consequences.
 
-\section{Conclusions}				\label{sec:conclusions}
+\section{Conclusions}
 \label{sec:cpp-conclusions}
 
 In this document, we presented a high-level interface to Prolog
@@ -1974,4 +2062,5 @@ predicates.
 
 \printindex
 
-\end{document}
+\end{document
+}

@@ -64,6 +64,7 @@ how the various predicates can be called from Prolog.
 #include <math.h>
 #include <cassert>
 #include <string>
+#include <map>
 using namespace std;
 
 
@@ -119,8 +120,8 @@ PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
   PlTerm name(A2);
   PlTerm arity(A3);
 
-  name.unify_atom_check(term.name());
-  arity.unify_integer_check(term.arity());
+  PlCheck(name.unify_atom(term.name()));
+  PlCheck(arity.unify_uint64(term.arity()));
 
   return true;
 }
@@ -189,20 +190,15 @@ PREDICATE(can_unify, 2)
 }
 
 PREDICATE(eq1, 2)
-{ A1.unify_term_check(A2);
-  return true;
-}
-
-PREDICATE(eq2, 2)
 { PlCheck(A1.unify_term(A2));
   return true;
 }
 
-PREDICATE(eq3, 2)
+PREDICATE(eq2, 2)
 { return A1.unify_term(A2);
 }
 
-PREDICATE(eq4, 2)
+PREDICATE(eq3, 2)
 { PlCheck(PL_unify(A1.C_, A2.C_));
   return true;
 }
@@ -232,11 +228,11 @@ PREDICATE(cappend, 3)
 
 PREDICATE(call_atom, 1)
 { try
-  { return PlCall(A1.wc_str()); // TODO: PlCall(A1.wstring())
+  { return static_cast<foreign_t>(PlCall(A1.wc_str())); // TODO: PlCall(A1.wstring())
   } catch ( PlTypeError &ex )
-  { cerr << "Type Error caugth in C++" << endl;
+  { cerr << "Type Error caught in C++" << endl;
     cerr << "Message: \"" << ex.string() << "\"" << endl;
-    return false;
+    throw;
   }
 }
 
@@ -356,7 +352,7 @@ PREDICATE(make_functor, 3)  // make_functor(foo, x, foo(x))
 }
 
 PREDICATE(make_uint64, 2)
-{ A2.unify_integer_check(A1.as_uint64_t());
+{ PlCheck(A2.unify_uint64(A1.as_uint64_t())); // TODO: unify_integer(...)
   return true;
 }
 
@@ -364,7 +360,7 @@ PREDICATE(make_int64, 2)
 { int64_t i;
   // This function is for testing PlCheck()
   PlCheck(PL_get_int64_ex(A1.C_, &i));
-  A2.unify_integer_check(i);
+  PlCheck(A2.unify_int64(i)); // TODO: unify_integer(...)
   return true;
 }
 
@@ -381,48 +377,91 @@ PREDICATE(hostname2, 1)
 { char buf[255+1]; // SUSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
   if ( gethostname(buf, sizeof buf) != 0 )
     throw PlFail();
-  A1.unify_atom_check(buf);
+  PlCheck(A1.unify_atom(buf));
   return true;
 }
 
 
 PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
-{ PlTerm_var p01;
-  PlTerm_atom p02("abc");
-  PlTerm_atom p03(L"ABC");
-  PlTerm_integer p04(123);
-  PlTerm_integer p05(666L);
-  PlTerm_integer p06(0UL);
-  PlTerm_integer p07(static_cast<size_t>(-1));
-  PlTerm_float p08(1.23);
-  PlTerm_atom p09(PlAtom("an atom"));
-  PlTerm_pointer p10(&p01);
-  PlTerm_atom p11(std::string("abc"));
-  PlTerm_atom p12(std::wstring(L"世界"));
-  PlTerm_string s01("abc");
-  PlTerm_list_codes s02("xyz");
+{ /******************************************
+   * This code is not intended to be        *
+   * executed; only compiled, to check that *
+   * implementations exist where expected.  *
+   ******************************************/
+  PlTerm_var t_var;
+  PlTerm_atom t_atom1("abc");
+  PlTerm_atom t_atom2(L"ABC");
+  PlTerm_atom t_atom3(PlAtom("an atom"));
+  PlTerm_atom p_atom4(std::string("abc"));
+  PlTerm_atom p_atom5(std::wstring(L"世界"));
+  PlTerm_term_t t_t(PL_new_term_ref());
+  PlTerm_term_t t_null; // null
+  PlTerm_integer t_int1(INT_MAX);
+  PlTerm_integer t_int1b(INT_MIN);
+  PlTerm_integer t_int2(LONG_MAX);
+  PlTerm_integer t_int2b(LONG_MIN);
+  PlTerm_int64 t_int64(INT64_MAX);
+  PlTerm_int64 t_int64b(INT64_MIN);
+  PlTerm_uint64 t_uint64(UINT64_MAX);
+  PlTerm_uint64 t_uint64b(0);
+  PlTerm_size_t p_size(static_cast<size_t>(-1));
+  PlTerm_size_t p_size2(SIZE_MAX);
+  PlTerm_float t_float(1.23);
+  PlTerm_pointer t_ptr(&t_var);
+  PlTerm_recorded t_rec(PlTerm_atom("xyz").record());
+  PlTerm_string t_string1("abc");
+  PlTerm_string t_string2(L"世界");
+  const char codes[] = {81,82,83,0};
+  PlTerm_list_codes s02(codes);
   PlTerm_list_chars s03("mno");
-  const char *   x01 = p01.c_str();
-  const wchar_t *x02 = p01.wc_str();
-  const std::string x01a = p01.string();
-  const std::wstring x01b = p01.wstring();
-  long           x04 = p03.as_long();
-  int            x05 = p04.as_int();
-  uint32_t       x06 = p01.as_uint32_t();
-  uint64_t       x07 = p01.as_uint64_t();
-  int64_t        x08 = p01.as_int64_t();
-  size_t         x09 = p01.as_size_t();
-  bool           x10 = p01.as_bool();
-  double         x11 = p01.as_float();
-  double         x12 = p01.as_double();
-  PlAtom         x13 = p01.atom();
-  void *         x14 = p01.pointer();
-  PlTerm         x20 = p01[1];
-  size_t         x21 = p01.arity();
-  const char *   x22 = p01.name();
+  PlAtom atom1("atom1");
+  PlAtom atom2(L"原子2");
+  PlAtom atom3(std::string("atom3"));
+  PlAtom atom4(std::wstring(L"原子4"));
+  // PlAtom a5(t_atom1); // TODO: why doesn't this work?
+  PlAtom atom_null;
+  const char *   x01 = t_var.c_str();
+  const wchar_t *x01a = t_var.wc_str();
+  const char *   x02 = atom1.c_str();
+  const wchar_t *x02a = atom2.wc_str();
+  const std::string s01 = atom3.string();
+  const std::wstring s01b = atom4.wstring();
+  const std::string s02a = t_var.string();
+  const std::wstring s02b = t_var.wstring();
+  atom1.register_ref();
+  atom1.unregister_ref();
+  { int v1;
+    unsigned v2;
+    long v3;
+    unsigned long v4;
+    size_t v5;
+    t_int1.integer(&v1);
+    t_int1.integer(&v2);
+    t_int1.integer(&v3);
+    t_int1.integer(&v4);
+    t_int1.integer(&v5);
+  }
+  long           x04 = t_atom2.as_long();
+  int            x05 = t_int1.as_int();
+  uint32_t       x06 = t_var.as_uint32_t();
+  uint64_t       x07 = t_var.as_uint64_t();
+  int64_t        x08 = t_var.as_int64_t();
+  size_t         x09 = t_var.as_size_t();
+  bool           x10 = t_var.as_bool();
+  double         x11 = t_var.as_float();
+  double         x12 = t_var.as_double();
+  PlAtom         x13 = t_var.atom();
+  void *         x14 = t_var.pointer();
+  PlTerm         x20 = t_var[1];
+  size_t         x21 = t_var.arity();
+  const char *   x22 = t_var.name();
+
+  // TODO: add comparisons, etc.
 
   (void)x01;
+  (void)x01a;
   (void)x02;
+  (void)x02a;
   // TODO: std::string string() const;
   (void)x04;
   (void)x05;
@@ -439,60 +478,64 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   (void)x21;
   (void)x22;
 
-  (void)p01.unify_term(p02);
-  (void)p01.unify_atom(PlAtom("an atom"));
-  (void)p02.unify_atom("abc");
-  (void)p03.unify_atom(L"ABC");
-  (void)p04.unify_integer(123);
-  (void)p05.unify_integer(666);
-  (void)p06.unify_integer(0);
-  (void)p07.unify_integer(sizeof p01);
-  (void)p08.unify_float(1.23);
-  (void)p09.unify_functor(PlFunctor("f", 3));
-  (void)p10.unify_pointer(&p01);
+  (void)t_var.unify_term(t_atom1);
+  (void)t_var.unify_atom(PlAtom("an atom"));
+  (void)t_atom1.unify_atom("abc");
+  (void)t_atom2.unify_atom(L"ABC");
+  (void)t_atom3.unify_functor(PlFunctor("f", 3));
+  (void)t_int1.unify_integer(123);
+  (void)t_int2.unify_integer(666);
+  (void)t_int2b.unify_integer(0);
+  (void)p_size.unify_integer(sizeof t_var);
+  (void)t_float.unify_float(1.23);
+  (void)t_ptr.unify_pointer(&t_var);
 
-  p01.unify_term_check(p02);
-  p01.unify_atom_check(PlAtom("an atom"));
-  p01.unify_atom_check("chars");
-  p01.unify_atom_check(L"CHARS");
-  p01.unify_integer_check(1);
-  p01.unify_integer_check(2);
-  p01.unify_integer_check(3);
-  p01.unify_integer_check(sizeof p01);
-  p01.unify_float_check(3.14159);
-  p01.unify_functor_check(PlFunctor("f", 3));
-  p01.unify_pointer_check(&p01);
-  s01.unify_atom_check(x01);
-  s01.unify_term_check(s01);
-  s02.unify_term_check(s01);
-  s03.unify_term_check(s03);
+  return true;
+}
+
+PREDICATE(unify_int_set, 1)
+{ int           i_int           = 0;
+  unsigned      i_unsigned      = 0;
+  long          i_long          = 0;
+  unsigned long i_unsigned_long = 0;
+  size_t        i_size          = 0;
+  int32_t       i_int32         = 0;
+  uint32_t      i_uint32        = 0;
+  int64_t       i_int64         = 0;
+  uint64_t      i_uint64        = 0;
+
+  PlCheck(A1.unify_integer(i_int));
+  PlCheck(A1.unify_uint64(i_unsigned));
+  PlCheck(A1.unify_integer(i_long));
+  PlCheck(A1.unify_uint64(i_unsigned_long));
+  PlCheck(A1.unify_uint64(i_size)); // TODO: unify_size_t(...)
+  PlCheck(A1.unify_integer(i_int32));
+  PlCheck(A1.unify_uint64(i_uint32));
+  PlCheck(A1.unify_int64(i_int64));   // TODO: unify_integer(...)
+  PlCheck(A1.unify_uint64(i_uint64)); // TODO: unify_integer(...)
 
   return true;
 }
 
 // The following are for verifying some documentation details.
 
-PREDICATE(c_PL_unify_nil, 1)          { return PL_unify_nil(A1.C_); }
+PREDICATE(c_PL_unify_nil, 1)          { return static_cast<foreign_t>(PL_unify_nil(A1.C_)); }
 
 PREDICATE(cpp_unify_nil, 1)           { return A1.unify_nil(); }
 
 PREDICATE(check_c_PL_unify_nil, 1)    { PlCheck(PL_unify_nil(A1.C_));    return true; }
 
-PREDICATE(cpp_unify_nil_check, 1)     { A1.unify_nil_check();            return true; }
-
 // Repeat the above 4, for *_ex():
 
-PREDICATE(c_PL_unify_nil_ex, 1)       { return PL_unify_nil_ex(A1.C_); }
+PREDICATE(c_PL_unify_nil_ex, 1)       { return static_cast<foreign_t>(PL_unify_nil_ex(A1.C_)); }
 
 PREDICATE(cpp_unify_nil_ex, 1)        { return A1.unify_nil_ex(); }
 
 PREDICATE(check_c_PL_unify_nil_ex, 1) { PlCheck(PL_unify_nil_ex(A1.C_)); return true; }
 
-PREDICATE(cpp_unify_nil_ex_check, 1)  { A1.unify_nil_ex_check();         return true; }
 
 
-
-PREDICATE(c_PL_get_nil, 1)            { return PL_get_nil(A1.C_); }
+PREDICATE(c_PL_get_nil, 1)            { return static_cast<foreign_t>(PL_get_nil(A1.C_)); }
 
 PREDICATE(cpp_as_nil, 1)              { A1.as_nil();                     return true; }
 
@@ -537,10 +580,153 @@ PREDICATE_NONDET(range_cpp, 3)
     return false;
 
   ctxt->i += 1;
-  if ( ctxt->i == ctxt->high )
+  if ( ctxt->i >= ctxt->high )
     return true; // Last result: succeed without a choice point
 
   ctxt.keep();
   PL_retry_address(ctxt.get()); // Succeed with a choice point
 }
 
+
+
+// For benchmarking `throw PlThrow()` vs `return false`
+// Times are given for 10 million failures
+// e.g.: time((between(1,10000000,X), unify_zero_0(X))).
+
+// 0.68 sec
+static foreign_t
+unify_zero_0(term_t a1)
+{ return static_cast<foreign_t>(PL_unify_integer(a1, 0));
+}
+
+// If you wish to use the C-style install_cpp4pl() style instead, you
+// need to use extern "C" to ensure that names don't get mangled.
+// So, it's easier to use the PlRegister class (which might need
+// modification to more than one argument).
+
+static PlRegister _x_unify_zero_4_1(nullptr, "unify_zero_0", unify_zero_0);
+
+// 0.68 sec
+PREDICATE(unify_zero_1, 1)
+{ if ( !PL_unify_integer(A1.C_, 0) )
+    return false;
+  return true;
+}
+
+// 10.9 sec
+PREDICATE(unify_zero_2, 1)
+{ if ( !PL_unify_integer(A1.C_, 0) )
+    throw PlFail();
+  return true;
+}
+
+// 13.5 sec
+PREDICATE(unify_zero_3, 1)
+{ PlCheck( PL_unify_integer(A1.C_, 0) );
+  return true;
+}
+
+// 15.1 sec
+PREDICATE(unify_zero_4, 1)
+{ PlCheck(A1.unify_integer(0));
+  return true;
+}
+
+// 0.71 sec
+PREDICATE(unify_zero_5, 1)
+{ return A1.unify_integer(0);
+}
+
+// end of benchmarking predicates
+
+
+// Predicates for checking native integer handling
+
+#define DECLS \
+  X("int",           int,           INT_MIN,               INT_MAX)    \
+  X("unsigned",      unsigned,      0,                     UINT_MAX)   \
+  X("long",          long,          LONG_MIN,              LONG_MAX)   \
+  X("unsigned long", unsigned long, 0,                     ULONG_MAX)  \
+  X("size_t",        size_t,        0,                     SIZE_MAX) \
+  X("int32_t",       int32_t,       INT32_MIN,             INT32_MAX) \
+  X("uint32_t",      uint32_t,      0,                     UINT32_MAX) \
+  X("uint64_t",      uint64_t,      0,                     UINT64_MAX) \
+  X("int64_t",       int64_t,       INT64_MIN,             INT64_MAX) \
+  X("intptr_t",      intptr_t,      INTPTR_MIN,            INTPTR_MAX) \
+  X("uintptr_t",     uintptr_t,     0,                     UINTPTR_MAX)
+
+#define X(name, x_type, x_min, x_max)  \
+    {name, \
+     PlCompound("int_info", \
+                PlTermv(PlTerm_atom(name), \
+                        PlTerm_size_t(sizeof (x_type)), \
+                        PlTerm_int64(x_min), \
+                        PlTerm_uint64(x_max))).record() },
+
+typedef std::map<const std::string, record_t> IntInfo;
+
+static const IntInfo int_info = { DECLS };
+#undef X
+
+struct IntInfoContext
+{ IntInfo::const_iterator it;
+  explicit IntInfoContext()
+    : it(int_info.cbegin()) { }
+};
+
+static bool
+int_info_(const std::string name, PlTerm result)
+{ const auto it = int_info.find(name);
+  if ( it == int_info.cend() )
+    return false;
+
+  PlTerm t = PlTerm_recorded(it->second);
+  return PlRewindOnFail([result,t]() -> bool { return result.unify_term(t); });
+}
+
+PREDICATE_NONDET(int_info, 2)
+{ PlForeignContextPtr<IntInfoContext> ctxt(handle);
+  if ( A1.is_variable() )
+  { switch( PL_foreign_control(handle) )
+    { case PL_FIRST_CALL:
+        ctxt.set(new IntInfoContext());
+        break;
+      case PL_REDO:
+        break;
+      case PL_PRUNED:
+        return true;
+      default:
+        assert(0);
+        return false;
+    }
+    while ( ctxt->it != int_info.cend() )
+    { if ( int_info_(ctxt->it->first, A2 ) )
+      { PlCheck(A1.unify_atom(ctxt->it->first));
+        ctxt->it++;
+        if ( ctxt->it == int_info.cend() )
+          return true; // Last result: no choice point
+        ctxt.keep();
+        PL_retry_address(ctxt.get()); // Succeed with choice point
+      }
+      ctxt->it++;
+    }
+    return false;
+  } else
+  { return int_info_(A1.string(), A2);
+  }
+}
+
+
+// Re-implementing w_atom_ffi_/2 in ffi4pl.c:
+
+PREDICATE(w_atom_cpp_, 2)
+{ auto stream = A1, t = A2;
+  IOSTREAM* s;
+  PlCheck(PL_get_stream(stream.C_, &s, SIO_INPUT));
+  { PlStringBuffers string_buffers;
+    size_t len;
+    const pl_wchar_t *sa = PL_atom_wchars(t.atom().C_, &len);
+    Sfprintf(s, "/%Ws/%zd", sa, len);
+  }
+  return TRUE;
+}

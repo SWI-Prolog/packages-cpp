@@ -354,6 +354,10 @@ test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
                     true]) :-
     eq3(X, f(X)).
 
+% TODO: Add tests for as_string(enc), such as enc=EncLatin1 and atom is non-ascii
+%       ... for PlTerm::as_string() where term isn't an atom
+
+
 % Tests from test_ffi.pl, for functions translated from ffi4pl.c:
 
 test(range_cpp1, all(X == [1,2])) :-
@@ -396,6 +400,15 @@ test(wchar_1, all(Result == ["//0", "/ /1",
     ;   w_atom_cpp('хелло 世界',   Result)
     ;   w_atom_cpp('網目錦へび [àmímé níshíkíhéꜜbì]', Result)
     ).
+
+% TODO: decouple this test from message hooks
+%       ('$messages':message_to_string/2 or print_message/'$write_on_string'/2):
+test(type_error_string, S == "Type error: `foofoo' expected, found `'foo-bar'' (an atom)") :-
+    type_error_string('foo-bar', S, T),
+    assertion(unifiable(T, error(type_error(foofoo,'foo-bar'),A), [A=B])),
+    assertion(var(A)),
+    assertion(var(B)),
+    assertion(A\==B).
 
 :- end_tests(cpp).
 

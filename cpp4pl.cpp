@@ -60,7 +60,6 @@ how the various predicates can be called from Prolog.
 #include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
 #include <iostream>
-#include <unistd.h>
 #include <math.h>
 #include <cassert>
 #include <string>
@@ -69,15 +68,29 @@ using namespace std;
 
 
 PREDICATE(hello, 1)
-{ cout << "Hello " << A1.c_str() << endl;
-  cout << "Hello " << A1.string() << endl; /* Same output as previous line */
+{ cout << "Hello " << A1.as_string() << endl;
+  cout << "Hello " << A1.as_string().c_str() << endl; // Same output as previous line
+  cout << "Hello " << A1.as_string(EncLatin1).c_str() << endl; // Also same, if it's ASCII
+  cout << "Hello " << A1.as_string(EncUTF8).c_str() << endl;
+  cout << "Hello " << A1.as_string(EncLocale).c_str() << endl; // Can vary by locale settings
 
   return true;
 }
 
 PREDICATE(hello2, 1)
 { PlAtom atom_a1(A1);
-  cout << "Hello2 " << atom_a1.string() << endl; /* Same output as hello/1 */
+  // The following have the same output as hello/1, if A1 is an atom
+  cout << "Hello2 " << atom_a1.as_string() << endl;
+  cout << "Hello2 " << A1.as_string().c_str() << endl;
+  cout << "Hello2 " << A1.as_string(EncLatin1).c_str() << endl;
+  cout << "Hello2 " << A1.as_string(EncUTF8).c_str() << endl;
+  cout << "Hello2 " << A1.as_string(EncLocale).c_str() << endl;
+  return true;
+}
+
+PREDICATE(hello2, 2)
+{ PlAtom atom_a1(A1);
+  PlCheck(A2.unify_string(atom_a1.as_string(EncUTF8)));
   return true;
 }
 
@@ -90,7 +103,8 @@ PREDICATE(hello3, 1)
   // If %s is used, an error will occur if A1 has a non-ascii
   // character in it. In addition, a NUL ('\0') in the atom will cause
   // the rest of the atom to not be printed.
-  if ( Sfprintf(Suser_output, "Hello3 %Ws\n", atom_a1.wc_str()) > 0 )
+
+  if ( Sfprintf(Suser_output, "Hello3 %Ws\n", atom_a1.as_wstring().c_str()) > 0 )
     return true;
   return false;
 }
@@ -110,7 +124,7 @@ PREDICATE(add_num, 3)
 }
 
 PREDICATE(name_arity, 1)
-{ cout << "name = " << A1.name() << ", arity = " << A1.arity() << endl;
+{ cout << "name = " << A1.name().as_string() << ", arity = " << A1.arity() << endl;
 
   return true;
 }
@@ -131,7 +145,7 @@ PREDICATE(list_modules, 0)
 
   PlQuery q("current_module", av);
   while( q.next_solution() )
-    cout << av[0].string() << endl;
+    cout << av[0].as_string() << endl;
 
   return true;
 }
@@ -168,13 +182,13 @@ PREDICATE(term, 2)
 
   if ( a.C_ == ATOM_atom.C_ )
     return A2.unify_atom("hello world"); // or A2.unify_term(PlAtom("hello world"));
-  if ( A1.string() == "string" )
+  if ( A1.as_string() == "string" )
     return A2.unify_string("hello world");
-  if ( A1.string() == "code_list" )
+  if ( A1.as_string() == "code_list" )
     return A2.unify_list_codes("hello world");
-  if ( A1.string() == "char_list" )
+  if ( A1.as_string() == "char_list" )
     return A2.unify_list_chars("hello world");
-  if ( A1.string() == "term" )
+  if ( A1.as_string() == "term" )
     return A2.unify_term(PlCompound("hello(world)"));
 
   throw PlDomainError("type", A1);
@@ -208,7 +222,7 @@ PREDICATE(write_list, 1)
   PlTerm_var e;
 
   while(tail.next(e))
-    cout << e.string() << endl;
+    cout << e.as_string() << endl;
 
   return true;
 }
@@ -228,10 +242,10 @@ PREDICATE(cappend, 3)
 
 PREDICATE(call_atom, 1)
 { try
-  { return static_cast<foreign_t>(PlCall(A1.wc_str())); // TODO: PlCall(A1.wstring())
+  { return static_cast<foreign_t>(PlCall(A1.as_wstring().c_str())); // TODO: PlCall(A1.wstring())
   } catch ( PlTypeError &ex )
   { cerr << "Type Error caught in C++" << endl;
-    cerr << "Message: \"" << ex.string() << "\"" << endl;
+    cerr << "Message: \"" << ex.as_string() << "\"" << endl;
     throw;
   }
 }
@@ -271,7 +285,7 @@ PREDICATE(malloc, 2)
 }
 
 PREDICATE(free, 1)
-{ void *ptr = A1.pointer();
+{ void *ptr = A1.as_pointer();
   free(ptr);
   return true;
 }
@@ -282,7 +296,7 @@ PREDICATE(new_chars, 2)
 }
 
 PREDICATE(delete_chars, 1)
-{ char *ptr = static_cast<char *>(A1.pointer());
+{ char *ptr = static_cast<char *>(A1.as_pointer());
   delete[] ptr;
   return true;
 }
@@ -334,19 +348,19 @@ PREDICATE(make_my_object, 1)
 }
 
 PREDICATE(my_object_contents, 2)
-{ auto myobj = static_cast<MyClass*>(A1.pointer());
+{ auto myobj = static_cast<MyClass*>(A1.as_pointer());
   return A2.unify_string(myobj->contents);
 }
 
 PREDICATE(free_my_object, 1)
-{ auto myobj = static_cast<MyClass*>(A1.pointer());
+{ auto myobj = static_cast<MyClass*>(A1.as_pointer());
 
   delete myobj;
   return true;
 }
 
 PREDICATE(make_functor, 3)  // make_functor(foo, x, foo(x))
-{ auto f = PlFunctor(A1.atom().c_str(), 1);
+{ auto f = PlFunctor(A1.as_atom().as_string().c_str(), 1);
   return A3.unify_functor(f) &&
     A3[1].unify_term(A2);
 }
@@ -420,14 +434,12 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom atom4(std::wstring(L"原子4"));
   // PlAtom a5(t_atom1); // TODO: why doesn't this work?
   PlAtom atom_null;
-  const char *   x01 = t_var.c_str();
-  const wchar_t *x01a = t_var.wc_str();
-  const char *   x02 = atom1.c_str();
-  const wchar_t *x02a = atom2.wc_str();
-  const std::string s01 = atom3.string();
-  const std::wstring s01b = atom4.wstring();
-  const std::string s02a = t_var.string();
-  const std::wstring s02b = t_var.wstring();
+  const char *   x01 = t_var.as_string().c_str();
+  const wchar_t *x01a = t_var.as_wstring().c_str();
+  const std::string s01 = atom3.as_string();
+  const std::wstring s01b = atom4.as_wstring();
+  const std::string s02a = t_var.as_string();
+  const std::wstring s02b = t_var.as_wstring();
   atom1.register_ref();
   atom1.unregister_ref();
   { int v1;
@@ -450,18 +462,16 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   bool           x10 = t_var.as_bool();
   double         x11 = t_var.as_float();
   double         x12 = t_var.as_double();
-  PlAtom         x13 = t_var.atom();
-  void *         x14 = t_var.pointer();
+  PlAtom         x13 = t_var.as_atom();
+  void *         x14 = t_var.as_pointer();
   PlTerm         x20 = t_var[1];
   size_t         x21 = t_var.arity();
-  const char *   x22 = t_var.name();
+  PlAtom         x22 = t_var.name();
 
   // TODO: add comparisons, etc.
 
   (void)x01;
   (void)x01a;
-  (void)x02;
-  (void)x02a;
   // TODO: std::string string() const;
   (void)x04;
   (void)x05;
@@ -712,8 +722,17 @@ PREDICATE_NONDET(int_info, 2)
     }
     return false;
   } else
-  { return int_info_(A1.string(), A2);
+  { return int_info_(A1.as_string(), A2);
   }
+}
+
+
+PREDICATE(type_error_string, 3)
+{ PlException e(PlTypeError("foofoo", A1));
+  std::wstring msg(e.as_wstring());
+  PlCheck(A2.unify_string(msg));
+  PlCheck(A3.unify_term(e));
+  return true;
 }
 
 
@@ -723,9 +742,9 @@ PREDICATE(w_atom_cpp_, 2)
 { auto stream = A1, t = A2;
   IOSTREAM* s;
   PlCheck(PL_get_stream(stream.C_, &s, SIO_INPUT));
-  { PlStringBuffers string_buffers;
+  { PlStringBuffers _string_buffers;
     size_t len;
-    const pl_wchar_t *sa = PL_atom_wchars(t.atom().C_, &len);
+    const pl_wchar_t *sa = PL_atom_wchars(t.as_atom().C_, &len);
     Sfprintf(s, "/%Ws/%zd", sa, len);
   }
   return TRUE;

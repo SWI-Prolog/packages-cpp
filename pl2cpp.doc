@@ -87,13 +87,25 @@ More specifically:
 \item
     The "cast" operators (e.g., \exam{(char*)t}, \exam{(int64_t)t})
     have been deprecated, replaced by "getters" (e.g.,
-    \exam{t.c_str()}, \exam{t.as_int64_t()}).\footnote{The form
+    \exam{t.as_string()}, \exam{t.as_int64_t()}).\footnote{The form
     \exam{(char*)t} is a C-style cast; the preferred form in C++ is
     more verbose: \exam{static_cast<char*>(t)}.}
   \item
     The overloaded assignment operator for unification is deprecated;
     replaced by unify_term(), unify_atom(), etc., and the helper
     PlCheck().
+  \item
+    Methods that return \ctype{char*} have been replaced by methods
+    that return \ctype{std::string} to ensure that lifetime issues
+    don't cause subtle bugs.\footnote{If you want to
+    return a \ctype{char*} from a function, you should not do
+    \exam{return t.as_string().c_str()} because that will return
+    a pointer to local or stack memory. Instead, you will need to
+    change your interface to return a \ctype{std::string} and apply
+    the c_str{} method to it. These errors can \emph{sometimes} be caught by
+    specifying the Gnu C++ or Clang options \exam{-Wreturn-stack-address}
+    or \exam{-Wreturn-local-addr} - Clang seems to do a better
+    analysis.}
   \item
     Type-checking methods have been added: type(), is_variable(), is_atom(), etc.
   \item
@@ -450,7 +462,7 @@ and how a Prolog argument is converted to C-data:
 
 \begin{code}
 PREDICATE(hello, 1)
-{ cout << "Hello " << A1.string() << endl;
+{ cout << "Hello " << A1.as_string() << endl;
 
   return true;
 }
@@ -459,7 +471,9 @@ PREDICATE(hello, 1)
 The arguments to \cfuncref{PREDICATE}{} are the name and arity of the predicate.
 The macros A<n> provide access to the predicate arguments by position
 and are of the type \ctype{PlTerm}. The C or C++ string for a \ctype{PlTerm}
-can be extracted using c_str(), wc_str(), string(), or wstring() methods;
+can be extracted using as_string(), or as_wstring() methods;\footnote{The C-string
+values can be extracted from \ctype{std::string} by using c_str(), but you
+must be careful to not return a pointer to a local/stack value.}
 and similar access methods provide an easy type-conversion
 for most Prolog data-types, using the output of write/1 otherwise:
 
@@ -577,7 +591,7 @@ PREDICATE(add, 3)
 Version 2 is a bit more verbose:
 \begin{code}
 PREDICATE(hello, 1)
-{ cout << "Hello " << A1.string() << endl;
+{ cout << "Hello " << A1.as_string() << endl;
   return true;
 }
 
@@ -590,8 +604,10 @@ There are a few reasons for this:
 \begin{itemize}
   \item
     The C-style of casts is deprecated in C++, so the expression
-    \exam{(char *)A1} becomes the more verbose \exam{static_cast<char *>(A1)},
-    which is longer than \exam{A1.string()}.
+    \exam{(char *)A1} becomes the more verbose
+    \exam{static_cast<std::string>(A1)}, which is longer than
+    \exam{A1.as_string()}. Also, the string casts don't allow for
+    specifying encoding.
   \item
     The implicit constructors and conversion operators allowed
     directly calling the foreign language interface functions, for example:
@@ -666,8 +682,10 @@ Here is a list of typical changes:
   \item
     Examine uses of \ctype{char*} or \ctype{wchar_t} and replace them by
     \ctype{std::string} or \ctype{std::wstring} if appropriate.
-    For example, \exam{cout << "Hello " << A1.c_str() << endl}
-    can be replaced by \exam{cout << "Hello " << A1.string() << endl}.
+    For example, \exam{cout << "Hello " << A1.as_string.c_str()() << endl}
+    can be replaced by \exam{cout << "Hello " << A1.as_string() << endl}.
+    In general, \ctype{std::string} is safer than \ctyp{char*} because
+    the latter can potentially point to freed memory.
 
   \item
     Instead of returning \const{false} from a predicate for failure,
@@ -703,7 +721,7 @@ Here is a list of typical changes:
   \item
     The various "cast" operators have been deprecated or deleted;
     you should use the various "getter" methods. For example,
-    \exam{static_cast<char*>(t)} is replaced by \exam{t.c_str()};
+    \exam{static_cast<char*>(t)} is replaced by \exam{t.as_string().c_str()};
     \exam{static_cast<int32_t>(t)} is replaced by \exam{t.as_int32_t()}.
 
   \item
@@ -1492,13 +1510,24 @@ was created.
     \cfunction{void}{reset}{}
 Sets the handle to an invalid valid - a subsequent call to is_valid()
 will return \const{false}.
-    \cfunction{const char*}{c_str}{}
-    \nodescription
-    \cfunction{const wchar_t*}{wc_str}{}
-    \nodescription
-    \cfunction{const std:string}{string}{}
-    \nodescription
-    \cfunction{const std:string}{wstring}{}
+    \cfunction{const std:string}{as_string}{PlEncoding enc=EncLocale}
+Returns the string representation of the atom.\footnote{If you wish
+to return a \ctype{char*} from a function, you should not do
+\exam{return t.as_string().c_str()} because that will return a pointer
+into the stack (Gnu C++ or Clang options \exam{-Wreturn-stack-address}
+or \exam{-Wreturn-local-addr} can \emph{sometimes} catch this, as can
+the runtime address sanitizer when run with
+\exam{detect_stack_use_after_return=1}.}
+This does not
+quote or escape any characters that would need to be escaped
+if the atom were to be input to the Prolog parser. The possible values
+for \exam{enc} are:
+  \begin{itemize}
+    \item \exam{EncLatin1} - throws an exception if cannot be represented in ASCII.
+    \item \exam{EncUTF8}
+    \item \exam{EncLocale} - uses the locale to determine the representation.
+  \end{itemize}
+    \cfunction{const std:wstring}{as_wstring}{}
 Returns the string representation of the atom. This does not
 quote or escape any characters that would need to be escaped
 if the atom were to be input to the Prolog parser.

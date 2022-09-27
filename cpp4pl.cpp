@@ -717,6 +717,15 @@ PREDICATE_NONDET(int_info, 2)
 }
 
 
+PREDICATE(type_error_string, 3)
+{ PlException e(PlTypeError("foofoo", A1));
+  std::wstring msg(e.wstring());
+  PlCheck(A2.unify_string(msg));
+  PlCheck(A3.unify_term(e));
+  return true;
+}
+
+
 // Re-implementing w_atom_ffi_/2 in ffi4pl.c:
 
 PREDICATE(w_atom_cpp_, 2)

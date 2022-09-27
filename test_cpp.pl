@@ -397,6 +397,15 @@ test(wchar_1, all(Result == ["//0", "/ /1",
     ;   w_atom_cpp('網目錦へび [àmímé níshíkíhéꜜbì]', Result)
     ).
 
+% TODO: decouple this test from message hooks
+%       ('$messages':message_to_string/2 or print_message/'$write_on_string'/2):
+test(type_error_string, S == "Type error: `foofoo' expected, found `'foo-bar'' (an atom)") :-
+    type_error_string('foo-bar', S, T),
+    assertion(unifiable(T, error(type_error(foofoo,'foo-bar'),A), [A=B])),
+    assertion(var(A)),
+    assertion(var(B)),
+    assertion(A\==B).
+
 :- end_tests(cpp).
 
 w_atom_cpp(Atom, String) :-

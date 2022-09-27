@@ -681,10 +681,10 @@ public:
   // thin wrapper on term_t.
   [[nodiscard]] [[deprecated("c_str")]] operator const char *() const { return c_str(); }
   [[nodiscard]] [[deprecated("wc_str")]] operator const wchar_t *() const { return wc_str(); }
-  [[nodiscard]] const char *c_str() const { return string().c_str(); }
-  [[nodiscard]] const wchar_t *wc_str() const { return wstring().c_str(); }
-  [[nodiscard]] const std::string string() const;
-  [[nodiscard]] const std::wstring wstring() const;
+  [[nodiscard]] const char        *c_str(  ) const { return string_term().c_str(); }
+  [[nodiscard]] const wchar_t     *wc_str( ) const { return string_term().wc_str(); }
+  [[nodiscard]] const std::string  string( ) const { return string_term().string(); }
+  [[nodiscard]] const std::wstring wstring() const { return string_term().wstring(); }
 
   // plThrow() is for the try-catch in PREDICATE - returns the result
   // of PL_raise_exception() as a foreign_t (which is always `false`).
@@ -694,6 +694,9 @@ public:
 
   // Translate some common errors into specific subclasses
   PlException adjust_for_throw() const;
+
+private:
+  PlTerm string_term() const;
 };
 
 static inline void
@@ -1536,8 +1539,8 @@ PlTermv::operator [](size_t n) const
 		 *	EXCEPTIONS (BODY)       *
 		 *******************************/
 
-inline const std::string
-PlException::string() const
+inline PlTerm
+PlException::string_term() const
 { PlFrame fr;
 #ifdef USE_PRINT_MESSAGE
   PlTermv av(2);
@@ -1546,37 +1549,15 @@ PlException::string() const
                                       PlTermv("error", *this))));
   PlQuery q("$write_on_string", av);
   if ( q.next_solution() )
-    return av[1].string();
+    return av[1];
 #else
   PlTermv av(2);
   PlCheck(av[0].unify_term(*this));
   PlQuery q("$messages", "message_to_string", av);
   if ( q.next_solution() )
-    return av[1].string();
+    return av[1];
 #endif
-  return "[ERROR: Failed to generate message.  Internal error]\n";
-}
-
-
-inline const std::wstring
-PlException::wstring() const
-{ PlFrame fr;
-#ifdef USE_PRINT_MESSAGE
-  PlTermv av(2);
-
-  PlCheck(av[0].unify_term(PlCompound("print_message",
-                                      PlTermv("error", *this))));
-  PlQuery q("$write_on_string", av);
-  if ( q.next_solution() )
-    return av[1].wstring();
-#else
-  PlTermv av(2);
-  PlCheck(av[0].unify_term(PlTerm(*this)));
-  PlQuery q("$messages", "message_to_string", av);
-  if ( q.next_solution() )
-    return av[1].wstring();
-#endif
-  return L"[ERROR: Failed to generate message.  Internal error]\n";
+  return PlTerm_string("[ERROR: Failed to generate message.  Internal error]");
 }
 
 

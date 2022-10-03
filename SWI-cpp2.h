@@ -218,8 +218,8 @@ class PlAtom : public WrappedC<atom_t>
 public:
   PlAtom() : WrappedC<atom_t>() { } // Make constructor public
   explicit PlAtom(atom_t v) : WrappedC<atom_t>(v) { }
-  explicit PlAtom(const std::string& text) // TODO: add encoding
-    : WrappedC<atom_t>(PL_new_atom_nchars(text.size(), text.data()))
+  explicit PlAtom(const std::string& text, PlEncoding enc=ENC_INPUT)
+    : WrappedC<atom_t>(PL_new_atom_mbchars(enc, text.size(), text.data()))
   { verify();
   }
   explicit PlAtom(const std::wstring& text)
@@ -232,9 +232,23 @@ public:
 
   const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
   const std::wstring as_wstring() const
-  { size_t len;
+  { PlStringBuffers _string_bufers;
+    size_t len;
     const wchar_t *s = PL_atom_wchars(C_, &len);
     return std::wstring(s, len);
+  }
+
+  [[nodiscard]] int compare(const char *s, PlEncoding enc=ENC_INPUT) const
+  { PlStringBuffers _string_bufers;
+    char *t;
+    chk(PL_atom_mbchars(C_, NULL, &t, CVT_EXCEPTION|BUF_DISCARDABLE|enc));
+    return strcmp(t, s);
+  }
+  [[nodiscard]] int compare(const wchar_t *s, PlEncoding enc=ENC_INPUT) const
+  { PlStringBuffers _string_bufers;
+    const wchar_t *t = PL_atom_wchars(C_, NULL);
+    chk(t != nullptr);
+    return wcscmp(t, s);
   }
 
   [[nodiscard]] bool operator ==(const char *s) const

@@ -107,6 +107,7 @@ particularly integer conversions.
 class PlAtom;
 class PlTerm;
 class PlTermv;
+class PlException;
 void PlCheck(int rc);
 static void throw_PlException();
 
@@ -125,6 +126,14 @@ public:
 
 protected:
   void verify() const; // Throw exception if is_null()
+  bool chk(int rc) const
+  { if ( rc )
+      return rc;
+    term_t ex = PL_exception(0);
+    if ( ex )
+      throw PlException(ex);
+    return rc;
+  }
 
 public:
   WrappedC<C_t>() : C_(null) { }
@@ -145,6 +154,26 @@ typedef enum PlEncoding
 static const PlEncoding ENC_INPUT = EncLatin1; // TODO: EncUTF8?
 static const PlEncoding ENC_OUTPUT = EncLocale;
 
+		 /*******************************
+		 *  PL_STRINGS_{MARK,RELEASE}   *
+		 *******************************/
+
+class PlStringBuffers
+{
+private:
+  buf_mark_t __PL_mark;
+
+public:
+  explicit PlStringBuffers()
+  { // TODO: use PL_STRINGS_MARK()
+    PL_mark_string_buffers(&__PL_mark);
+  }
+
+  ~PlStringBuffers()
+  { // TODO: use PL_STRINGS_RELEASE()
+    PL_release_string_buffers_from_mark(__PL_mark);
+  }
+};
 
 		 /*******************************
 		 *	 PROLOG CONSTANTS	*
@@ -822,27 +851,6 @@ inline PlAtom
 PlFunctor::name() const
 { return PlAtom(PL_functor_name(C_));
 }
-
-		 /*******************************
-		 *  PL_STRINGS_{MARK,RELEASE}   *
-		 *******************************/
-
-class PlStringBuffers
-{
-private:
-  buf_mark_t __PL_mark;
-
-public:
-  explicit PlStringBuffers()
-  { // TODO: use PL_STRINGS_MARK()
-    PL_mark_string_buffers(&__PL_mark);
-  }
-
-  ~PlStringBuffers()
-  { // TODO: use PL_STRINGS_RELEASE()
-    PL_release_string_buffers_from_mark(__PL_mark);
-  }
-};
 
 
 		 /*******************************

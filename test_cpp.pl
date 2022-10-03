@@ -354,6 +354,10 @@ test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
                     true]) :-
     eq3(X, f(X)).
 
+% TODO: Add tests for as_string(enc), such as enc=EncLatin1 and atom is non-ascii
+%       ... for PlTerm::as_string() where term isn't an atom
+
+
 % Tests from test_ffi.pl, for functions translated from ffi4pl.c:
 
 test(range_cpp1, all(X == [1,2])) :-

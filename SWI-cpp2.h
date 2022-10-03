@@ -185,15 +185,17 @@ public:
   PlFunctor() : WrappedC<functor_t>() { }
   PlFunctor(functor_t v) : WrappedC<functor_t>(v) { }
   explicit PlFunctor(const std::string& name, size_t arity)
-  { atom_t a = PL_new_atom(name.c_str());
+  { atom_t a = PL_new_atom_nchars(name.size(), name.c_str());
     C_ = PL_new_functor(a, arity);
     verify();
     PL_unregister_atom(a);
   }
 
   explicit PlFunctor(const std::wstring& name, size_t arity)
-    : WrappedC<functor_t>(PL_new_functor(PL_new_atom_wchars(name.size(), name.c_str()), arity))
-  { verify();
+  { atom_t a = PL_new_atom_wchars(name.size(), name.c_str());
+    C_ = PL_new_functor(a, arity);
+    verify();
+    PL_unregister_atom(a);
   }
 
   bool operator ==(functor_t to) = delete;

@@ -18,9 +18,8 @@
 \begin{document}
 
 \title{A C++ interface to SWI-Prolog}
-\author{Jan Wielemaker \\
-	VU University of Amsterdam \\
-	The Netherlands \\
+\author{Jan Wielemaker \& Peter Ludemann \\
+	SWI-Prolog Solutions b.v. \\
 	E-mail: \email{jan@swi-prolog.org}}
 
 \maketitle
@@ -33,6 +32,24 @@ provides a true C++ layer around the C-interface for much more concise
 and natural programming from C++. The interface deals with automatic
 type-conversion to and from native C data-types, transparent mapping of
 exceptions, making queries to Prolog and registering foreign predicates.
+
+At this moment there are \textbf{two} versions of the C++ interface.
+
+\begin{itemize}
+    \item Version 1 is implemented by \file{SWI-cpp.h} and described
+          in \chapref{cpp}.  This version is old, suffers from several
+	  ambiguities, covers only the core part of the C interface and
+	  does not support character encoding issues, which implies
+	  \ctype{char*} can only be used to exchange text in ISO-Latin-1
+	  encoding.  We hope to deprecate this interface soon.
+    \item Version 2 is implemented by \file{SWI-cpp2.h} and described
+          in \chapref{cpp2}.  This is a much more mature C++ interface
+	  has been designed and implemented by Peter Ludemann.  We plan
+	  to make this the preferred interface soon.  There are still
+	  several issues that need to be resolved before this can
+	  happen, notably related to handling text encoding.
+\end{itemize}
+
 \end{abstract}
 
 \vfill
@@ -45,6 +62,9 @@ exceptions, making queries to Prolog and registering foreign predicates.
 \tableofcontents
 
 \newpage
+
+\chapter{A C++ interface to SWI-Prolog (Version 1)}
+\label{sec:cpp}
 
 \section{Introduction}
 \label{sec:cpp-intro}
@@ -1202,6 +1222,8 @@ little extra resources in terms of time and memory.
 Especially the smooth integration between C++ and Prolog exceptions
 reduce the coding effort for type checking and reporting in foreign
 predicates.
+
+\input{pl2cpp2}
 
 \printindex
 

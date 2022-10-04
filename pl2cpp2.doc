@@ -1,56 +1,8 @@
-\documentclass[11pt,a4paper]{article}
-\usepackage{times}
-\usepackage{pl}
-\usepackage{plpage}
-%\usepackage{xpce}
-\usepackage{html}
-\sloppy
-
-\onefile
-\htmloutput{.}					% Output directory
-\htmlmainfile{pl2cpp}				% Main document file
-\bodycolor{white}				% Page colour
-
-\renewcommand{\runningtitle}{A C++ interface to SWI-Prolog}
-
-\makeindex
-
-\begin{document}
-
-\title{A C++ interface to SWI-Prolog (Version 2)}
-\author{Jan Wielemaker \\
-	VU University of Amsterdam \\
-	The Netherlands \\
-	E-mail: \email{jan@swi-prolog.org}}
-
-\maketitle
-
-\begin{abstract}
-This document describes a C++ interface to SWI-Prolog. SWI-Prolog could
-be used with C++ for a very long time, but only by calling the
-\exam{extern "C"}
-functions of the C-interface. The interface described herein
-provides a true C++ layer around the C-interface for much more concise
-and natural programming from C++. The interface deals with
-type-conversion to and from native C data-types, transparent mapping of
-exceptions, making queries to Prolog and registering foreign predicates.
-Performance is essentially the same as using the native C data-types
-and functions.
-\end{abstract}
-
-\vfill
-
-\vfill
-\vfill
-
-\newpage
-
-\tableofcontents
-
-\newpage
+\chapter{A C++ interface to SWI-Prolog (Version 2)}
+\label{sec:cpp2}
 
 \section{Summary of changes between Versions 1 and 2}
-\label{sec:summary-cpp-changes}
+\label{sec:summary-cpp2-changes}
 
 Version 1 is in \file{SWI-cpp.h}; version 2 is in \file{SWI-cpp2.h}.
 
@@ -137,10 +89,11 @@ More specifically:
     strings on the stack than PL_STRINGS_MARK() and PL_STRINGS_RELEASE().
 \end{itemize}
 
-More details are given in \secref{cpp-rationale} and \secref{cpp-porting-1-2}.
+More details are given in \secref{cpp2-rationale} and
+\secref{cpp2-porting-1-2}.
 
-\section{Introduction}
-\label{sec:cpp-intro}
+\section{Introduction (version 2)}
+\label{sec:cpp2-intro}
 
 C++ provides a number of features that make it possible to define a
 more natural and concise interface to dynamically typed languages than
@@ -170,24 +123,16 @@ subtle bugs, by using "getter" methods rather than conversion
 operators, and using naming conventions for explicitly specifying
 constructors.
 
-\subsection{Competing interfaces}
-\label{sec:cpp-competing-interfaces}
-
-Volker Wysk has defined an alternative C++ mapping based on templates
-and compatible to the STL framework.  See
-\url{http://www.volker-wysk.de/swiprolog-c++/index.html}.
-
-
-\subsection{Acknowledgements}
-\label{sec:cpp-acknowledgements}
+\subsection{Acknowledgements (version 2)}
+\label{sec:cpp2-acknowledgements}
 
 I would like to thank Anjo Anjewierden for comments on the definition,
 implementation and documentation of this package. Peter Ludemann
 modified the interface to remove some pitfalls, and also added
-some convenience functions (see \secref{summary-cpp-changes}).
+some convenience functions (see \secref{summary-cpp2-changes}).
 
-\section{The life of a PREDICATE}
-\label{sec:cpp-life-of-a-predicate}
+\section{The life of a PREDICATE  (version 2)}
+\label{sec:cpp2-life-of-a-predicate}
 
 A foreign predicate is defined using the \cfuncref{PREDICATE}{}
 macro.\footnote{Plus a few variations on this, such as
@@ -238,8 +183,8 @@ PREDICATE(eq, 2)
 \end{code}
 
 
-\section{Overview}
-\label{sec:cpp-overview}
+\section{Overview  (version 2)}
+\label{sec:cppd-overview}
 
 The most useful area for exploiting C++ features is type-conversion.
 Prolog variables are dynamically typed and all information is passed
@@ -261,7 +206,7 @@ Data Types}).
 This is a "base class" whose constructor is
 protected; subclasses specify the actual contents. Additional methods
 allow checking the Prolog type, unification, comparison, conversion to
-native C++-data types, etc. See \secref{cpp-plterm-casting}.
+native C++-data types, etc. See \secref{cpp2-plterm-casting}.
 
 The subclass constructors are as follows. If a constructor fails
 (e.g., out of memory), a \ctype{PlException} is thrown.
@@ -369,8 +314,8 @@ use C++ global constructors for registering foreign predicates.
 The required C++ function header and registration of a predicate
 is arranged through a macro called \cfuncref{PREDICATE}{}.
 
-\subsection{Naming conventions, utility functions and methods}
-\label{sec:cpp-naming}
+\subsection{Naming conventions, utility functions and methods (version 2)}
+\label{sec:cpp2-naming}
 
 The classes all have names starting with "Pl", using CamelCase;
 this contrasts with the C functions that start with "PL_" and
@@ -447,15 +392,15 @@ cause any problems, but care must be used with the various
 getters for integers.
 
 
-\section{Examples}
-\label{sec:cpp-examples}
+\section{Examples  (version 2)}
+\label{sec:cpp2-examples}
 
 Before going into a detailed description of the C++ classes we present
 a few examples illustrating the `feel' of the interface.
 
 
-\subsection{Hello(World)}
-\label{sec:cpp-hello-world}
+\subsection{Hello(World)  (version 2)}
+\label{sec:cpp2-hello-world}
 
 This simple example shows the basic definition of the predicate hello/1
 and how a Prolog argument is converted to C-data:
@@ -488,8 +433,8 @@ Hello _G170
 X = _G170
 \end{code}
 
-\subsection{Adding numbers}
-\label{sec:cpp-ex-adding-numbers}
+\subsection{Adding numbers  (version 2)}
+\label{sec:cpp2-ex-adding-numbers}
 
 This example shows arithmetic using the C++ interface, including
 unification, type-checking, and conversion.  The predicate add/3 adds
@@ -530,8 +475,8 @@ X = 3.
 \end{code}
 
 
-\subsection{Average of solutions}
-\label{sec:cpp-ex-average}
+\subsection{Average of solutions (version 2)}
+\label{sec:cpp2-ex-average}
 
 This example is a bit harder. The predicate average/3 is defined to take
 the template \mbox{average(+Var, :Goal, -Average)}, where \arg{Goal}
@@ -572,8 +517,8 @@ true.
 Average = 10.333333333333334.
 \end{code}
 
-\section{Rational for changes from version 1}
-\label{sec:cpp-rationale}
+\section{Rational for changes from version 1 (version 2)}
+\label{sec:cpp2-rationale}
 
 The original version of the C++ interface heavily used implicit
 constructors and conversion operators. This allowed, for example:
@@ -611,24 +556,24 @@ There are a few reasons for this:
   \item
     The implicit constructors and conversion operators allowed
     directly calling the foreign language interface functions, for example:
-    \begin{code}
-    PlTerm t;
-    Pl_put_atom_chars(t, "someName");
-    \end{code}
+\begin{code}
+PlTerm t;
+Pl_put_atom_chars(t, "someName");
+\end{code}
     whereas this is now required:
-    \begin{code}
-    PlTerm t;
-    Pl_put_atom_chars(t.as_term_t(), "someName");
-    \end{code}
+\begin{code}
+PlTerm t;
+Pl_put_atom_chars(t.as_term_t(), "someName");
+\end{code}
     However, this is mostly avoided by methods and constructors that
     wrap the foreign language functions:
-    \begin{code}
-    PlTerm_atom t("someName");
-    \end{code}
+\begin{code}
+PlTerm_atom t("someName");
+\end{code}
     or
-    \begin{code}
-    auto t = PlTerm_atom("someName");
-    \end{code}
+\begin{code}
+auto t = PlTerm_atom("someName");
+\end{code}
   \item
     The implicit constructors and conversion operators, combined with
     the C++ conversion rules for integers and floats, could sometimes
@@ -662,7 +607,7 @@ marked as "deprecated"; code that depends on the parts that have been
 removed can be easily changed to use the new interface.
 
 \section{Porting from version 1 to version 2}
-\label{sec:cpp-porting-1-2}
+\label{sec:cpp2-porting-1-2}
 
 The easiest way of porting from \file{SWI-cpp.h} to \file{SWI-cpp2.h}
 is to change the \exam{#include "SWI-cpp.h"} to \exam{#include "SWI-cpp2.h"}
@@ -732,8 +677,8 @@ Here is a list of typical changes:
 
 \end{itemize}
 
-\section{The class PlFail}
-\label{sec:cpp-plfail}
+\section{The class PlFail (version 2)}
+\label{sec:cpp2-plfail}
 
 The \ctype{PlFail} class is used for short-circuiting a function when
 failure or an exception occurs and any errors will be handled in the
@@ -799,15 +744,15 @@ function, \cfuncref{PlCheck}{} can be used to return failure
 to Prolog from the "PL_" function.
 
 
-\section{The class PlTerm}
-\label{sec:cpp-plterm}
+\section{The class PlTerm (version 2)}
+\label{sec:cpp2-plterm}
 
 As we have seen from the examples, the \ctype{PlTerm} class plays a
 central role in conversion and operating on Prolog data. This section
 provides complete documentation of this class.
 
-\subsection{Constructors}
-\label{sec:cpp-plterm-constructurs}
+\subsection{Constructors (version 2)}
+\label{sec:cpp2-plterm-constructurs}
 
 The constructors are defined as subclasses of \ctype{PlTerm}, with
 a name that reflects the Prolog type of what is being created
@@ -870,8 +815,8 @@ PREDICATE(free_my_object, 1)
 \end{code}
 \end{description}
 
-\subsection{Overview of accessing and changing values}
-\label{sec:cpp-plterm-get-put-unify}
+\subsection{Overview of accessing and changing values (version 2)}
+\label{sec:cpp2-plterm-get-put-unify}
 
 The \file{SWI-Prolog.h} header provides various functions for
 accessing, setting, and unifying terms, atoms and other types.
@@ -914,8 +859,8 @@ to worry about this; instead they can \exam{throw PlFail()} for
 failure or \exam{throw PlException()} (or one of \ctype{PlException}'s
 subclasses) and the C++ API will take care of everything.
 
-\subsection{Converting PlTerm to native C and C++ types}
-\label{sec:cpp-plterm-casting}
+\subsection{Converting PlTerm to native C and C++ types (version 2)}
+\label{sec:cpp2-plterm-casting}
 
 These are \emph{deprecated} and replaced by the various \exam{as_*()} methods.
 
@@ -970,10 +915,10 @@ methods that check the type:
   \cfunction{bool}{is_functor}{PlFunctor} See PL_is_functor()
 \end{description}
 
-\subsection{Unification}
-\label{sec:cpp-plterm-unification}
+\subsection{Unification (version 2)}
+\label{sec:cpp2-plterm-unification}
 
-See also \secref{cpp-foreign-frame}.
+See also \secref{cpp2-foreign-frame}.
 
 \begin{description}
     \cfunction{bool}{PlTerm::unify_term}{PlTerm}
@@ -1069,8 +1014,8 @@ PREDICATE(hostname2, 1)
 \end{code}
 
 
-\subsection{Comparison}
-\label{sec:cpp-plterm-comparison}
+\subsection{Comparison (version 2)}
+\label{sec:cpp2-plterm-comparison}
 
 \begin{description}
     \cfunction{int}{PlTerm::compare}{const PlTerm& t2}
@@ -1140,8 +1085,8 @@ manipulation of atoms in their internal representation.
 \end{center}
 
 
-\subsection{Analysing compound terms}
-\label{sec:cpp-plterm-compound}
+\subsection{Analysing compound terms (version 2)}
+\label{sec:cpp2-plterm-compound}
 
 Compound terms can be viewed as an array of terms with a name and arity
 (length). This view is expressed by overloading the \const{[]} operator.
@@ -1178,8 +1123,8 @@ Returns the arity of the compound term. Raises a \except{type_error} if
 the argument is not compound.
 \end{description}
 
-\subsection{Miscellaneous}
-\label{sec:cpp-plterm-misc}
+\subsection{Miscellaneous (version 2)}
+\label{sec:cpp2-plterm-misc}
 
 \begin{description}
     \cfunction{bool}{is_null}{}
@@ -1201,8 +1146,8 @@ possible undesirable effects a number of subclasses of \ctype{PlTerm}
 have been defined that provide constructors for creating special Prolog
 terms.  These subclasses are defined below.
 
-\subsection{The class PlTermString}
-\label{sec:cpp-plstring}
+\subsection{The class PlTermString (version 2)}
+\label{sec:cpp2-plstring}
 
 A SWI-Prolog string represents a byte-string on the global stack.  Its
 lifetime is the same as for compound terms and other data living on
@@ -1227,8 +1172,8 @@ Create a SWI-Prolog string object from a C-string with specified length.
 The \arg{text} may contain 0-characters and is copied.
 \end{description}
 
-\subsection{The class PlCodeList}
-\label{sec:cpp-codelist}
+\subsection{The class PlCodeList (version 2)}
+\label{sec:cpp2-codelist}
 
 \begin{description}
     \constructor{PlCodeList}{const wchar_t *text}
@@ -1238,8 +1183,8 @@ Create a Prolog list of ASCII codes from a 0-terminated C-string.
 \end{description}
 
 
-\subsection{The class PlCharList}
-\label{sec:cpp-plcharlist}
+\subsection{The class PlCharList (version 2)}
+\label{sec:cpp2-plcharlist}
 
 Character lists are compliant to Prolog's atom_chars/2 predicate.
 
@@ -1252,8 +1197,8 @@ C-string.
 \end{description}
 
 
-\subsection{The class PlCompound}
-\label{sec:cpp-plcompound}
+\subsection{The class PlCompound (version 2)}
+\label{sec:cpp2-plcompound}
 
 \begin{description}
     \constructor{PlCompound}{const wchar_t *text}
@@ -1276,7 +1221,8 @@ PlCompound("hello", PlTermv("world"))
 \end{description}
 
 
-\subsection{The class PlTail}		\label{sec:pltail}
+\subsection{The class PlTail (version 2)}
+\label{sec:cpp2-pltail}
 
 The class \ctype{PlTail} is both for analysing and constructing lists.
 It is called \ctype{PlTail} as enumeration-steps make the term-reference
@@ -1340,8 +1286,8 @@ PREDICATE(write_list, 1)
 \end{description}
 
 
-\section{The class PlTermv}
-\label{sec:cpp-pltermv}
+\section{The class PlTermv (version 2)}
+\label{sec:cpp2-pltermv}
 
 The class \ctype{PlTermv} represents an array of term-references.  This
 type is used to pass the arguments to a foreignly defined predicate,
@@ -1381,8 +1327,8 @@ construction should be used:
 \end{description}
 
 
-\section{The class PlAtom - Supporting Prolog constants}
-\label{sec:cpp-prolog-constants}
+\section{The class PlAtom - Supporting Prolog constants (version 2)}
+\label{sec:cpp2-prolog-constants}
 
 Both for quick comparison as for quick building of lists of atoms, it
 is desirable to provide access to Prolog's atom-table, mapping handles
@@ -1539,8 +1485,8 @@ See PL_unregister_atom().
 See PL_blob_data().
 \end{description}
 
-\section{Unification and foreign frames}
-\label{sec:cpp-foreign-frame}
+\section{Unification and foreign frames (version 2)}
+\label{sec:cpp2-foreign-frame}
 
 As documented with PL_unify(), if a unification call fails and control isn't
 made immediately to Prolog, any changes made by unification must be undone.
@@ -1560,8 +1506,8 @@ Note that \cfuncref{PlTerm::unify_term}{} checks for an exception and
 throws an exception to Prolog; if you with to handle exceptions, you
 must call \exam{PL_unify_term(t1.C_,t2.C_)}.
 
-\section{The class PlRegister}
-\label{sec:cpp-plregister}
+\section{The class PlRegister (version 2)}
+\label{sec:cpp2-plregister}
 
 This class encapsulates PL_register_foreign().  It is defined as a class
 rather then a function to exploit the C++ \jargon{global constructor}
@@ -1601,8 +1547,8 @@ This construct is currently supported upto 3 arguments.
 \end{description}
 
 
-\section{The class PlQuery}
-\label{sec:cpp-plquery}
+\section{The class PlQuery (version 2)}
+\label{sec:cpp2-plquery}
 
 This class encapsulates the call-backs onto Prolog.
 
@@ -1653,8 +1599,8 @@ PlCall() variations. Especially suitable for simple goals such as making
 Prolog load a file.
 \end{description}
 
-\subsection{The class PlFrame}
-\label{sec:cpp-plframe}
+\subsection{The class PlFrame (version 2)}
+\label{sec:cpp2-plframe}
 
 The class \ctype{PlFrame} provides an interface to discard unused
 term-references as well as rewinding unifications
@@ -1729,8 +1675,8 @@ bool lookup_term(const std::string name, PlTerm result)
 }
 \end{code}
 
-\section{The PREDICATE and PREDICATE_NONDET macros}
-\label{sec:cpp-predicate-macro}
+\section{The PREDICATE and PREDICATE_NONDET macros (version 2)}
+\label{sec:cpp2-predicate-macro}
 
 The PREDICATE macro is there to make your code look nice, taking care of
 the interface to the C-defined SWI-Prolog kernel as well as mapping
@@ -1770,8 +1716,8 @@ body to simple failure or Prolog exceptions.  The \ctype{PlRegister}
 global constructor registers the predicate.  Finally, the function
 header for the implementation is created.
 
-\subsection{Variations of the PREDICATE macro}
-\label{sec:cpp-predicate-macro-variations}
+\subsection{Variations of the PREDICATE macro (version 2)}
+\label{sec:cpp2-predicate-macro-variations}
 
 The \cfuncref{PREDICATE}{} macros have a number of variations that deal with
 special cases.
@@ -1797,16 +1743,16 @@ limitations imposed by C++ indentifiers.
 
     \cmacro{}{PREDICATE_NONDET}{name, arity}
 Define a non-deterministic Prolog predicate in C++. See also
-\secref{cpp-nondet}.
+\secref{cpp2-nondet}.
 
     \cmacro{}{NAMED_PREDICATE_NONDET}{plname, cname, arity}
 Define a non-deterministic Prolog predicate in C++, whose name
-is not a valid C++ identifier. See also \secref{cpp-nondet}.
+is not a valid C++ identifier. See also \secref{cpp2-nondet}.
 
 \end{description}
 
-\subsection{Non-deterministic predicates}
-\label{sec:cpp-nondet}
+\subsection{Non-deterministic predicates (version 2)}
+\label{sec:cpp2-nondet}
 
 Non-deterministic predicates are defined using
 \cfuncref{PREDICATE_NONDET}{plname, cname, arity} or
@@ -1854,8 +1800,8 @@ PREDICATE_NONDET(pred, <arity>)
 \end{code}
 
 
-\subsection{Controlling the Prolog destination module}
-\label{sec:cpp-module}
+\subsection{Controlling the Prolog destination module (version 2)}
+\label{sec:cpp2-module}
 
 With no special precautions, the predicates are defined into the
 module from which load_foreign_library/1 was called, or in the module
@@ -1885,8 +1831,8 @@ X = 3.14159
 \end{code}
 
 
-\section{Exceptions}
-\label{sec:cpp-exceptions}
+\section{Exceptions (version 2)}
+\label{sec:cpp2-exceptions}
 
 Prolog exceptions are mapped to C++ exceptions using the subclass
 \ctype{PlException} of \ctype{PlTerm} to represent the Prolog exception
@@ -1910,8 +1856,8 @@ calling throw().
   throw PlException(PlCompound("no_database", PlTerm(data)));
 \end{code}
 
-\subsection{The class PlException}
-\label{sec:cpp-plexception}
+\subsection{The class PlException (version 2)}
+\label{sec:cpp2-plexception}
 
 This subclass of \ctype{PlTerm} is used to represent exceptions.
 Currently defined methods are:
@@ -1968,8 +1914,8 @@ PREDICATE(call_atom, 1)
 \end{description}
 
 
-\subsection{The class PlTypeError}
-\label{sec:cpp-pl-type-error}
+\subsection{The class PlTypeError (version 2)}
+\label{sec:cpp2-pl-type-error}
 
 A \jargon{type error} expresses that a term does not satisfy the
 expected basic Prolog type.
@@ -1982,8 +1928,8 @@ type.
 \end{description}
 
 
-\subsection{The class PlDomainError}
-\label{sec:cpp-pl-domain-error}
+\subsection{The class PlDomainError (version 2)}
+\label{sec:cpp2-pl-domain-error}
 
 A \jargon{domain error} expresses that a term satisfies the basic
 Prolog type expected, but is unacceptable to the restricted domain
@@ -1999,8 +1945,8 @@ Creates an ISO standard Prolog error term expressing a the
 \end{description}
 
 
-\section{Embedded applications}
-\label{sec:cpp-embedding}
+\section{Embedded applications (version 2)}
+\label{sec:cpp2-embedding}
 
 Most of the above assumes Prolog is `in charge' of the application and
 C++ is used to add functionality to Prolog, either for accessing
@@ -2035,11 +1981,11 @@ Calls PL_cleanup() to destroy all data created by the Prolog engine.
 \Secref{pltail} has a simple example using this class.
 
 
-\section{Considerations}
-\label{sec:cpp-considerations}
+\section{Considerations (version 2)}
+\label{sec:cpp2-considerations}
 
-\subsection{The C++ versus the C interface}
-\label{sec:cpp-vs-c}
+\subsection{The C++ versus the C interface (version 2)}
+\label{sec:cpp2-vs-c}
 
 Not all functionality of the C-interface is provided, but as
 \ctype{PlTerm} and \ctype{term_t} are essentially the same thing with
@@ -2054,16 +2000,16 @@ causing more hash-table lookups. This could be fixed, at the price of
 slighly complicating the interface.
 
 
-\subsection{Static linking and embedding}
-\label{sec:cpp-linking}
+\subsection{Static linking and embedding (version 2)}
+\label{sec:cpp2-linking}
 
 The mechanisms outlined in this document can be used for static linking
 with the SWI-Prolog kernel using \manref{swipl-ld}{1}. In general the
 C++ linker should be used to deal with the C++ runtime libraries and
 global constructors.
 
-\subsection{Status and compiler versions}
-\label{sec:cpp-status}
+\subsection{Status and compiler versions (version 2)}
+\label{sec:cpp2-status}
 
 The current interface is entirely defined in the \fileext{h} file using
 inlined code.  This approach has a few advantages: as no C++ code is in
@@ -2075,8 +2021,8 @@ compatibility with the SWI-Prolog kernel. This makes it possible to have
 different versions of the header file with few compatibility
 consequences.
 
-\section{Conclusions}
-\label{sec:cpp-conclusions}
+\section{Conclusions (version 2)}
+\label{sec:cpp2-conclusions}
 
 In this document, we presented a high-level interface to Prolog
 exploiting automatic type-conversion and exception-handling defined in
@@ -2088,8 +2034,3 @@ little extra resources in terms of time and memory.
 Especially the smooth integration between C++ and Prolog exceptions
 reduce the coding effort for type checking and reporting in foreign
 predicates.
-
-\printindex
-
-\end{document
-}

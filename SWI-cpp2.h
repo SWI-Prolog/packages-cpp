@@ -110,6 +110,7 @@ class PlTermv;
 void PlCheck(int rc);
 static void throw_PlException();
 
+
 		 /*******************************
 		 * COMMON OPERATIONS (TEMPLATE) *
 		 *******************************/
@@ -144,6 +145,28 @@ typedef enum PlEncoding
 } PlEncoding;
 static const PlEncoding ENC_INPUT = EncLatin1; // TODO: EncUTF8?
 static const PlEncoding ENC_OUTPUT = EncLocale;
+
+
+		 /*******************************
+		 *  PL_STRINGS_{MARK,RELEASE}   *
+		 *******************************/
+
+class PlStringBuffers
+{
+private:
+  buf_mark_t __PL_mark;
+
+public:
+  explicit PlStringBuffers()
+  { // TODO: use PL_STRINGS_MARK()
+    PL_mark_string_buffers(&__PL_mark);
+  }
+
+  ~PlStringBuffers()
+  { // TODO: use PL_STRINGS_RELEASE()
+    PL_release_string_buffers_from_mark(__PL_mark);
+  }
+};
 
 
 		 /*******************************
@@ -202,23 +225,28 @@ public:
   const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
   const std::wstring as_wstring() const
   { size_t len;
+    PlStringBuffers _string_buffers;
     const wchar_t *s = PL_atom_wchars(C_, &len);
     return std::wstring(s, len);
   }
 
   [[nodiscard]] bool operator ==(const char *s) const
-  { return strcmp(s, PL_atom_chars(C_)) == 0; // TODO: use PL_atom_mbchars()
+  { PlStringBuffers _string_buffers;
+    return strcmp(s, PL_atom_chars(C_)) == 0; // TODO: use PL_atom_mbchars()
   }
   [[nodiscard]] bool operator ==(const wchar_t *s) const
-  { return wcscmp(s, PL_atom_wchars(C_, nullptr)) == 0;
+  { PlStringBuffers _string_buffers;
+    return wcscmp(s, PL_atom_wchars(C_, nullptr)) == 0;
   }
   [[nodiscard]] bool operator ==(const std::string& s) const
   { size_t len;
+    PlStringBuffers _string_buffers;
     const char* s0 = PL_atom_nchars(C_, &len); // TODO: use PL_atom_mbchars()
     return std::string(s0, len) == s;
   }
   [[nodiscard]] bool operator ==(const std::wstring& s) const
   { size_t len;
+    PlStringBuffers _string_buffers;
     const wchar_t* s0 = PL_atom_wchars(C_, &len);
     return std::wstring(s0, len) == s;
   }
@@ -823,27 +851,6 @@ PlFunctor::name() const
 { return PlAtom(PL_functor_name(C_));
 }
 
-		 /*******************************
-		 *  PL_STRINGS_{MARK,RELEASE}   *
-		 *******************************/
-
-class PlStringBuffers
-{
-private:
-  buf_mark_t __PL_mark;
-
-public:
-  explicit PlStringBuffers()
-  { // TODO: use PL_STRINGS_MARK()
-    PL_mark_string_buffers(&__PL_mark);
-  }
-
-  ~PlStringBuffers()
-  { // TODO: use PL_STRINGS_RELEASE()
-    PL_release_string_buffers_from_mark(__PL_mark);
-  }
-};
-
 
 		 /*******************************
 		 *	ATOM IMPLEMENTATION	*
@@ -855,7 +862,7 @@ PlAtom::PlAtom(const PlTerm& t)
 
 inline const std::string
 PlAtom::as_string(PlEncoding enc) const
-{ PlStringBuffers _string_bufers;
+{ PlStringBuffers _string_buffers;
   size_t len;
   char *s;
   PlCheck( PL_atom_mbchars(C_, &len, &s, CVT_EXCEPTION|static_cast<unsigned int>(enc)) );

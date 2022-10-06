@@ -434,8 +434,9 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom atom4(std::wstring(L"原子4"));
   // PlAtom a5(t_atom1); // TODO: why doesn't this work?
   PlAtom atom_null;
-  const char *   x01 = t_var.as_string().c_str();
-  const wchar_t *x01a = t_var.as_wstring().c_str();
+  // Unsafe
+  //const char *   x01 = t_var.as_string().c_str();
+  //const wchar_t *x01a = t_var.as_wstring().c_str();
   const std::string s01 = atom3.as_string();
   const std::wstring s01b = atom4.as_wstring();
   const std::string s02a = t_var.as_string();
@@ -470,8 +471,8 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
 
   // TODO: add comparisons, etc.
 
-  (void)x01;
-  (void)x01a;
+  //(void)x01;
+  //(void)x01a;
   // TODO: std::string string() const;
   (void)x04;
   (void)x05;

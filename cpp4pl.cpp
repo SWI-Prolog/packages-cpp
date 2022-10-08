@@ -411,16 +411,16 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_atom p_atom5(std::wstring(L"世界"));
   PlTerm_term_t t_t(PL_new_term_ref());
   PlTerm_term_t t_null; // null
-  PlTerm_integer t_int1(INT_MAX);
-  PlTerm_integer t_int1b(INT_MIN);
-  PlTerm_integer t_int2(LONG_MAX);
-  PlTerm_integer t_int2b(LONG_MIN);
-  PlTerm_int64 t_int64(INT64_MAX);
-  PlTerm_int64 t_int64b(INT64_MIN);
-  PlTerm_uint64 t_uint64(UINT64_MAX);
-  PlTerm_uint64 t_uint64b(0);
+  PlTerm_integer t_int1(std::numeric_limits<int>::max());
+  PlTerm_integer t_int1b(std::numeric_limits<int>::min());
+  PlTerm_integer t_int2(std::numeric_limits<long>::max());
+  PlTerm_integer t_int2b(std::numeric_limits<long>::min());
+  PlTerm_int64 t_int64(std::numeric_limits<int64_t>::max());
+  PlTerm_int64 t_int64b(std::numeric_limits<int64_t>::min());
+  PlTerm_uint64 t_uint64(std::numeric_limits<uint64_t>::max());
+  PlTerm_uint64 t_uint64b(std::numeric_limits<uint64_t>::min());
   PlTerm_size_t p_size(static_cast<size_t>(-1));
-  PlTerm_size_t p_size2(SIZE_MAX);
+  PlTerm_size_t p_size2(std::numeric_limits<size_t>::max());
   PlTerm_float t_float(1.23);
   PlTerm_pointer t_ptr(&t_var);
   PlTerm_recorded t_rec(PlTerm_atom("xyz").record());
@@ -435,9 +435,10 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom atom4(std::wstring(L"原子4"));
   // PlAtom a5(t_atom1); // TODO: why doesn't this work?
   PlAtom atom_null;
-  const char *       x01 = t_var.as_string().c_str();
-  const wchar_t *    x01a = t_var.as_wstring().c_str();
-  const std::string  s01 = atom3.as_string();
+  // Unsafe
+  //const char *   x01 = t_var.as_string().c_str();
+  //const wchar_t *x01a = t_var.as_wstring().c_str();
+  const std::string s01 = atom3.as_string();
   const std::wstring s01b = atom4.as_wstring();
   const std::string  s02a = t_var.as_string();
   const std::wstring s02b = t_var.as_wstring();
@@ -471,8 +472,8 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
 
   // TODO: add comparisons, etc.
 
-  (void)x01;
-  (void)x01a;
+  //(void)x01;
+  //(void)x01a;
   // TODO: std::string string() const;
   (void)x04;
   (void)x05;

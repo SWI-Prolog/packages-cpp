@@ -410,6 +410,12 @@ test(type_error_string, S == "Type error: `foofoo' expected, found `'foo-bar'' (
     assertion(var(B)),
     assertion(A\==B).
 
+test(int_info) :-
+    forall(int_info(Name, Info), format('~q~n', [Name:Info])).
+% int_info_cut test checks that PL_PRUNED works as expected:
+test(int_info_cut, Name:Info == bool:int_info(bool, 1, 0, 1)) :-
+    int_info(Name, Info), !.
+
 :- end_tests(cpp).
 
 w_atom_cpp(Atom, String) :-

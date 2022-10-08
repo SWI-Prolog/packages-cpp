@@ -120,7 +120,7 @@ template <typename C_t> class WrappedC
 public:
   C_t C_; // The wrapped value
 
-  static const C_t null = 0;
+  static constexpr C_t null = 0;
   [[nodiscard]] bool is_null()  const { return C_ == null; }
   [[nodiscard]] bool not_null() const { return C_ != null; }
 
@@ -143,8 +143,8 @@ typedef enum PlEncoding
   EncUTF8 = REP_UTF8,
   EncLocale = REP_MB
 } PlEncoding;
-static const PlEncoding ENC_INPUT = EncLatin1; // TODO: EncUTF8?
-static const PlEncoding ENC_OUTPUT = EncLocale;
+static constexpr PlEncoding ENC_INPUT = EncLatin1; // TODO: EncUTF8?
+static constexpr PlEncoding ENC_OUTPUT = EncLocale;
 
 
 		 /*******************************
@@ -224,8 +224,8 @@ public:
 
   const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
   const std::wstring as_wstring() const
-  { size_t len;
-    PlStringBuffers _string_buffers;
+  { PlStringBuffers _string_buffers;
+    size_t len;
     const wchar_t *s = PL_atom_wchars(C_, &len);
     return std::wstring(s, len);
   }
@@ -239,14 +239,14 @@ public:
     return wcscmp(s, PL_atom_wchars(C_, nullptr)) == 0;
   }
   [[nodiscard]] bool operator ==(const std::string& s) const
-  { size_t len;
-    PlStringBuffers _string_buffers;
+  { PlStringBuffers _string_buffers;
+    size_t len;
     const char* s0 = PL_atom_nchars(C_, &len); // TODO: use PL_atom_mbchars()
     return std::string(s0, len) == s;
   }
   [[nodiscard]] bool operator ==(const std::wstring& s) const
-  { size_t len;
-    PlStringBuffers _string_buffers;
+  { PlStringBuffers _string_buffers;
+    size_t len;
     const wchar_t* s0 = PL_atom_wchars(C_, &len);
     return std::wstring(s0, len) == s;
   }
@@ -437,8 +437,9 @@ public:
 
   [[nodiscard]] bool unify_term(const PlTerm& t2)        const { return chk(PL_unify(C_, t2.C_)); }
   [[nodiscard]] bool unify_atom(const PlAtom& a)         const { return chk(PL_unify_atom(C_, a.C_)); }
-  [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s)   const { return chk(PL_unify_chars(C_, flags, len, s)); }
-  // TODO: replace PL_unify_*() with PL_unify_chars() with flags, where appropriate
+  [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s) const { return chk(PL_unify_chars(C_, flags, len, s)); }
+  [[nodiscard]] bool unify_chars(int flags, const std::string& s) const { return chk(PL_unify_chars(C_, flags, s.size(), s.data())); }
+  // TODO: replace PL_unify_*() with PL_unify_chars() and flags, where appropriate
   [[nodiscard]] bool unify_atom(const char *v)           const { return chk(PL_unify_atom_chars(C_, v)); }
   [[nodiscard]] bool unify_atom(const wchar_t *v)        const { return chk(PL_unify_wchars(C_, PL_ATOM, static_cast<size_t>(-1), v)); }
   [[nodiscard]] bool unify_atom(const std::string& v)    const { return chk(PL_unify_atom_nchars(C_, v.size(), v.data())); }

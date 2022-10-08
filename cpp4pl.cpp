@@ -62,6 +62,7 @@ how the various predicates can be called from Prolog.
 #include <iostream>
 #include <math.h>
 #include <cassert>
+#include <limits>
 #include <string>
 #include <map>
 using namespace std;
@@ -434,11 +435,11 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom atom4(std::wstring(L"原子4"));
   // PlAtom a5(t_atom1); // TODO: why doesn't this work?
   PlAtom atom_null;
-  const char *   x01 = t_var.as_string().c_str();
-  const wchar_t *x01a = t_var.as_wstring().c_str();
-  const std::string s01 = atom3.as_string();
+  const char *       x01 = t_var.as_string().c_str();
+  const wchar_t *    x01a = t_var.as_wstring().c_str();
+  const std::string  s01 = atom3.as_string();
   const std::wstring s01b = atom4.as_wstring();
-  const std::string s02a = t_var.as_string();
+  const std::string  s02a = t_var.as_string();
   const std::wstring s02b = t_var.as_wstring();
   atom1.register_ref();
   atom1.unregister_ref();
@@ -602,8 +603,9 @@ PREDICATE_NONDET(range_cpp, 3)
 // For benchmarking `throw PlThrow()` vs `return false`
 // Times are given for 10 million failures
 // e.g.: time((between(1,10000000,X), unify_zero_0(X))).
+// Baseline: time((between(1,10000000,X), fail)).  0.44 sec
 
-// 0.68 sec
+// 0.68 sec  - essentially the same for time((... X=0).
 static foreign_t
 unify_zero_0(term_t a1)
 { return static_cast<foreign_t>(PL_unify_integer(a1, 0));
@@ -647,30 +649,96 @@ PREDICATE(unify_zero_5, 1)
 { return A1.unify_integer(0);
 }
 
+// Benchmarking the various kinds of string comparisons
+// For PL_unify_chars:
+//   Types:          PL_ATOM, PL_STRING, PL_CODE_LIST, PL_CHAR_LIST
+//   Representation: REP_ISO_LATIN_1, REP_UTF8, REP_MB
+//   Extra:          PL_DIFF_LIST
+//   If len == static_cast<size_t>(-1), then zero-terminated
+// example run: time((between(1,10000000,X), unify_foo_string_1("foobar"))).
+
+// 1.2 sec
+PREDICATE(unify_foo_atom_1, 1)
+{ return A1.unify_chars(PL_ATOM|REP_ISO_LATIN_1, 3, "foo");
+}
+
+// 1.0 sec
+PREDICATE(unify_foo_string_1, 1)
+{ return A1.unify_chars(PL_STRING|REP_ISO_LATIN_1, 3, "foo");
+}
+
+// 0.92 sec
+PREDICATE(unify_foo_atom_2a1, 1)
+{ PlAtom foo("foo");
+  return A1.unify_atom(foo);
+}
+
+// 0.92 sec
+PREDICATE(unify_foo_atom_2a2, 1)
+{ return A1.unify_atom(PlAtom("foo"));
+}
+
+// 0.98 sec
+PREDICATE(unify_foo_atom_2b, 1)
+{ PlAtom foo(std::string("foo"));
+  return A1.unify_atom(foo);
+}
+
+// 1.0 sec
+PREDICATE(unify_foo_string_2a, 1)
+{ PlTerm_string foo("foo");
+  return A1.unify_term(foo);
+}
+
+// 1.0 sec
+PREDICATE(unify_foo_string_2b, 1)
+{ PlTerm_string foo(std::string("foo"));
+  return A1.unify_term(foo);
+}
+
 // end of benchmarking predicates
 
 
 // Predicates for checking native integer handling
+// See https://en.cppreference.com/w/cpp/types/numeric_limits
+// TODO: typeid(ty).name() (needs #include <typeinfo>, #include <typeindex>)
+
+#define DECLS_ROW(ty) X(#ty, ty, std::numeric_limits<ty>::min(), std::numeric_limits<ty>::max())
+
+// TODO: char8_t (since C++20)
+//       float, double, long double
+//       char16_t, char32_t, long long, unsigned long long (since C++11)
 
 #define DECLS \
-  X("int",           int,           INT_MIN,               INT_MAX)    \
-  X("unsigned",      unsigned,      0,                     UINT_MAX)   \
-  X("long",          long,          LONG_MIN,              LONG_MAX)   \
-  X("unsigned long", unsigned long, 0,                     ULONG_MAX)  \
-  X("size_t",        size_t,        0,                     SIZE_MAX) \
-  X("int32_t",       int32_t,       INT32_MIN,             INT32_MAX) \
-  X("uint32_t",      uint32_t,      0,                     UINT32_MAX) \
-  X("uint64_t",      uint64_t,      0,                     UINT64_MAX) \
-  X("int64_t",       int64_t,       INT64_MIN,             INT64_MAX) \
-  X("intptr_t",      intptr_t,      INTPTR_MIN,            INTPTR_MAX) \
-  X("uintptr_t",     uintptr_t,     0,                     UINTPTR_MAX)
+  DECLS_ROW(bool)               \
+  DECLS_ROW(char)               \
+  DECLS_ROW(signed char)        \
+  DECLS_ROW(unsigned char)      \
+  DECLS_ROW(wchar_t)            \
+  DECLS_ROW(char16_t)           \
+  DECLS_ROW(char32_t)           \
+  DECLS_ROW(short)              \
+  DECLS_ROW(unsigned short)     \
+  DECLS_ROW(int)                \
+  DECLS_ROW(unsigned int)       \
+  DECLS_ROW(long)               \
+  DECLS_ROW(unsigned long)      \
+  DECLS_ROW(long long)          \
+  DECLS_ROW(unsigned long long) \
+  DECLS_ROW(size_t)   \
+  DECLS_ROW(int32_t)  \
+  DECLS_ROW(uint32_t) \
+  DECLS_ROW(uint64_t) \
+  DECLS_ROW(int64_t)  \
+  DECLS_ROW(intptr_t) \
+  DECLS_ROW(uintptr_t)
 
-#define X(name, x_type, x_min, x_max)  \
-    {name, \
-     PlCompound("int_info", \
-                PlTermv(PlTerm_atom(name), \
-                        PlTerm_size_t(sizeof (x_type)), \
-                        PlTerm_int64(x_min), \
+#define X(name, x_type, x_min, x_max)                    \
+    {name,                                               \
+     PlCompound("int_info",                              \
+                PlTermv(PlTerm_atom(name),               \
+                        PlTerm_size_t(sizeof (x_type)),  \
+                        PlTerm_int64(x_min),             \
                         PlTerm_uint64(x_max))).record() },
 
 typedef std::map<const std::string, record_t> IntInfo;
@@ -696,34 +764,45 @@ int_info_(const std::string name, PlTerm result)
 
 PREDICATE_NONDET(int_info, 2)
 { PlForeignContextPtr<IntInfoContext> ctxt(handle);
-  if ( A1.is_variable() )
-  { switch( PL_foreign_control(handle) )
-    { case PL_FIRST_CALL:
-        ctxt.set(new IntInfoContext());
-        break;
-      case PL_REDO:
-        break;
-      case PL_PRUNED:
-        return true;
-      default:
-        assert(0);
-        return false;
-    }
-    while ( ctxt->it != int_info.cend() )
-    { if ( int_info_(ctxt->it->first, A2 ) )
-      { PlCheck(A1.unify_atom(ctxt->it->first));
-        ctxt->it++;
-        if ( ctxt->it == int_info.cend() )
-          return true; // Last result: no choice point
-        ctxt.keep();
-        PL_retry_address(ctxt.get()); // Succeed with choice point
-      }
-      ctxt->it++;
-    }
-    return false;
-  } else
-  { return int_info_(A1.as_string(), A2);
+
+  // When PL_PRUNED is called, it's possible for A1 to be bound;
+  // therefore, we need to do the switch on PL_foreign_control(handle)
+  // before checking A1.is_variable(). We can't put the test for
+  // A1.is_variable outside the PL_foreign_control(handle) switch
+  // because when PL_PRUNED happens, A1 might not be a variable. That
+  // is, we can't use A1.is_variable() as a way of checking whether we
+  // should do backtracking or not. So, we need to do an extra test
+  // for PL_FIRST_CALL and not allocate ctxt for backtracking if
+  // !A1.is_variable().  (There are, of course, other ways of
+  // structuring this code.)
+
+  switch( PL_foreign_control(handle) )
+  { case PL_FIRST_CALL:
+      if ( !A1.is_variable() ) // int_info is a map, so unique on lookup
+        return int_info_(A1.as_string(), A2);
+      ctxt.set(new IntInfoContext());
+      break;
+    case PL_REDO:
+      break;
+    case PL_PRUNED:
+      return true;
+    default:
+      assert(0);
+      return false;
   }
+  assert(A1.is_variable());
+  while ( ctxt->it != int_info.cend() )
+  { if ( int_info_(ctxt->it->first, A2 ) )
+    { PlCheck(A1.unify_atom(ctxt->it->first));
+      ctxt->it++;
+      if ( ctxt->it == int_info.cend() )
+        return true; // Last result: no choice point
+      ctxt.keep();
+      PL_retry_address(ctxt.get()); // Succeed with choice point
+    }
+    ctxt->it++;
+  }
+  return false;
 }
 
 

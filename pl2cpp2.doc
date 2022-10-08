@@ -61,6 +61,9 @@ More specifically:
   \item
     Type-checking methods have been added: type(), is_variable(), is_atom(), etc.
   \item
+    \ctype{PlString} has been renamed to \ctype{PlTerm_string} to make it clear
+    that it's a term that contains a Prolog string.
+  \item
     More \exam{PL_...(term_t, ...)} methods have been added to \ctype{PlTerm}.
   \item
     \ctype{std::string} and \ctype{std::wstring} are now supported in most

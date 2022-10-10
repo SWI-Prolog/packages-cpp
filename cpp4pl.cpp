@@ -378,10 +378,22 @@ PREDICATE(make_int64, 2)
   return true;
 }
 
+/* The manual example uses gethostname(), but portability thereof is not
+   trivial and we should not introduce portability issues on tests that
+   are not about portability.
+*/
+
+static int
+no_gethostname(char *buf, size_t len)
+{ strcpy(buf, "example.org");
+
+  return 0;
+}
+
 PREDICATE(hostname, 1)
 { char buf[255+1]; // SUSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
 
-  if ( gethostname(buf, sizeof buf) == 0 )
+  if ( no_gethostname(buf, sizeof buf) == 0 )
     return A1.unify_atom(buf);
 
   return false;
@@ -389,7 +401,7 @@ PREDICATE(hostname, 1)
 
 PREDICATE(hostname2, 1)
 { char buf[255+1]; // SUSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
-  if ( gethostname(buf, sizeof buf) != 0 )
+  if ( no_gethostname(buf, sizeof buf) != 0 )
     throw PlFail();
   PlCheck(A1.unify_atom(buf));
   return true;

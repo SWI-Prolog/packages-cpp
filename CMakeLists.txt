@@ -2,11 +2,9 @@ cmake_minimum_required(VERSION 3.5)
 project(swipl-cpp)
 
 include("../cmake/PrologPackage.cmake")
-include("../cmake/Sockets.cmake")
 
 set(CMAKE_CXX_STANDARD 17) # TODO: is this needed?
 
-check_function_exists(gethostname HAVE_GETHOSTNAME)
 configure_file(config.h.cmake config.h)
 
 install_src(pkg_cpp_headers

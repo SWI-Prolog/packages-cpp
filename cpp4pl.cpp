@@ -60,6 +60,8 @@ how the various predicates can be called from Prolog.
 #include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
 #include <iostream>
+#include <unistd.h>
+#include <errno.h>
 #include <math.h>
 #include <cassert>
 #include <limits>
@@ -386,13 +388,23 @@ PREDICATE(make_int64, 2)
 
 static int
 no_gethostname(char *buf, size_t len)
-{ strcpy(buf, "example.org");
+{ static const char hostname[] = "my_awesome_hostname";
+  if ( len <= 0 )
+  { errno = ENAMETOOLONG;
+    return -1;
+  }
+
+  strncpy(buf, hostname, len);
+  if ( buf[len-1] )
+  { errno = ENAMETOOLONG;
+    return -1;
+  }
 
   return 0;
 }
 
 PREDICATE(hostname, 1)
-{ char buf[255+1]; // SUSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
+{ char buf[255+1]; // SYSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
 
   if ( no_gethostname(buf, sizeof buf) == 0 )
     return A1.unify_atom(buf);
@@ -401,7 +413,7 @@ PREDICATE(hostname, 1)
 }
 
 PREDICATE(hostname2, 1)
-{ char buf[255+1]; // SUSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
+{ char buf[255+1]; // SYSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
   if ( no_gethostname(buf, sizeof buf) != 0 )
     throw PlFail();
   PlCheck(A1.unify_atom(buf));
@@ -720,7 +732,7 @@ PREDICATE(unify_foo_string_2b, 1)
 
 // TODO: char8_t (since C++20)
 //       float, double, long double
-//       char16_t, char32_t, long long, unsigned long long (since C++11)
+//       - char16_t, char32_t, long long, unsigned long long (since C++11)
 
 #define DECLS \
   DECLS_ROW(bool)               \
@@ -840,4 +852,46 @@ PREDICATE(w_atom_cpp_, 2)
     Sfprintf(s, "/%Ws/%zd", sa, len);
   }
   return TRUE;
+}
+
+
+/* TODO: Move the "cpp_options" predicate and the associated tests
+         to somewhere in main SWI-Prolog system. */
+
+static PL_option_t scan_options[] =
+{ PL_OPTION("quoted",   OPT_BOOL),
+  PL_OPTION("length",   OPT_SIZE),
+  PL_OPTION("callback", OPT_TERM),
+  PL_OPTION("token",    OPT_ATOM),
+  PL_OPTION("descr",    OPT_STRING),
+  PL_OPTIONS_END
+};
+
+// cpp_options(+Options:list, +Opt_all:bool, -Result)
+//   Result is: cpp_options(Quoted,Length,Callback,Token,Descr)
+PREDICATE(cpp_options, 3)
+{ auto options = A1, opt_all = A2, result = A3;
+  int         quoted     = false;
+  size_t      length     = 10;
+  PlTerm_var  callback;
+  PlAtom      token;
+  const char *descr      = "";
+  int         opt_all_v  = opt_all.as_bool();
+  int         flags      = opt_all_v ? OPT_ALL : 0;
+
+  PlStringBuffers _string_buffers; // for descr's contents
+  PlCheck(PL_scan_options(options.C_, flags, "cpp_options", scan_options,
+                          &quoted, &length, &callback.C_, &token.C_, &descr));
+
+  PlCheck(result.unify_term(PlCompound("options",
+                                       PlTermv(PlTerm_integer(quoted),
+                                               PlTerm_integer(length),
+                                               callback,
+                                               PlTerm(token),
+                                               PlTerm_string(descr)))));
+  // TODO: The following are needed if callback and token aren't used
+  //       by a Prolog term (e.g., if they're stored in a "blob"):
+  // callback.record();
+  // token.register_ref();
+  return true;
 }

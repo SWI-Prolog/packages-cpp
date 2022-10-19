@@ -330,6 +330,10 @@ private:
 
 public:
   PlTerm(const PlTerm&) = default;
+  explicit PlTerm(const PlAtom& a)
+  { PlCheck(PL_put_atom(C_, a.C_));
+  }
+
   // PlTerm& operator =(const PlTerm&) = delete; // see below
 
   [[nodiscard]] int type()         const { return PL_term_type(C_); }
@@ -363,6 +367,23 @@ public:
 
   // TODO: define the integer() method for int, long, etc. using
   //       PL_cvt_i_int(), PL_cvt_i_uint(), etc.
+
+  // TODO (see test_cpp.cpp int_info/2
+  // DECLS_ROW(bool)
+  // DECLS_ROW(char)
+  // DECLS_ROW(signed char)
+  // DECLS_ROW(unsigned char)
+  // DECLS_ROW(wchar_t)
+  // DECLS_ROW(char16_t)
+  // DECLS_ROW(char32_t)
+  // DECLS_ROW(short)
+  // DECLS_ROW(unsigned short)
+  // DECLS_ROW(int)
+  // DECLS_ROW(unsigned int)
+  // DECLS_ROW(long)
+  // DECLS_ROW(unsigned long)
+  // DECLS_ROW(long long)
+  // DECLS_ROW(unsigned long long)
 
   void integer(int *v)           const { *v = as_int(); }
   void integer(unsigned *v)      const { *v = as_uint(); }
@@ -1003,7 +1024,7 @@ PlTerm::as_pointer() const
   if ( PL_get_pointer_ex(C_, &ptr) )
     return ptr;
   (void)chk_throw(); // always throws
-  return nullptr;    // make the compiler happy
+  return nullptr;    // TODO: fix: make the compiler happy
 }
 
 inline record_t
@@ -1012,7 +1033,7 @@ PlTerm::record() const
   if ( rec )
     return rec;
   (void)chk_throw(); // always throws
-  return nullptr;    // make the compiler happy
+  return nullptr;    // TODO: fix: make the compiler happy
 }
 
 inline void

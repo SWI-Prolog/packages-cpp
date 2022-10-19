@@ -157,7 +157,7 @@ or an error (the equivalent of calling throw/1). When an exception is
 raised, it is important that a return be made to the calling
 environment as soon as possible. In C code, this requires checking
 every call to check for failure, which can become cumbersome. C++ has
-exceptions, so instead the code can wrap calls to PL_*() functions in
+exceptions, so instead the code can wrap calls to PL_*() functions with
 PlCheck(), which will do \exam{throw PlFail()} to exit from the top
 level of the foreign predicate, and handle the failure or exception
 appropriately.
@@ -216,7 +216,10 @@ The subclass constructors are as follows. If a constructor fails
 \begin{description}
     \classitem{PlTerm_atom}
 Subclass of \ctype{PlTerm} with constructors for building
-a term that contains an atom.
+a term that contains an atom. If the atom is the default value
+of \exam{PlAtom::null}, this creates an uninstantiated variable -
+that is, \exam{PlTerm_atom(PlAtom())} is the same as
+\exam{Plterm_var()}.
     \classitem{PlTerm_var}
 Subclass of \ctype{PlTerm} with constructors for building
 a term that contains an uninstantiated variable. Typically
@@ -353,6 +356,26 @@ The wrapper classes all define the following methods and constants:
     \ctype{bool} conversion  causes ambiguity with \exam{PlAtom(PlTterm)}
     and \exam{PlAtom(atom_t)}.}
 \end{itemize}
+
+The \exam{C_} field can be used wherever a \ctype{atom_t} or
+\ctype{term_t} is used. For example, the PL_scan_options() example
+code can be written as follows.  Note the use of \exam{&callback.C_}
+to pass a pointer to the wrapped \ctype{term_t} value.
+\begin{code}
+PREDICATE(mypred, 2)
+{ auto options = A2;
+  int        quoted = false;
+  size_t     length = 10;
+  PlTerm_var callback;
+
+  PlCheck(PL_scan_options(options, 0, "mypred_options", mypred_options,
+	                  &quoted, &length, &callback.C_));
+  callback.record(); // Needed if callback is put in a blob that Prolog doesn't know about.
+                     // If it were an atom (OPT_ATOM): register_ref().
+
+  <implement mypred>
+}
+\end{code}
 
 For functions in \file{SWI-Prolog.h} that don't have a C++ equivalent
 in \file{SWI-cpp2.h}, PlCheck() is a convenience function that checks
@@ -1341,7 +1364,8 @@ it is guaranteed they represent different text strings.
 Suppose we want to test whether a term represents a certain atom, this
 interface presents a large number of alternatives:
 
-\subsection*{Direct comparision to char *}
+\subsection{Direct comparision to char *}
+\label{sec:cpp2-direct-commparison-to-char-star}
 
 Example:
 
@@ -1358,7 +1382,7 @@ critical and only a few comparisons have to be made. It validates
 or float) extracts the represented text and uses strcmp() to match the
 strings.
 
-\subsection*{Direct comparision to PlAtom}		\label{sec:dirplatom}
+\subsection{Direct comparision to PlAtom}		\label{sec:dirplatom}
 
 Example:
 
@@ -1376,7 +1400,8 @@ Otherwise it extacts the atom-handle and compares it to the atom-handle
 of the global \ctype{PlAtom} object. This approach is faster and
 provides more strict type-checking.
 
-\subsection*{Extraction of the atom and comparison to PlAtom}
+\subsection{Extraction of the atom and comparison to PlAtom}
+\label{sec:cpp2-extraction-comparison-atoms}
 
 Example:
 
@@ -1395,7 +1420,8 @@ This approach is basically the same as \secref{dirplatom}, but in
 nested if-then-else the extraction of the atom from the term is
 done only once.
 
-\subsection*{Extraction of the atom and comparison to char *}
+\subsection{Extraction of the atom and comparison to char *}
+\label{sec:cpp2-extraction-comparison-char-star}
 
 Example:
 

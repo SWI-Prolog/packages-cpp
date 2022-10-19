@@ -162,6 +162,47 @@ atom_ffi_(term_t stream, term_t t)
   return TRUE;
 }
 
+static PL_option_t ffi_options[] =
+{ PL_OPTION("quoted",   OPT_BOOL),
+  PL_OPTION("length",   OPT_SIZE),
+  PL_OPTION("callback", OPT_TERM),
+  PL_OPTION("token",    OPT_ATOM),
+  PL_OPTION("descr",    OPT_STRING),
+  PL_OPTIONS_END
+};
+
+/* This is a slight variant of the example in foreign.doc - it unifies
+   the callback value with the 1st argument and prints out the other
+   values. */
+static foreign_t
+ffi_options_(term_t a1, term_t options)
+{ int    quoted   = FALSE;
+  size_t length   = 10;
+  term_t callback = 0;
+  atom_t token    = 0;
+  const char *descr = "";
+  int rc;
+
+  PL_STRINGS_MARK();
+
+  rc = PL_scan_options(options, 0, "ffi_options", ffi_options,
+                       &quoted, &length, &callback, &token, descr);
+
+  if ( rc )
+  { Sdprintf("ffi_options - quoted: %d\n", quoted);
+    Sdprintf("ffi_options - length: %zu\n", length);
+    Sdprintf("ffi_options - descr:  %s\n", descr);
+    if ( token )
+      Sdprintf("ffi_options - token:  %s\n", PL_atom_chars(token));
+    else
+      Sdprintf("ffi_options - token:  <not specified>\n");
+    rc = PL_unify(a1, callback);
+  }
+
+  PL_STRINGS_RELEASE();
+  return rc;
+}
+
 
 install_t
 install_ffi4pl(void)
@@ -177,6 +218,7 @@ install_ffi4pl(void)
 
   PL_register_foreign("w_atom_ffi_", 2, w_atom_ffi_, 0);
   PL_register_foreign("atom_ffi_", 2, atom_ffi_, 0);
+  PL_register_foreign("ffi_options", 2, ffi_options_, 0);
 }
 
 install_t

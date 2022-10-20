@@ -134,7 +134,7 @@ implementation and documentation of this package. Peter Ludemann
 modified the interface to remove some pitfalls, and also added
 some convenience functions (see \secref{summary-cpp2-changes}).
 
-\section{The life of a PREDICATE  (version 2)}
+\section{The life of a PREDICATE (version 2)}
 \label{sec:cpp2-life-of-a-predicate}
 
 A foreign predicate is defined using the \cfuncref{PREDICATE}{}
@@ -186,7 +186,7 @@ PREDICATE(eq, 2)
 \end{code}
 
 
-\section{Overview  (version 2)}
+\section{Overview (version 2)}
 \label{sec:cppd-overview}
 
 The most useful area for exploiting C++ features is type-conversion.
@@ -404,8 +404,11 @@ In some cases,it is possible to overload methods; for example, this
 allows the following code without knowing the exact definition of
 \ctype{size_t}:
 \begin{code}
-size_t sz;
-t.integer(&sz);
+PREDICATE(p, 1)
+{ size_t sz;
+  A1.integer(&sz);
+     ...
+}
 \end{code}
 
 \emph{It is strongly recommended that you enable conversion checking.}
@@ -418,14 +421,14 @@ cause any problems, but care must be used with the various
 getters for integers.
 
 
-\section{Examples  (version 2)}
+\section{Examples (version 2)}
 \label{sec:cpp2-examples}
 
 Before going into a detailed description of the C++ classes we present
 a few examples illustrating the `feel' of the interface.
 
 
-\subsection{Hello(World)  (version 2)}
+\subsection{Hello(World) (version 2)}
 \label{sec:cpp2-hello-world}
 
 This simple example shows the basic definition of the predicate hello/1
@@ -459,7 +462,7 @@ Hello _G170
 X = _G170
 \end{code}
 
-\subsection{Adding numbers  (version 2)}
+\subsection{Adding numbers (version 2)}
 \label{sec:cpp2-ex-adding-numbers}
 
 This example shows arithmetic using the C++ interface, including

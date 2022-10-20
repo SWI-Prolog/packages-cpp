@@ -172,16 +172,16 @@ test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.732050807568877
 test(square_roots_2b, error(resource_error(stack))) :-
     square_roots(1000000000, _).
 
-test(malloc_1) :-
+test(malloc) :-
     malloc(1000, Result), % smoke test
     free(Result).
 
 too_big_alloc_request(Request) :-
     current_prolog_flag(address_bits, Bits),
     (   Bits == 32
-    ->  Request = 0x7fffffff
+    ->  Request = 0xffffffff
     ;   Bits == 64
-    ->  Request = 0x7fffffffffffffff
+    ->  Request = 0xffffffffffffffff
         %         0x10000000000 is ASAN maximum on 64-bit machines
     ;   assertion(memberchk(Bits, [32,64]))
     ).
@@ -189,17 +189,18 @@ too_big_alloc_request(Request) :-
 :- if(current_prolog_flag(bounded,false)).
 
 too_many_bits_alloc_request(Request) :-
+    % This assumes size_t is no more than 64 bits:
     current_prolog_flag(address_bits, Bits),
     (   Bits == 32
-    ->  Request is 0x7fffffffffffffffff
+    ->  Request is 0xffffffff + 1
     ;   Bits == 64
-    ->  Request is 0x7fffffffffffffffff
+    ->  Request is 0xffffffffffffffff + 1
     ;   assertion(memberchk(Bits, [32,64]))
     ).
 
 :- endif.
 
-test(malloc_2) :-
+test(malloc) :-
     too_big_alloc_request(Request),
     malloc(Request, Result),
     assertion(Result == 0),
@@ -207,14 +208,13 @@ test(malloc_2) :-
 
 :- if(current_prolog_flag(bounded,false)).
 
-test(malloc_3) :-
-    % This assumes size_t is no more than 64 bits:
+test(malloc) :-
     too_many_bits_alloc_request(Request),
     catch( ( malloc(Request, Result),
              free(Result)
            ),
            error(E,_), true),
-    assertion(memberchk(E, [representation_error(size_t),
+    assertion(memberchk(E, [representation_error(_),
                             type_error(integer,_)])).
 
 :- endif.
@@ -239,13 +239,12 @@ test(new_chars_2, error(resource_error(memory))) :-
 :- if(current_prolog_flag(bounded,false)).
 
 test(new_chars_3) :-
-    % This assumes size_t is no more than 64 bits:
     too_many_bits_alloc_request(Request),
     catch( ( new_chars(Request, Result),
              delete_chars(Result)
            ),
            error(E,_), true),
-    assertion(memberchk(E, [representation_error(size_t),
+    assertion(memberchk(E, [representation_error(_),
                             type_error(integer,_)])).
 
 :- endif.
@@ -416,30 +415,46 @@ test(int_info) :-
 test(int_info_cut, Name:Info == bool:int_info(bool, 1, 0, 1)) :-
     int_info(Name, Info), !.
 
-test(scan_options, R = options(1, 5, foo(bar), _, "")) :- % Note use of (=)/2 because of uninstantiated variable
-    cpp_options([quoted(true), length(5), callback(foo(bar))], false, R).
+test(cvt_i_bool, R == 1) :- cvt_i_bool(true, R).
+test(cvt_i_bool, R == 1) :- cvt_i_bool(on, R).
+test(cvt_i_bool, R == 1) :- cvt_i_bool(1, R).
+test(cvt_i_bool, R == 1) :- cvt_i_bool(999, R).
+test(cvt_i_bool, R == 1) :- cvt_i_bool(-999, R).
+:- if(current_prolog_flag(bounded,false)).
+test(cvt_i_bool, R == 1) :-
+    Val is 0xffffffffffffffff + 999, % uses extended integers
+    cvt_i_bool(Val, R).
+:- endif.
+test(cvt_i_bool, R == 0) :- cvt_i_bool(false, R).
+test(cvt_i_bool, R == 0) :- cvt_i_bool(off, R).
+test(cvt_i_bool, R == 0) :- cvt_i_bool(0, R).
+test(cvt_i_bool, error(type_error(bool,'FALSE')))  :- cvt_i_bool('FALSE', _R).
+test(cvt_i_bool, error(type_error(bool,0.0)))      :- cvt_i_bool(0.0, _R).
+test(cvt_i_bool, error(type_error(bool,"false")))  :- cvt_i_bool("false", _R).
 
 % DO NOT SUBMIT: the following sometimes causes a crash:
-% test(scan_options, R == options(1, 5, foo(bar), qqsv, "DESCR")) :-
-%     cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar))], false, R).
-% test(scan_options, R == options(1, 5, foo(bar), qqsv, "DESCR")) :-
-%     cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)], false, R).
-% test(scan_options, error(domain_error(cpp_options,unknown_option(blah)))) :-
-%     cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)], true, _).
-% test(scan_options, R == options(1, 5, foo(bar), qqsv, "DESCR")) :-
-%     cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar)}, false, R).
-% test(scan_options, R == options(1, 5, foo(bar), qqsv, "DESCR")) :-
-%     cpp_options([token(qqsv), descr("DESCR"), quoted, length(5), callback(foo(bar))], false, R).
-% test(scan_options, R == options(0, 5, foo(bar), qqsv, "DESCR")) :-
-%     cpp_options([token(qqsv), descr("DESCR"), length(5), callback(foo(bar))], false, R).
-% test(scan_options, error(instantiation_error)) :-
-%     cpp_options([token(qqsv), _, descr("DESCR"), length(5), callback(foo(bar))], false, _).
-% test(scan_options, error(type_error(option,123))) :- % TODO: is this intended behavior?
-%     cpp_options([token(qqsv), descr("DESCR"), 123, length(5), callback(foo(bar))], false, _R).
-% test(scan_options, error(type_error(option,123))) :- % TODO: is this intended behavior?
-%     cpp_options([token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))], false, _R).
-% test(scan_options, fixme(should_error)) :- % error(domain_error(cpp_options,unknown_option(blah)))
-%     cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar), unknown_option:blah}, true, _).
+test(scan_options, [blocked(gc_crash), R = options(1, 5, foo(bar), _, "")]) :- % Note use of (=)/2 because of uninstantiated variable
+    cpp_options([quoted(true), length(5), callback(foo(bar))], false, R).
+test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+    cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar))], false, R).
+test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+    cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)], false, R).
+test(scan_options, [blocked(gc_crash), error(domain_error(cpp_options,unknown_option(blah)))]) :-
+    cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)], true, _).
+test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+    cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar)}, false, R).
+test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+    cpp_options([token(qqsv), descr("DESCR"), quoted, length(5), callback(foo(bar))], false, R).
+test(scan_options, [blocked(gc_crash), R == options(0, 5, foo(bar), qqsv, "DESCR")]) :-
+    cpp_options([token(qqsv), descr("DESCR"), length(5), callback(foo(bar))], false, R).
+test(scan_options, [blocked(gc_crash), error(instantiation_error)]) :-
+    cpp_options([token(qqsv), _, descr("DESCR"), length(5), callback(foo(bar))], false, _).
+test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO: is this intended behavior?
+    cpp_options([token(qqsv), descr("DESCR"), 123, length(5), callback(foo(bar))], false, _R).
+test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO: is this intended behavior?
+    cpp_options([token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))], false, _R).
+test(scan_options, [blocked(gc_crash), fixme(should_error)]) :- % error(domain_error(cpp_options,unknown_option(blah)))
+    cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar), unknown_option:blah}, true, _).
 
 :- end_tests(cpp).
 

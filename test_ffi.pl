@@ -157,24 +157,24 @@ test(char_1, all(Result == ["//", "/ /", "/abC/", "/Hello World!/"])) :-
     ).
 
 % DO NOT SUBMIT: the following sometimes causes a crash:
-test(scan_options, Callback == foo(bar)) :-
+test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
     ffi_options(Callback, [quoted(true), length(5), callback(foo(bar))]).
-% test(scan_options, Callback == foo(bar)) :-
-%     ffi_options(Callback, [token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar))]).
-% test(scan_options, Callback == foo(bar)) :-
-%     ffi_options(Callback, [token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)]).
-% test(scan_options, Callback == foo(bar)) :-
-%     ffi_options(Callback, options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar)}).
-% test(scan_options, Callback == foo(bar)) :-
-%     ffi_options(Callback, [token(qqsv), descr("DESCR"), quoted, length(5), callback(foo(bar))]).
-% test(scan_options, Callback == foo(bar)) :-
-%     ffi_options(Callback, [token(qqsv), descr("DESCR"), length(5), callback(foo(bar))]).
-% test(scan_options, error(instantiation_error)) :-
-%     ffi_options(_Callback, [token(qqsv), _, descr("DESCR"), length(5), callback(foo(bar))]).
-% test(scan_options, error(type_error(option,123))) :- % TODO: is this intended behavior?
-%     ffi_options(_Callback, [token(qqsv), descr("DESCR"), 123, length(5), callback(foo(bar))]).
-% test(scan_options, error(type_error(option,123))) :- % TODO: is this intended behavior?
-%     ffi_options(_Callback, [token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))]).
+test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
+    ffi_options(Callback, [token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar))]).
+test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
+    ffi_options(Callback, [token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)]).
+test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
+    ffi_options(Callback, options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar)}).
+test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
+    ffi_options(Callback, [token(qqsv), descr("DESCR"), quoted, length(5), callback(foo(bar))]).
+test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
+    ffi_options(Callback, [token(qqsv), descr("DESCR"), length(5), callback(foo(bar))]).
+test(scan_options, [blocked(gc_crash), error(instantiation_error)]) :-
+    ffi_options(_Callback, [token(qqsv), _, descr("DESCR"), length(5), callback(foo(bar))]).
+test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO: is this intended behavior?
+    ffi_options(_Callback, [token(qqsv), descr("DESCR"), 123, length(5), callback(foo(bar))]).
+test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO: is this intended behavior?
+    ffi_options(_Callback, [token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))]).
 
 :- end_tests(wchar).
 

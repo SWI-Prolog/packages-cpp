@@ -155,7 +155,7 @@ atom_ffi_(term_t stream, term_t t)
        !PL_get_atom_ex(t, &a) )
     return FALSE;
   PL_STRINGS_MARK();
-  { const char *sa = PL_atom_chars(a);
+  { const char *sa = PL_atom_nchars(a, NULL);
     Sfprintf(s, "/%s/", sa);
   }
   PL_STRINGS_RELEASE();
@@ -173,7 +173,9 @@ static PL_option_t ffi_options[] =
 
 /* This is a slight variant of the example in foreign.doc - it unifies
    the callback value with the 1st argument and prints out the other
-   values. */
+   values.
+   TODO: make this compatible with cpp_options in cpp4pl.c
+*/
 static foreign_t
 ffi_options_(term_t a1, term_t options)
 { int    quoted   = FALSE;

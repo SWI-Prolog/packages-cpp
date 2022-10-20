@@ -81,7 +81,7 @@ PREDICATE(hello, 1)
 }
 
 PREDICATE(hello2, 1)
-{ PlAtom atom_a1(A1);
+{ PlAtom atom_a1(A1.as_atom());
   // The following have the same output as hello/1, if A1 is an atom
   cout << "Hello2 " << atom_a1.as_string() << endl;
   cout << "Hello2 " << A1.as_string().c_str() << endl;
@@ -92,13 +92,13 @@ PREDICATE(hello2, 1)
 }
 
 PREDICATE(hello2, 2)
-{ PlAtom atom_a1(A1);
+{ PlAtom atom_a1(A1.as_atom());
   PlCheck(A2.unify_string(atom_a1.as_string(EncUTF8)));
   return true;
 }
 
 PREDICATE(hello3, 1)
-{ PlAtom atom_a1(A1);
+{ PlAtom atom_a1(A1.as_atom());
 
   // Iostream doesn't work because `<<` doesn't support std::wstring:
   //   cout << "Hello3 " << atom_a1.wstring() << endl; /* Same output as hello/1 */
@@ -138,7 +138,7 @@ PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
   PlTerm arity(A3);
 
   PlCheck(name.unify_atom(term.name()));
-  PlCheck(arity.unify_uint64(term.arity()));
+  PlCheck(arity.unify_integer(term.arity()));
 
   return true;
 }
@@ -181,16 +181,16 @@ PREDICATE(term, 1)
 PlAtom ATOM_atom("atom");
 
 PREDICATE(term, 2)
-{ PlAtom a(A1);
+{ PlAtom a(A1.as_atom());
 
   if ( a.C_ == ATOM_atom.C_ )
     return A2.unify_atom("hello world"); // or A2.unify_term(PlAtom("hello world"));
   if ( A1.as_string() == "string" )
     return A2.unify_string("hello world");
   if ( A1.as_string() == "code_list" )
-    return A2.unify_list_codes("hello world");
+    return A2.unify_list_codes("hello world"); // TODO: deprecated
   if ( A1.as_string() == "char_list" )
-    return A2.unify_list_chars("hello world");
+    return A2.unify_list_chars("hello world"); // TODO: deprecated
   if ( A1.as_string() == "term" )
     return A2.unify_term(PlCompound("hello(world)"));
 
@@ -369,7 +369,7 @@ PREDICATE(make_functor, 3)  // make_functor(foo, x, foo(x))
 }
 
 PREDICATE(make_uint64, 2)
-{ PlCheck(A2.unify_uint64(A1.as_uint64_t())); // TODO: unify_integer(...)
+{ PlCheck(A2.unify_integer(A1.as_uint64_t()));
   return true;
 }
 
@@ -377,7 +377,7 @@ PREDICATE(make_int64, 2)
 { int64_t i;
   // This function is for testing PlCheck()
   PlCheck(PL_get_int64_ex(A1.C_, &i));
-  PlCheck(A2.unify_int64(i)); // TODO: unify_integer(...)
+  PlCheck(A2.unify_integer(i));
   return true;
 }
 
@@ -422,11 +422,10 @@ PREDICATE(hostname2, 1)
 
 
 PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
-{ /******************************************
-   * This code is not intended to be        *
-   * executed; only compiled, to check that *
-   * implementations exist where expected.  *
-   ******************************************/
+{ /*********************************************************************
+   * This code is not intended to be executed; it is only compiled, to *
+   * check that implementations exist where expected.                  *
+   *********************************************************************/
   PlTerm_var t_var;
   PlTerm_atom t_atom1("abc");
   PlTerm_atom t_atom2(L"ABC");
@@ -439,12 +438,12 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_integer t_int1b(std::numeric_limits<int>::min());
   PlTerm_integer t_int2(std::numeric_limits<long>::max());
   PlTerm_integer t_int2b(std::numeric_limits<long>::min());
-  PlTerm_int64 t_int64(std::numeric_limits<int64_t>::max());
-  PlTerm_int64 t_int64b(std::numeric_limits<int64_t>::min());
-  PlTerm_uint64 t_uint64(std::numeric_limits<uint64_t>::max());
-  PlTerm_uint64 t_uint64b(std::numeric_limits<uint64_t>::min());
-  PlTerm_size_t p_size(static_cast<size_t>(-1));
-  PlTerm_size_t p_size2(std::numeric_limits<size_t>::max());
+  PlTerm_integer t_int64(std::numeric_limits<int64_t>::max());
+  PlTerm_integer t_int64b(std::numeric_limits<int64_t>::min());
+  PlTerm_integer t_uint64(std::numeric_limits<uint64_t>::max());
+  PlTerm_integer t_uint64b(std::numeric_limits<uint64_t>::min());
+  PlTerm_integer p_size(static_cast<size_t>(-1));
+  PlTerm_integer p_size2(std::numeric_limits<size_t>::max());
   PlTerm_float t_float(1.23);
   PlTerm_pointer t_ptr(&t_var);
   PlTerm_recorded t_rec(PlTerm_atom("xyz").record());
@@ -457,12 +456,12 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom atom2(L"原子2");
   PlAtom atom3(std::string("atom3"));
   PlAtom atom4(std::wstring(L"原子4"));
-  // PlAtom a5(t_atom1); // TODO: why doesn't this work?
+  PlAtom a5a(t_atom1.as_atom());
   PlAtom atom_null;
-  // Unsafe
-  //const char *   x01 = t_var.as_string().c_str();
-  //const wchar_t *x01a = t_var.as_wstring().c_str();
-  const std::string s01 = atom3.as_string();
+  // The following are unsafe (the as_string() is deleted in the statement):
+  //   const char *   x01  = t_var.as_string().c_str();
+  //   const wchar_t *x01a = t_var.as_wstring().c_str();
+  const std::string  s01 = atom3.as_string();
   const std::wstring s01b = atom4.as_wstring();
   const std::string  s02a = t_var.as_string();
   const std::wstring s02b = t_var.as_wstring();
@@ -479,6 +478,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
     t_int1.integer(&v4);
     t_int1.integer(&v5);
   }
+  // TODO: combine this test with t_something.integer(&x04) etc.  DO NOT SUBMIT
   long           x04 = t_atom2.as_long();
   int            x05 = t_int1.as_int();
   uint32_t       x06 = t_var.as_uint32_t();
@@ -526,6 +526,54 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   (void)t_float.unify_float(1.23);
   (void)t_ptr.unify_pointer(&t_var);
 
+  bool               xx01;
+  char               xx02;
+  signed char        xx03;
+  unsigned char      xx04;
+  // TODO:
+  // wchar_t            xx05;
+  // char16_t           xx06;
+  // char32_t           xx07;
+  short              xx08;
+  unsigned short     xx09;
+  int                xx10;
+  unsigned int       xx11;
+  long               xx12;
+  unsigned long      xx13;
+  long long          xx14;
+  unsigned long long xx15;
+  size_t             xx16;
+  int32_t            xx17;
+  uint32_t           xx18;
+  uint64_t           xx19;
+  int64_t            xx20;
+  intptr_t           xx21;
+  uintptr_t          xx22;
+
+  t_int1.integer(&xx01);
+  t_int1.integer(&xx02);
+  t_int1.integer(&xx03);
+  t_int1.integer(&xx04);
+  // TODO:
+  // t_int1.integer(&xx05);
+  // t_int1.integer(&xx06);
+  // t_int1.integer(&xx07);
+  t_int1.integer(&xx08);
+  t_int1.integer(&xx09);
+  t_int1.integer(&xx10);
+  t_int1.integer(&xx11);
+  t_int1.integer(&xx12);
+  t_int1.integer(&xx13);
+  t_int1.integer(&xx14);
+  t_int1.integer(&xx15);
+  t_int1.integer(&xx16);
+  t_int1.integer(&xx17);
+  t_int1.integer(&xx18);
+  t_int1.integer(&xx19);
+  t_int1.integer(&xx20);
+  t_int1.integer(&xx21);
+  t_int1.integer(&xx22);
+
   return true;
 }
 
@@ -541,14 +589,14 @@ PREDICATE(unify_int_set, 1)
   uint64_t      i_uint64        = 0;
 
   PlCheck(A1.unify_integer(i_int));
-  PlCheck(A1.unify_uint64(i_unsigned));
+  PlCheck(A1.unify_integer(i_unsigned));
   PlCheck(A1.unify_integer(i_long));
-  PlCheck(A1.unify_uint64(i_unsigned_long));
-  PlCheck(A1.unify_uint64(i_size)); // TODO: unify_size_t(...)
+  PlCheck(A1.unify_integer(i_unsigned_long));
+  PlCheck(A1.unify_integer(i_size));
   PlCheck(A1.unify_integer(i_int32));
-  PlCheck(A1.unify_uint64(i_uint32));
-  PlCheck(A1.unify_int64(i_int64));   // TODO: unify_integer(...)
-  PlCheck(A1.unify_uint64(i_uint64)); // TODO: unify_integer(...)
+  PlCheck(A1.unify_integer(i_uint32));
+  PlCheck(A1.unify_integer(i_int64));
+  PlCheck(A1.unify_integer(i_uint64));
 
   return true;
 }
@@ -762,9 +810,9 @@ PREDICATE(unify_foo_string_2b, 1)
     {name,                                               \
      PlCompound("int_info",                              \
                 PlTermv(PlTerm_atom(name),               \
-                        PlTerm_size_t(sizeof (x_type)),  \
-                        PlTerm_int64(x_min),             \
-                        PlTerm_uint64(x_max))).record() },
+                        PlTerm_integer(sizeof (x_type)),  \
+                        PlTerm_integer(x_min),             \
+                        PlTerm_integer(x_max))).record() },
 
 typedef std::map<const std::string, record_t> IntInfo;
 
@@ -876,7 +924,7 @@ PREDICATE(cpp_options, 3)
   PlTerm_var  callback;
   PlAtom      token;
   const char *descr      = "";
-  int         opt_all_v  = opt_all.as_bool();
+  bool        opt_all_v  = opt_all.as_bool();
   int         flags      = opt_all_v ? OPT_ALL : 0;
 
   PlStringBuffers _string_buffers; // for descr's contents
@@ -895,3 +943,9 @@ PREDICATE(cpp_options, 3)
   // token.register_ref();
   return true;
 }
+
+PREDICATE(cvt_i_bool, 2)
+{ return A2.unify_integer(A1.as_bool());
+}
+
+// TODO: add tests for PL_cvt_i_*() (using PlTerm::integer())

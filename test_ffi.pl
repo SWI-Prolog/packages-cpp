@@ -45,7 +45,7 @@
 
 :- use_module(library(plunit)).
 
-:- use_foreign_library(foreign(ffi4pl)).
+:- use_foreign_library(foreign(test_ffi)).
 
 test_ffi :-
     run_tests([ ffi,

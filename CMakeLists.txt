@@ -26,8 +26,8 @@ test_libs(ffi cpp)
 swipl_plugin(
     test_ffi
     TEST_ONLY
-    MODULE ffi4pl
-    C_SOURCES ffi4pl.c)
+    MODULE test_ffi
+    C_SOURCES test_ffi.c)
 
 swipl_plugin(
     test_cpp

@@ -82,7 +82,7 @@ testing:p(1).  % For average/3 test
 testing:p(10).
 testing:p(20).
 
-test(average_3, Average == Expected) :-
+test(average_3, Average =:= Expected) :-
     average(X, testing:p(X), Average),
     Expected is (1+10+20)/3 .
 

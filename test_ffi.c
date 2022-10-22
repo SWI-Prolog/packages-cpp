@@ -207,7 +207,7 @@ ffi_options_(term_t a1, term_t options)
 
 
 install_t
-install_ffi4pl(void)
+install_test_ffi(void)
 { PL_register_foreign("range_ffi", 3, range_ffi, PL_FA_NONDETERMINISTIC);
   PL_register_foreign("range_ffialloc", 3, range_ffialloc, PL_FA_NONDETERMINISTIC);
   range_ffi_str = malloc(RANGE_FFI_STR_LEN);
@@ -224,7 +224,7 @@ install_ffi4pl(void)
 }
 
 install_t
-uninstall_ffi4pl(void)
+uninstall_test_ffi(void)
 { /* If run with ASAN, this also tests that cleanup is done */
   #ifdef O_DEBUG
     Sdprintf("uninstall_range_ffi4pl %s\n", range_ffi_str);

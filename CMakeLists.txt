@@ -11,7 +11,7 @@ install_src(pkg_cpp_headers
 	    FILES SWI-cpp.h SWI-cpp2.h DESTINATION
 	    ${SWIPL_INSTALL_INCLUDE})
 
-swipl_examples(cpp4pl.cpp likes.cpp likes.pl README.md)
+swipl_examples(test_cpp.cpp test_ffi.c likes.cpp likes.pl README.md)
 
 pkg_doc(
     pl2cpp
@@ -32,6 +32,6 @@ swipl_plugin(
 swipl_plugin(
     test_cpp
     TEST_ONLY
-    MODULE cpp4pl
+    MODULE test_cpp
     C_LIBS ${SOCKET_LIBRARIES}
-    C_SOURCES cpp4pl.cpp)
+    C_SOURCES test_cpp.cpp)

@@ -57,8 +57,8 @@ particularly integer conversions.
 #define _SWI_CPP_H
 
 #include <SWI-Prolog.h>
-#include <cstdint>
 #include <climits>
+#include <cstdint>
 #include <cstring>
 #include <cwchar>
 #include <functional>
@@ -114,14 +114,21 @@ public:
   WrappedC<C_t>(const WrappedC<C_t>&) = default;
   // WrappedC<C_t>& operator =(const WrappedC<C_t>&) = default; // deprecated/deleted in PlTerm
   operator bool() const = delete; // Use not_null() instead
-  void reset() { C_ = null; }
-  void reset(C_t v) { C_ = v; }
+  // reset() is common with "smart pointers"; wrapped wrapped atom_t,
+  // term_t, etc. aren't "smart" in the same sense, but the objects
+  // they refer to are garbage collected and some care is needed to
+  // ensure they have appropriate reference counts (e.g.,
+  // PlAtom::register_ref() and PlTerm::record()).
+  void reset(C_t v = null) { C_ = v; }
 };
 
+// TODO: use PlEncoding wherever a method takes a char* or std::string.
+// TODO: #define SWI_DEFAULT_TEXT_ENCODING EncUTF8
+//       (set outside SWI-cpp2.h, with an appropriate default)
 // For the various "get/put/unify string" methods:
 typedef enum PlEncoding
 { EncLatin1 = REP_ISO_LATIN_1,
-  EncUTF8 = REP_UTF8,
+  EncUTF8   = REP_UTF8,
   EncLocale = REP_MB
 } PlEncoding;
 static constexpr PlEncoding ENC_INPUT = EncLatin1; // TODO: EncUTF8?
@@ -155,19 +162,10 @@ public:
 class PlFunctor : public WrappedC<functor_t>
 {
 public:
-  PlFunctor() : WrappedC<functor_t>() { }
-  PlFunctor(functor_t v) : WrappedC<functor_t>(v) { }
-  explicit PlFunctor(const std::string& name, size_t arity)
-  { atom_t a = PL_new_atom(name.c_str());
-    C_ = PL_new_functor(a, arity);
-    verify();
-    PL_unregister_atom(a);
-  }
-
-  explicit PlFunctor(const std::wstring& name, size_t arity)
-    : WrappedC<functor_t>(PL_new_functor(PL_new_atom_wchars(name.size(), name.c_str()), arity))
-  { verify();
-  }
+  PlFunctor(functor_t v = null) : WrappedC<functor_t>() { }
+  // PlFunctor(const char*) is handled by std::string constructor
+  explicit PlFunctor(const std::string& name, size_t arity);
+  explicit PlFunctor(const std::wstring& name, size_t arity);
 
   bool operator ==(functor_t to) = delete;
 
@@ -203,12 +201,7 @@ public:
   }
 
   const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
-  const std::wstring as_wstring() const
-  { PlStringBuffers _string_buffers;
-    size_t len;
-    const wchar_t *s = PL_atom_wchars(C_, &len);
-    return std::wstring(s, len);
-  }
+  const std::wstring as_wstring() const;
 
   [[nodiscard]] bool operator ==(const char *s) const
   { PlStringBuffers _string_buffers;
@@ -365,7 +358,7 @@ public:
   // they fail (because of the wrong Prolog type). If you want to be
   // safe, use is_XXX() first to verify the type.
 
-  [[nodiscard]] std::string   as_string(PlEncoding enc=ENC_OUTPUT)  const;
+  [[nodiscard]] std::string   as_string(PlEncoding enc=ENC_OUTPUT) const;
   [[nodiscard]] std::wstring  as_wstring()  const;
   [[nodiscard]] long          as_long()     const { long          v; integer(&v); return v; }
   [[nodiscard]] int32_t       as_int32_t()  const { int32_t       v; integer(&v); return v; }
@@ -426,8 +419,8 @@ public:
 
   // All the unify_*() methods check for an exception (and throw), so
   // the return code is whether the unification succeeded or not.
-  // TODO: replace PL_unify_*() with PL_unify_chars() and flags, where
-  //       appropriate TODO: handle encodings for char*, std::string
+  // TODO: replace PL_unify_*() with PL_unify_chars() and flags, where appropriate
+  // TODO: handle encodings for char*, std::string
   [[nodiscard]] bool unify_term(const PlTerm& t2)        const { return chkex(PL_unify(C_, t2.C_)); }
   [[nodiscard]] bool unify_atom(const PlAtom& a)         const { return chkex(PL_unify_atom(C_, a.C_)); }
   [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s) const { return chkex(PL_unify_chars(C_, flags, len, s)); }
@@ -438,6 +431,7 @@ public:
   [[nodiscard]] bool unify_atom(const std::wstring&   v) const { return chkex(PL_unify_wchars(C_, PL_ATOM, v.size(), v.data())); }
   [[nodiscard]] bool unify_list_codes(const char*     v) const { return chkex(PL_unify_list_codes(C_, v)); } // TODO: [[deprecated]]
   [[nodiscard]] bool unify_list_chars(const char*     v) const { return chkex(PL_unify_list_chars(C_, v)); } // TODO: [[deprecated]]
+  // See comment with PlTerm::integer() about the overloading.
   [[nodiscard]] bool unify_integer(bool               v) const { return chkex(PL_unify_int64(C_, v)); }
   [[nodiscard]] bool unify_integer(char               v) const { return chkex(PL_unify_int64(C_, v)); }
   [[nodiscard]] bool unify_integer(int                v) const { return chkex(PL_unify_int64(C_, v)); }
@@ -474,6 +468,7 @@ public:
   [[nodiscard]] bool operator <= (const PlTerm& t2) const { return compare(t2) <= 0; }
   [[nodiscard]] bool operator >= (const PlTerm& t2) const { return compare(t2) >= 0; }
 					/* comparison (long) */
+  /* TODO: uint64_t; but that requires adding a lot of overloaded methods */
   [[nodiscard]] bool operator == (int64_t v) const;
   [[nodiscard]] bool operator != (int64_t v) const;
   [[nodiscard]] bool operator <  (int64_t v) const;
@@ -530,13 +525,13 @@ public:
 class PlTerm_term_t : public PlTerm
 {
 public:
-  explicit PlTerm_term_t() : PlTerm(null) {}
-  explicit PlTerm_term_t(term_t t) : PlTerm(t) {}
+  explicit PlTerm_term_t(term_t t = null) : PlTerm(t) {}
 };
 
 class PlTerm_integer : public PlTerm
 {
 public:
+  // See comment with PlTerm::integer() about the overloading.
   explicit PlTerm_integer(char               v) { PlCheck(PL_put_int64(C_, v)); }
   explicit PlTerm_integer(int                v) { PlCheck(PL_put_int64(C_, v)); }
   explicit PlTerm_integer(long               v) { PlCheck(PL_put_int64(C_, v)); }
@@ -556,6 +551,8 @@ public:
   explicit PlTerm_float(double v) { PlCheck(PL_put_float(C_, v));  }
 };
 
+// TODO: deprecate PlTerm_pointer and replace by C++ interface to blobs
+//       (see also PlAtom::blob_data(), PlTerm::as_pointer())
 class PlTerm_pointer : public PlTerm
 {
 public:
@@ -662,7 +659,7 @@ public:
 class PlException : public PlTerm
 {
 public:
-  // TODO: test for a pending exception? Do we need to do this?
+  // TODO: Add a test for a pending exception? Do we need to do this?
   explicit PlException()
     : PlTerm(PL_exception(0))
   { if ( is_null() )
@@ -705,7 +702,7 @@ public:
     : PlException(t) {}
 
   explicit PlTypeError(const char *expected, const PlTerm& actual) :
-    // TODO: PL_type_error() or lazy PlTerm_atom()
+    // TODO: use PL_type_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
 			   PlTermv(actual.is_variable() ?
 				   static_cast<PlTerm>(PlTerm_atom("instantiation_error")) :
@@ -723,7 +720,7 @@ public:
     : PlException(t) {}
 
   explicit PlDomainError(const char *expected, const PlTerm& actual) :
-    // TODO: PL_domain_error() or lazy PlTerm_atom()
+    // TODO: Use PL_domain_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
 			   PlTermv(PlCompound("domain_error",
 					      PlTermv(PlTerm_atom(expected), actual)),
@@ -737,7 +734,7 @@ class PlTermvDomainError : public PlException
 {
 public:
   explicit PlTermvDomainError(size_t size, size_t n) :
-    // TODO: PL_domain_error() or lazy PlTerm_atom()
+    // TODO: Use PL_domain_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
 			   PlTermv(PlCompound("domain_error",
 					      PlTermv(PlCompound("argv",
@@ -753,18 +750,11 @@ class PlInstantiationError : public PlException
 {
 public:
   explicit PlInstantiationError(const PlTerm& t) :
+    // TODO: Use PL_instantiation_error() or lazy PlTerm_atom()
     PlException(t.is_variable() ?
 	      PlCompound("error",
 			 PlTermv(PlTerm_atom("instantiation_error"), t))
 		: t) {}
-
-  explicit PlInstantiationError() :
-    // TODO: PL_instantiation_error() or lazy PlTerm_atom()
-    PlException(PlCompound("error",
-			   PlTermv(PlTerm_atom("instantiation_error"),
-				   PlTerm_var())))
-  {
-  }
 };
 
 
@@ -775,7 +765,7 @@ public:
     : PlException(t) {}
 
   explicit PlExistenceError(const char *type, PlTerm actual) :
-    // TODO: PL_existence_error() or lazy PlTerm_atom()
+    // TODO: Use PL_existence_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
 			   PlTermv(PlCompound("existence_error",
 					      PlTermv(PlTerm_atom(type), actual)),
@@ -792,7 +782,7 @@ public:
     : PlException(t) {}
 
   explicit PlPermissionError(const char *op, const char *type, const PlTerm& obj) :
-    // TODO: PL_permission_error() or lazy PlTerm_atom()
+    // TODO: Use PL_permission_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
 			   PlTermv(PlCompound("permission_error",
 					      PlTermv(PlTerm_atom(op), PlTerm_atom(type), obj)),
@@ -814,7 +804,7 @@ public:
     : PlException(ex) {}
 
   explicit PlResourceError(const char *resource) :
-    // TODO: PL_resource_error() or lazy PlTerm_atom()
+    // TODO: Use PL_resource_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
 			   PlTermv(PlCompound("resource_error",
 					      PlTermv(PlTerm_atom(resource))),
@@ -832,6 +822,22 @@ template<typename C_t> inline void
 WrappedC<C_t>::verify() const
 { if ( is_null() ) // For PlFunctor, no need to check name().is_null()
     throw PlResourceError();
+}
+
+inline
+PlFunctor::PlFunctor(const std::string& name, size_t arity)
+{ PlAtom a(name);
+  C_ = PL_new_functor(a.C_, arity);
+  PL_unregister_atom(a.C_);
+  verify();
+}
+
+inline
+PlFunctor::PlFunctor(const std::wstring& name, size_t arity)
+{ PlAtom a(name);
+  C_ = PL_new_functor(a.C_, arity);
+  PL_unregister_atom(a.C_);
+  verify();
 }
 
 inline PlAtom
@@ -853,6 +859,14 @@ PlAtom::as_string(PlEncoding enc) const
   return std::string(s, len);
 }
 
+inline const std::wstring
+PlAtom::as_wstring() const
+{ PlStringBuffers _string_buffers;
+  size_t len;
+  const wchar_t *s = PL_atom_wchars(C_, &len);
+  return std::wstring(s, len);
+  }
+
 
 		 /*******************************
 		 *	    TERM (BODY)		*
@@ -864,7 +878,7 @@ inline std::string
 PlTerm::as_string(PlEncoding enc) const
 { char *s;
   size_t len;
-  nchars(&len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK);
+  nchars(&len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|static_cast<unsigned int>(enc));
   return std::string(s, len);
 }
 
@@ -1054,27 +1068,18 @@ public:
       throw PlResourceError();
   }
   // TODO: PlQuery(const wstring& ...)
-  PlQuery(const char *name, const PlTermv& av)
+  PlQuery(const std::string& name, const PlTermv& av)
     : qid_(PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION,
-			 PL_predicate(name, static_cast<int>(av.size()), "user"),
+			 PL_predicate(name.c_str(), static_cast<int>(av.size()), "user"),
 			 av.termv()))
   { if ( !qid_ ) // TODO: use PlCheck()?
       throw PlResourceError();
   }
   PlQuery(const std::string& module, const std::string& name, const PlTermv& av)
-  { // TODO: predicate_t p = PL_predicate(name.c_str(), av.size(), module.c_str());
-    // TODO: need test cases
-
-    atom_t ma = PL_new_atom(module.c_str());
-    atom_t na = PL_new_atom(name.c_str());
-    module_t m = PL_new_module(ma);
-    predicate_t p = PL_pred(PL_new_functor(na, av.size()), m);
-
-    PL_unregister_atom(ma);
-    PL_unregister_atom(na);
-
-    qid_ = PL_open_query(m, PL_Q_PASS_EXCEPTION, p, av.termv());
-    if ( !qid_ ) // TODO: use PlCheck()?
+    : qid_(PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION,
+			 PL_predicate(name.c_str(), static_cast<int>(av.size()), module.c_str()),
+			 av.termv()))
+  { if ( !qid_ ) // TODO: use PlCheck()?
       throw PlResourceError();
   }
   ~PlQuery()
@@ -1502,21 +1507,34 @@ public:
   { if ( !PL_initialise(argc, argv) )
       throw PlError("failed to initialise");
   }
+  PlEngine(int argc, wchar_t **argv)
+  { if ( !PL_winitialise(argc, argv) )
+      throw PlError("failed to initialise");
+  }
 
   PlEngine(char *av0)
-  { int ac = 0;
-    char **av = static_cast<char**>(malloc(sizeof(char *) * 2));
-
-    av[ac++] = av0;
-    av[ac] = nullptr;
+  { av[0] = av0;
+    av[1] = nullptr;
 
     if ( !PL_initialise(1, av) )
+      throw PlError("failed to initialise");
+  }
+
+  PlEngine(wchar_t *av0)
+  { w_av[0] = av0;
+    w_av[1] = nullptr;
+
+    if ( !PL_winitialise(1, w_av) )
       throw PlError("failed to initialise");
   }
 
   ~PlEngine()
   { PL_cleanup(0);
   }
+
+private:
+  char *av[2];
+  wchar_t *w_av[2];
 };
 
 

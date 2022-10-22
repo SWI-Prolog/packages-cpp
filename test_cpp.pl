@@ -44,7 +44,7 @@
 
 :- use_module(library(plunit)).
 
-:- use_foreign_library(foreign(cpp4pl)).
+:- use_foreign_library(foreign(test_cpp)).
 
 test_cpp :-
     run_tests([ cpp
@@ -418,10 +418,10 @@ test(int_info_cut, Name:Info == bool:int_info(bool, 1, 0, 1)) :-
 test(cvt_i_bool, R == 1) :- cvt_i_bool(true, R).
 test(cvt_i_bool, R == 1) :- cvt_i_bool(on, R).
 test(cvt_i_bool, R == 1) :- cvt_i_bool(1, R).
-test(cvt_i_bool, R == 1) :- cvt_i_bool(999, R).
-test(cvt_i_bool, R == 1) :- cvt_i_bool(-999, R).
+test(cvt_i_bool, error(domain_error(bool,666))) :- cvt_i_bool(666, R).
+test(cvt_i_bool, error(domain_error(bool,-666))) :- cvt_i_bool(-666, R).
 :- if(current_prolog_flag(bounded,false)).
-test(cvt_i_bool, R == 1) :-
+test(cvt_i_bool, error(domain_error(bool,18446744073709552614))) :-
     Val is 0xffffffffffffffff + 999, % uses extended integers
     cvt_i_bool(Val, R).
 :- endif.
@@ -432,7 +432,7 @@ test(cvt_i_bool, error(type_error(bool,'FALSE')))  :- cvt_i_bool('FALSE', _R).
 test(cvt_i_bool, error(type_error(bool,0.0)))      :- cvt_i_bool(0.0, _R).
 test(cvt_i_bool, error(type_error(bool,"false")))  :- cvt_i_bool("false", _R).
 
-% DO NOT SUBMIT: the following sometimes causes a crash:
+% TODO: the following sometimes causes a crash:
 test(scan_options, [blocked(gc_crash), R = options(1, 5, foo(bar), _, "")]) :- % Note use of (=)/2 because of uninstantiated variable
     cpp_options([quoted(true), length(5), callback(foo(bar))], false, R).
 test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-

@@ -14,15 +14,15 @@ Next, run as e.g.
 
 ## Extending SWI-Prolog using C++ code
 
-The file `cpp4pl.cpp` adds foreign predicates to SWI-Prolog.
+The file `test_cpp.cpp` adds foreign predicates to SWI-Prolog.
 To compile, run
 
-    swipl-ld -shared -o cpp4pl cpp4pl.cpp
+    swipl-ld -shared -o test_cpp test_cpp.cpp
 
 Next, run as e.g.
 
     swipl test.pl
-    ?- use_foreign_library(cpp4pl).
+    ?- use_foreign_library(test_cpp).
     ?- hello(world).
     Hello world
     true.

@@ -174,7 +174,7 @@ static PL_option_t ffi_options[] =
 /* This is a slight variant of the example in foreign.doc - it unifies
    the callback value with the 1st argument and prints out the other
    values.
-   TODO: make this compatible with cpp_options in cpp4pl.c
+   TODO: make this compatible with cpp_options in test_cpp.c
 */
 static foreign_t
 ffi_options_(term_t a1, term_t options)
@@ -215,7 +215,7 @@ install_test_ffi(void)
   strncpy(range_ffi_str, RANGE_FFI_STR_CONTENTS, RANGE_FFI_STR_LEN);
   assert(0 == strncmp(range_ffi_str, RANGE_FFI_STR_CONTENTS, RANGE_FFI_STR_LEN));
   #ifdef O_DEBUG
-    Sdprintf("install_range_ffi4pl %s\n", range_ffi_str);
+    Sdprintf("install_range_test_ffi %s\n", range_ffi_str);
   #endif
 
   PL_register_foreign("w_atom_ffi_", 2, w_atom_ffi_, 0);
@@ -227,7 +227,7 @@ install_t
 uninstall_test_ffi(void)
 { /* If run with ASAN, this also tests that cleanup is done */
   #ifdef O_DEBUG
-    Sdprintf("uninstall_range_ffi4pl %s\n", range_ffi_str);
+    Sdprintf("uninstall_range_test_ffi %s\n", range_ffi_str);
   #endif
   assert(0 == strncmp(range_ffi_str, RANGE_FFI_STR_CONTENTS, RANGE_FFI_STR_LEN));
   free(range_ffi_str);

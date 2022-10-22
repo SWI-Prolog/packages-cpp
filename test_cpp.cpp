@@ -38,12 +38,12 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 This code may be compiled using
 
-    swipl-ld -shared -o cpp4pl cpp4pl.cpp
+    swipl-ld -shared -o test_cpp test_cpp.cpp
 
 and subsequently loading using
 
     swipl
-    ?- use_foreign_library(cpp4pl).
+    ?- use_foreign_library(test_cpp).
 
 Next, run example predicates such as below.  Scan through this file
 to find the predicates provided by this C++ code.
@@ -478,7 +478,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
     t_int1.integer(&v4);
     t_int1.integer(&v5);
   }
-  // TODO: combine this test with t_something.integer(&x04) etc.  DO NOT SUBMIT
+  // TODO: combine this test with t_something.integer(&x04) etc.
   long           x04 = t_atom2.as_long();
   int            x05 = t_int1.as_int();
   uint32_t       x06 = t_var.as_uint32_t();
@@ -684,7 +684,7 @@ unify_zero_0(term_t a1)
 { return static_cast<foreign_t>(PL_unify_integer(a1, 0));
 }
 
-// If you wish to use the C-style install_cpp4pl() style instead, you
+// If you wish to use the C-style install_test_cpp() style instead, you
 // need to use extern "C" to ensure that names don't get mangled.
 // So, it's easier to use the PlRegister class (which might need
 // modification to more than one argument).
@@ -949,3 +949,5 @@ PREDICATE(cvt_i_bool, 2)
 }
 
 // TODO: add tests for PL_cvt_i_*() (using PlTerm::integer())
+
+// TODO: add PlEngine tests

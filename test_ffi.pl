@@ -156,7 +156,7 @@ test(char_1, all(Result == ["//", "/ /", "/abC/", "/Hello World!/"])) :-
     ;   atom_ffi('Hello World!',   Result)
     ).
 
-% DO NOT SUBMIT: the following sometimes causes a crash:
+% TODO: the following sometimes causes a crash:
 test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
     ffi_options(Callback, [quoted(true), length(5), callback(foo(bar))]).
 test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-

@@ -499,6 +499,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   //(void)x01;
   //(void)x01a;
   // TODO: std::string string() const;
+  (void)a5a;
   (void)x04;
   (void)x05;
   (void)x06;

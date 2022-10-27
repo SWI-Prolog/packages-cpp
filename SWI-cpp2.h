@@ -89,7 +89,6 @@ class PlAtom;
 class PlTerm;
 class PlTermv;
 void PlCheck(int rc);
-static void throw_PlException();
 
 
 		 /*******************************
@@ -278,7 +277,8 @@ public:
 // caused by an exception, SWI-Prolog will detect that and turn the
 // failure into a Prolog exception.  Therefore, there is no need for
 // calling PL_exception(0) and doing something different if there is a
-// pending Prolog exception.
+// pending Prolog exception (if you need to call PL_exception(0), you
+// can use PlException_qid()).
 inline void
 PlCheck(int rc)
 { if ( !rc )
@@ -299,7 +299,6 @@ private:
   // Convenience methods for turning a SWI-Prolog exception into a C++
   // "throw".
   [[nodiscard]] static bool chkex(int rc); // if failed due to exception, throw exception
-  [[nodiscard]] static bool chk_throw(); // throw exception (either actual exception or PlFail)
 
 public:
   PlTerm(const PlTerm&) = default;
@@ -492,10 +491,6 @@ public:
   [[nodiscard]] bool operator !=(const std::wstring& s) const { return !(*this == s); }
   [[nodiscard]] bool operator !=(const PlAtom& a)       const { return !(*this == a); }
 
-  bool raise_exception() { return PL_raise_exception(C_); }
-
-  static PlTerm exception(qid_t qid) { return PlTerm(PL_exception(qid)); }
-
   // E.g.: t.write(Serror, 1200, PL_WRT_NEWLINE|PL_WRT_QUOTED);
   void write(IOSTREAM *s, int precedence, int flags) const { PlCheck(PL_write_term(s, C_, precedence, flags)); }
 
@@ -505,7 +500,7 @@ public:
 class PlTerm_atom : public PlTerm
 {
 public:
-  // TODO: Use the fact that PL_put_atom() always returns TRUE
+  // TODO: Use the fact that PL_put_atom() always returns true
   // TODO: Add encoding for char*, std::string.
   //       For now, these are safe only with ASCII (EncLatin1):
   explicit PlTerm_atom(atom_t a)                 { PlCheck(PL_put_atom(C_, a)); }
@@ -659,18 +654,12 @@ public:
 class PlException : public PlTerm
 {
 public:
-  // TODO: Add a test for a pending exception? Do we need to do this?
-  explicit PlException()
-    : PlTerm(PL_exception(0))
-  { if ( is_null() )
-      PL_fatal_error("No exception");
-  }
   explicit PlException(const PlAtom& a)
     : PlTerm(PlTerm_atom(a).C_) {}
   explicit PlException(const PlTerm& t)
     : PlTerm(t) {}
-  explicit PlException(term_t ex)
-    : PlTerm(ex) {}
+
+public:
 
   // The following methods override PlTerm, but we can't use the
   // "override" keyword because the method isn't virtual and we don't
@@ -680,27 +669,30 @@ public:
   [[nodiscard]] const std::wstring as_wstring() const { return string_term().as_wstring(); }
 
   // plThrow() is for the try-catch in PREDICATE - returns the result
-  // of PL_raise_exception() as a foreign_t (which is always `false`).
+  // of PL_raise_exception(), which is always `false`, as a foreign_t.
   foreign_t plThrow()
   { return static_cast<foreign_t>(PL_raise_exception(C_));
   }
+
+protected:
+  explicit PlException(term_t ex)
+    : PlTerm(ex) {}
 
 private:
   PlTerm string_term() const;
 };
 
-static inline void
-throw_PlException()
-{ throw PlException();
-}
+class PlException_qid : public PlException
+{
+public:
+  explicit PlException_qid(qid_t qid = 0)
+    : PlException(PL_exception(qid)) { }
+};
 
 
 class PlTypeError : public PlException
 {
 public:
-  explicit PlTypeError(const PlTerm& t)
-    : PlException(t) {}
-
   explicit PlTypeError(const char *expected, const PlTerm& actual) :
     // TODO: use PL_type_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
@@ -716,9 +708,6 @@ public:
 class PlDomainError : public PlException
 {
 public:
-  explicit PlDomainError(const PlTerm& t)
-    : PlException(t) {}
-
   explicit PlDomainError(const char *expected, const PlTerm& actual) :
     // TODO: Use PL_domain_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
@@ -795,14 +784,6 @@ public:
 class PlResourceError : public PlException
 {
 public:
-  explicit PlResourceError() : PlException() {}
-
-  explicit PlResourceError(const PlTerm& t)
-    : PlException(t) {}
-
-  explicit PlResourceError(term_t ex)
-    : PlException(ex) {}
-
   explicit PlResourceError(const char *resource) :
     // TODO: Use PL_resource_error() or lazy PlTerm_atom()
     PlException(PlCompound("error",
@@ -821,7 +802,7 @@ public:
 template<typename C_t> inline void
 WrappedC<C_t>::verify() const
 { if ( is_null() ) // For PlFunctor, no need to check name().is_null()
-    throw PlResourceError();
+    throw PlFail(); // Gets fatal error or PlResourceError("memory")
 }
 
 inline
@@ -878,6 +859,7 @@ inline std::string
 PlTerm::as_string(PlEncoding enc) const
 { char *s;
   size_t len;
+  PlStringBuffers _string_buffers;
   nchars(&len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|static_cast<unsigned int>(enc));
   return std::string(s, len);
 }
@@ -886,16 +868,15 @@ inline std::wstring
 PlTerm::as_wstring() const
 { wchar_t *s;
   size_t len;
+  PlStringBuffers _string_buffers;
   if ( PL_get_wchars(C_, &len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION) )
     return std::wstring(s, len);
-  throw PlException();
+  throw PlFail();
 }
 
 inline void
 PlTerm::as_nil() const
-{ if ( PL_get_nil_ex(C_) )
-    return;
-  (void)chk_throw(); // always throws
+{ PlCheck(PL_get_nil_ex(C_));
 }
 
 inline double
@@ -903,7 +884,7 @@ PlTerm::as_float() const
 { double v;
   if ( PL_get_float_ex(C_, &v) )
     return v;
-  return chk_throw(); // always throws
+  throw PlFail();
 }
 
 inline PlAtom
@@ -911,8 +892,7 @@ PlTerm::as_atom() const
 { atom_t v;
   if ( PL_get_atom_ex(C_, &v) )
     return PlAtom(v);
-  (void)chk_throw(); // always throws
-  return PlAtom();   // make the compiler happy
+  throw PlFail();
 }
 
 inline void *
@@ -920,8 +900,7 @@ PlTerm::as_pointer() const
 { void *ptr;
   if ( PL_get_pointer_ex(C_, &ptr) )
     return ptr;
-  (void)chk_throw(); // always throws
-  return nullptr;    // TODO: fix: make the compiler happy
+  throw PlFail();
 }
 
 inline record_t
@@ -929,15 +908,12 @@ PlTerm::record() const
 { record_t rec = PL_record(C_);
   if ( rec )
     return rec;
-  (void)chk_throw(); // always throws
-  return nullptr;    // TODO: fix: make the compiler happy
+  throw PlFail();
 }
 
 inline void
 PlTerm::nchars(size_t *len, char **s, unsigned int flags) const
-{ if ( PL_get_nchars(C_, len, s, flags|CVT_EXCEPTION) )
-    return;
-  (void)chk_throw(); // always throws
+{ PlCheck(PL_get_nchars(C_, len, s, flags|CVT_EXCEPTION));
 }
 
 		 /*******************************
@@ -949,39 +925,38 @@ class PlTerm_tail : public PlTerm
 public:
   explicit PlTerm_tail(const PlTerm& l)
   { if ( l.is_variable() || l.is_list() )
-    { if ( !(C_ = l.copy_term_ref().C_) )
-	throw PlResourceError();
+    { C_ = l.copy_term_ref().C_;
+      if ( is_null() )
+	throw PlFail(); // Raises resource exception
     } else
       throw PlTypeError("list", l);
   }
 
 					/* building */
   bool append(const PlTerm& e)
-  { term_t tmp, ex;
-
+  { // TODO: PlTerm_var tmp, ex; replace PL_unify_*() with unify_*() methods
+    term_t tmp;
     if ( (tmp = PL_new_term_ref()) &&
 	 PL_unify_list(C_, tmp, C_) &&
 	 PL_unify(tmp, e.C_) )
     { PL_reset_term_refs(tmp);
-      return TRUE;
+      return true;
     }
 
-    if ( (ex = PL_exception(0)) ) // TODO: use PlCheck()?
-      throw PlResourceError(ex);
-
-    return FALSE;
+    return false;
   }
+
   bool close()
-  { return PL_unify_nil(C_);
+  { return unify_nil();
   }
 
 					/* enumerating */
   bool next(PlTerm& t)
   { if ( PL_get_list(C_, t.C_, C_) )
-      return TRUE;
+      return true;
 
     if ( PL_get_nil(C_) )
-      return FALSE;
+      return false;
 
     throw PlTypeError("list", *this);
   }
@@ -1055,68 +1030,100 @@ inline bool PlRewindOnFail(std::function<bool()> f)
   return rc;
 }
 
-
 class PlQuery
 {
 private:
   qid_t qid_;
 
 public:
-  PlQuery(predicate_t pred, const PlTermv& av)
-    : qid_(PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION, pred, av.termv()))
-  { if ( !qid_ ) // TODO: use PlCheck()?
-      throw PlResourceError();
+  PlQuery(predicate_t pred, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
+    : qid_(PL_open_query(static_cast<module_t>(0), flags, pred, av.termv()))
+  { verify();
   }
   // TODO: PlQuery(const wstring& ...)
-  PlQuery(const std::string& name, const PlTermv& av)
-    : qid_(PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION,
+  PlQuery(const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
+    : qid_(PL_open_query(static_cast<module_t>(0), flags,
 			 PL_predicate(name.c_str(), static_cast<int>(av.size()), "user"),
 			 av.termv()))
-  { if ( !qid_ ) // TODO: use PlCheck()?
-      throw PlResourceError();
+  { verify();
   }
-  PlQuery(const std::string& module, const std::string& name, const PlTermv& av)
-    : qid_(PL_open_query(static_cast<module_t>(0), PL_Q_PASS_EXCEPTION,
+  PlQuery(const std::string& module, const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
+    : qid_(PL_open_query(static_cast<module_t>(0), flags,
 			 PL_predicate(name.c_str(), static_cast<int>(av.size()), module.c_str()),
 			 av.termv()))
-  { if ( !qid_ ) // TODO: use PlCheck()?
-      throw PlResourceError();
+  { verify();
   }
+
+  // The return code from next_solution can be (if called with PL_Q_EXT_STATUS):
+  //    TRUE
+  //    FALSE
+  //    PL_S_EXCEPTION
+  //    PL_S_FALSE
+  //    PL_S_TRUE
+  //    PL_S_LAST
+  // Because of this, you shouldn't use PlCheck(q.next_solution())
+  [[nodiscard]] int next_solution();
+
+  [[nodiscard]] bool cut()
+  { qid_t qid_orig =  qid_;
+    qid_ = 0;
+    if ( qid_orig )
+      return PL_cut_query(qid_orig);  // rc: exception occurred in a cleanup handler
+    return true;
+  }
+
+  [[nodiscard]] bool close_destroy()
+  { qid_t qid_orig =  qid_;
+    qid_ = 0;
+    if ( qid_orig )
+      return PL_close_query(qid_orig);  // rc: exception occurred in a cleanup handler
+    return true;
+  }
+
   ~PlQuery()
-  { if ( qid_ )
-      PL_cut_query(qid_);
+  { // Don't do: PlCheck(close()) because must not throw exception in destructor
+    (void)cut(); // *not* close() - which destroys data&bindings from query  }
   }
-  bool next_solution();
+
+private:
+  void verify()
+  { if ( !qid_ )
+      throw PlFail();
+  }
 };
 
 
-// TODO: add std::string, std::wstring versions of PlCall
-
+// See comment about possible return values from
+// PlQuery::next_solution(), which is used by PlCall().
 inline int
-PlCall(const char *predicate, const PlTermv& args)
-{ PlQuery q(predicate, args);
+PlCall(const std::string& predicate, const PlTermv& args, int flags = PL_Q_PASS_EXCEPTION)
+{ PlQuery q(predicate, args, flags);
   return q.next_solution();
 }
 
 inline int
-PlCall(const char *module, const char *predicate, const PlTermv& args)
-{ PlQuery q(module, predicate, args);
+PlCall(const std::string& module, const std::string& predicate, const PlTermv& args, int flags = PL_Q_PASS_EXCEPTION)
+{ PlQuery q(module, predicate, args, flags);
   return q.next_solution();
 }
 
 inline int
-PlCall(const char *goal)
-{ PlQuery q("call", PlTermv(PlCompound(goal)));
+PlCall(const std::string& goal, int flags = PL_Q_PASS_EXCEPTION)
+{ PlQuery q("call", PlTermv(PlCompound(goal)), flags);
   return q.next_solution();
 }
 
 inline int
-PlCall(const wchar_t *goal)
-{ PlQuery q("call", PlTermv(PlCompound(goal)));
+PlCall(const std::wstring& goal, int flags = PL_Q_PASS_EXCEPTION)
+{ PlQuery q("call", PlTermv(PlCompound(goal)), flags);
   return q.next_solution();
 }
 
-// TODO: PlCall(const std::string& goal)
+inline int
+PlCall(PlTerm goal, int flags = PL_Q_PASS_EXCEPTION)
+{ PlQuery q("call", PlTermv(goal), flags);
+  return q.next_solution();
+}
 
 
 
@@ -1176,19 +1183,7 @@ inline bool
 PlTerm::chkex(int rc)
 { if ( rc )
     return rc;
-  term_t ex = PL_exception(0);
-  if ( ex )
-    throw PlException(ex);
-  return rc;
-}
-
-inline bool
-PlTerm::chk_throw()
-{ term_t ex = PL_exception(0);
-  if ( ex )
-    throw PlException(ex);
   throw PlFail();
-  return false;
 }
 
 
@@ -1301,8 +1296,7 @@ inline
 PlCompound::PlCompound(const wchar_t *text)
 { term_t t = PL_new_term_ref();
 
-  if ( !PL_wchars_to_term(text, t) )
-    throw PlException(t);
+  PlCheck(PL_wchars_to_term(text, t));
 
   PlPutTerm(C_, t);
 }
@@ -1312,8 +1306,7 @@ PlCompound::PlCompound(const std::string& text, PlEncoding enc)
 { term_t t = PL_new_term_ref();
 
   // TODO: PL_put_term_from_chars() should take an unsigned int flags
-  if ( !PL_put_term_from_chars(t, enc, text.size(), text.data()) )
-    throw PlException(t);
+  PlCheck(PL_put_term_from_chars(t, enc, text.size(), text.data()));
 
   PlPutTerm(C_, t);
 }
@@ -1323,8 +1316,7 @@ PlCompound::PlCompound(const std::wstring& text)
 { term_t t = PL_new_term_ref();
 
   // TODO: what is wchar_t equivalent of PL_put_term_from_chars()?
-  if ( !PL_wchars_to_term(text.c_str(), t) ) // TODO: use text.size()
-    throw PlException(t);
+  PlCheck(PL_wchars_to_term(text.c_str(), t)); // TODO: use text.size()
 
   PlPutTerm(C_, t);
 }
@@ -1376,7 +1368,7 @@ inline PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1)
   : size_(2),
     a0_(PL_new_term_refs(2))
 { if ( !a0_ )
-    throw PlResourceError();
+    throw PlFail();
   PlPutTerm(a0_+0, m0.C_);
   PlPutTerm(a0_+1, m1.C_);
 }
@@ -1385,7 +1377,7 @@ inline PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2)
   : size_(3),
     a0_(PL_new_term_refs(3))
 { if ( !a0_ )
-    throw PlResourceError();
+    throw PlFail();
   PlPutTerm(a0_+0, m0.C_);
   PlPutTerm(a0_+1, m1.C_);
   PlPutTerm(a0_+2, m2.C_);
@@ -1395,7 +1387,7 @@ inline PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2, co
   : size_(4),
     a0_(PL_new_term_refs(4))
 { if ( !a0_ )
-    throw PlResourceError();
+    throw PlFail();
   PlPutTerm(a0_+0, m0.C_);
   PlPutTerm(a0_+1, m1.C_);
   PlPutTerm(a0_+2, m2.C_);
@@ -1407,7 +1399,7 @@ inline PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2,
   : size_(5),
     a0_(PL_new_term_refs(5))
 { if ( !a0_ )
-    throw PlResourceError();
+    throw PlFail();
   PlPutTerm(a0_+0, m0.C_);
   PlPutTerm(a0_+1, m1.C_);
   PlPutTerm(a0_+2, m2.C_);
@@ -1454,19 +1446,12 @@ PlException::string_term() const
 		 *	    QUERY (BODY)	*
 		 *******************************/
 
-inline bool
+inline int
 PlQuery::next_solution()
-{ int rval;
+{ int rval = PL_next_solution(qid_);
 
-  if ( !(rval = PL_next_solution(qid_)) )
-  { term_t ex;
-
-    PL_close_query(qid_);
-    qid_ = 0;
-
-    if ( (ex = PL_exception(0)) )
-      throw PlException(ex);
-  }
+  if ( !rval )
+    (void)close_destroy(); // TODO: what if this creates an exception?
   return rval;
 }
 
@@ -1475,61 +1460,36 @@ PlQuery::next_solution()
 		 *	      ENGINE		*
 		 *******************************/
 
-class PlError
-{
-private:
-  char *message_;
-
-public:
-  PlError(const char *msg)
-  { size_t len = strlen(msg)+1;
-    message_ = new char[len];
-#ifdef _MSC_VER				/* Yek */
-#pragma warning( push )
-#pragma warning (disable:4996)
-#endif
-    strncpy(message_, msg, len);
-#ifdef _MSC_VER
-#pragma warning( pop )
-#endif
-  }
-
-  ~PlError()
-  { delete[] message_;
-  }
-};
-
-
 class PlEngine
 {
 public:
   PlEngine(int argc, char **argv)
-  { if ( !PL_initialise(argc, argv) )
-      throw PlError("failed to initialise");
+  { PlCheck(PL_initialise(argc, argv));
   }
   PlEngine(int argc, wchar_t **argv)
-  { if ( !PL_winitialise(argc, argv) )
-      throw PlError("failed to initialise");
+  { PlCheck(PL_winitialise(argc, argv));
   }
 
   PlEngine(char *av0)
   { av[0] = av0;
     av[1] = nullptr;
 
-    if ( !PL_initialise(1, av) )
-      throw PlError("failed to initialise");
+    PlCheck(PL_initialise(1, av));
   }
 
   PlEngine(wchar_t *av0)
   { w_av[0] = av0;
     w_av[1] = nullptr;
 
-    if ( !PL_winitialise(1, w_av) )
-      throw PlError("failed to initialise");
+    PlCheck(PL_winitialise(1, w_av));
+  }
+
+  void cleanup(int status_and_flags = 0) {
+    PlCheck(PL_cleanup(status_and_flags));
   }
 
   ~PlEngine()
-  { PL_cleanup(0);
+  { (void)PL_cleanup(0); // Can't throw out of a destructor
   }
 
 private:

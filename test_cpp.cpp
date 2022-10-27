@@ -150,6 +150,7 @@ PREDICATE(list_modules, 0)
   while( q.next_solution() )
     cout << av[0].as_string() << endl;
 
+  PlCheck(q.cut());
   return true;
 }
 
@@ -166,12 +167,26 @@ PREDICATE(average, 3)			/* average(+Templ, :Goal, -Average) */
   { sum += A1.as_long();
     n++;
   }
+  PlCheck(q.cut());
   return A3.unify_float(double(sum) / double(n));
 }
 
 PREDICATE(hello, 0)
 { PlQuery q("write", PlTermv(PlTerm_atom("hello world\n")));
-  return q.next_solution();
+  int rc = q.next_solution();
+  PlCheck(q.cut());
+  return rc;
+}
+
+PREDICATE(hello_query, 2)
+{ PlQuery q(A1.as_string(), PlTermv(A2));
+  PlCheck(q.next_solution());
+  return true;
+}
+
+PREDICATE(hello_call, 1)
+{ PlCheck(PlCall(A1));
+  return true;
 }
 
 PREDICATE(term, 1)
@@ -236,21 +251,79 @@ PREDICATE(cappend, 3)
   PlTerm_var e;
 
   while(l1.next(e))
-  { if ( !l3.append(e) )
-      return false;
-  }
+    l3.append(e);
 
   return A2.unify_term(l3);
 }
 
-PREDICATE(call_atom, 1)
-{ try
-  { return static_cast<foreign_t>(PlCall(A1.as_wstring().c_str())); // TODO: PlCall(A1.wstring())
-  } catch ( PlTypeError &ex )
-  { cerr << "Type Error caught in C++" << endl;
-    cerr << "Message: \"" << ex.as_string() << "\"" << endl;
+// TODO: This doesn't do quite what's expected if there's an
+//       exception.  Instead of returning the exception to Prolog, it
+//       ends up in the debugger.
+//       Possibly this is because PlCall needs the flags
+//       PL_Q_CATCH_EXCEPTION and not PL_Q_PASS_EXCEPTION?
+PREDICATE(cpp_call_, 2)
+{ int flags = A2.as_int();
+  std::string flag_str;
+  // if ( flags & PL_Q_DEBUG )        flag_str.append(",debug");
+  // if ( flags & PL_Q_DETERMINISTIC) flag_str.append(",deterministic");
+  if ( flags & PL_Q_NORMAL )          flag_str.append(",normal");
+  if ( flags & PL_Q_NODEBUG )         flag_str.append(",nodebug");
+  if ( flags & PL_Q_CATCH_EXCEPTION)  flag_str.append(",catch_exception");
+  if ( flags & PL_Q_PASS_EXCEPTION)   flag_str.append(",pass_exception");
+  if ( flags & PL_Q_ALLOW_YIELD)      flag_str.append(",allow_exception");
+  if ( flags & PL_Q_EXT_STATUS)       flag_str.append(",ext_status");
+  if ( flag_str.empty() )
+    flag_str = "cpp_call";
+  else
+    flag_str = std::string("cpp_call(").append(flag_str.substr(1)).append(")");
+  cout << flag_str << ": " << A1.as_string() << endl;
+
+  try {
+    int rc = PlCall(A1.as_wstring(), flags);
+    if ( flags & PL_Q_EXT_STATUS )
+    { const char *status_str;
+      switch ( rc )
+      { case PL_S_EXCEPTION: status_str = "exception"; break;
+        case PL_S_FALSE:     status_str = "false";     break;
+        case PL_S_TRUE:      status_str = "true";      break;
+        case PL_S_LAST:      status_str = "last";      break;
+        case PL_S_YIELD:     status_str = "yield";     break;
+        default:             status_str = "???";       break;
+      }
+      cout << "... after call, rc=" << rc << ": " << status_str << endl;
+    } else
+    { cout << "... after call, rc=" << rc << endl;
+    }
+
+    if ( rc )
+      cout << "cpp_call result: rc=" << rc << ": " << A1.as_string() << endl;
+    else
+    { PlException_qid ex;
+      if ( ex.is_null() )
+        cout << "cpp_call failed" << endl;
+      else
+        cout << "cpp_call failed: ex: " << ex.as_string() << endl;
+    }
+    return rc; // TODO: this is wrong with some query flags
+  } catch ( PlException& ex )
+  { if ( ex.is_null() )
+      cout << "cpp_call except is_null" << endl;
+    else
+      cout << "cpp_call exception: " << ex.as_string() << endl;
     throw;
   }
+}
+
+PREDICATE(cpp_atom_codes, 2)
+{ int rc = PlCall("atom_codes", PlTermv(A1, A2));
+  if ( ! rc )
+  { PlException_qid ex;
+    if ( ex.is_null() )
+      cout << "atom_codes failed" << endl;
+    else
+      cout << "atom_codes failed: ex: " << ex.as_string() << endl; // Shouldn't happen
+  }
+  return rc;
 }
 
 
@@ -952,3 +1025,25 @@ PREDICATE(cvt_i_bool, 2)
 // TODO: add tests for PL_cvt_i_*() (using PlTerm::integer())
 
 // TODO: add PlEngine tests
+
+PREDICATE(throw_domain_ffi, 1)
+{ return PL_domain_error("footype", A1.C_);
+}
+
+PREDICATE(throw_domain_cpp1, 1)
+{ throw PlDomainError("footype", A1);
+}
+
+PREDICATE(throw_domain_cpp2, 1)
+{ PlCheck(PL_domain_error("footype", A1.C_));
+  return false; // Should never reach here
+}
+
+PREDICATE(throw_domain_cpp3, 1)
+{ PL_domain_error("footype", A1.C_);
+  throw PlFail();
+}
+
+PREDICATE(throw_domain_cpp4, 1)
+{ return PlDomainError("footype", A1).plThrow();
+}

@@ -44,6 +44,7 @@
 :- encoding(utf8).
 
 :- use_module(library(plunit)).
+:- use_module(test_common).
 
 :- use_foreign_library(foreign(test_ffi)).
 
@@ -175,6 +176,10 @@ test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO
     ffi_options(_Callback, [token(qqsv), descr("DESCR"), 123, length(5), callback(foo(bar))]).
 test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO: is this intended behavior?
     ffi_options(_Callback, [token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))]).
+
+ffi_call(Goal, Flags) :-
+    query_flags(Flags, CombinedFlag),
+    ffi_call_(Goal, CombinedFlag).
 
 :- end_tests(wchar).
 

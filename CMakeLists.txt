@@ -27,11 +27,13 @@ swipl_plugin(
     test_ffi
     TEST_ONLY
     MODULE test_ffi
-    C_SOURCES test_ffi.c)
+    C_SOURCES test_ffi.c
+    PL_LIBS test_common.pl)
 
 swipl_plugin(
     test_cpp
     TEST_ONLY
     MODULE test_cpp
     C_LIBS ${SOCKET_LIBRARIES}
-    C_SOURCES test_cpp.cpp)
+    C_SOURCES test_cpp.cpp
+    PL_LIBS test_common.pl)

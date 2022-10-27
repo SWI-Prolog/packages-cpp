@@ -206,6 +206,65 @@ ffi_options_(term_t a1, term_t options)
 }
 
 
+static foreign_t
+ffi_call_(term_t goal, term_t flags_t)
+{ int flags;
+  int rc;
+  qid_t qid;
+  predicate_t call_pred = PL_predicate("call", 1, "user");
+  if ( !PL_get_integer(flags_t, &flags) )
+    return FALSE;
+
+  PL_STRINGS_MARK();
+  char *s;
+  size_t len;
+  rc = PL_get_nchars(goal, &len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION);
+  if ( rc )
+  { char flags_str[500];
+    flags_str[0] = '\0';
+    flags_str[1] = '\0';
+    // if ( flags & PL_Q_DEBUG )         strcat(flags_str, ",debug");
+    // if ( flags & PL_Q_DETERMINISTIC ) strcat(flags_str, ",deterministic");
+    if ( flags & PL_Q_NORMAL )           strcat(flags_str, ",normal");
+    if ( flags & PL_Q_NODEBUG )          strcat(flags_str, ",nodebug");
+    if ( flags & PL_Q_CATCH_EXCEPTION )  strcat(flags_str, ",catch_exception");
+    if ( flags & PL_Q_PASS_EXCEPTION )   strcat(flags_str, ",pass_exception");
+    if ( flags & PL_Q_ALLOW_YIELD )      strcat(flags_str, ",allow_yield");
+    if ( flags & PL_Q_EXT_STATUS )       strcat(flags_str, ",ext_status");
+    Sdprintf("ffi_call (%s): %s\n", flags_str+1, s);
+  }
+  PL_STRINGS_RELEASE();
+  if ( !rc )
+  { Sdprintf(" ... ffi_call PL_get_nchars rc=%d\n", rc);
+    return rc;
+  }
+  qid = PL_open_query(0, flags, call_pred, goal);
+  if ( !qid )
+    { Sdprintf(" *** ffi_call open_query failed\n");
+      return FALSE;
+  }
+  rc = PL_next_solution(qid);
+  if ( flags & PL_Q_EXT_STATUS )
+  { const char *status_str;
+    switch ( rc )
+    { case PL_S_EXCEPTION: status_str = "exception"; break;
+      case PL_S_FALSE:     status_str = "false";     break;
+      case PL_S_TRUE:      status_str = "true";      break;
+      case PL_S_LAST:      status_str = "last";      break;
+      case PL_S_YIELD:     status_str = "yield";     break;
+      default:             status_str = "???";       break;
+    }
+    Sdprintf(" ... ffi_call next_solution rc=%d: %s\n", rc, status_str);
+  } else
+  { Sdprintf(" ... ffi_call next_solution rc=%d\n", rc);
+  }
+  rc = PL_cut_query(qid);
+  Sdprintf(" ... fif_call cut_query rc=%d\n", rc);
+
+  return TRUE;
+}
+
+
 install_t
 install_test_ffi(void)
 { PL_register_foreign("range_ffi", 3, range_ffi, PL_FA_NONDETERMINISTIC);
@@ -221,6 +280,7 @@ install_test_ffi(void)
   PL_register_foreign("w_atom_ffi_", 2, w_atom_ffi_, 0);
   PL_register_foreign("atom_ffi_", 2, atom_ffi_, 0);
   PL_register_foreign("ffi_options", 2, ffi_options_, 0);
+  PL_register_foreign("ffi_call_", 2, ffi_call_, 0);
 }
 
 install_t

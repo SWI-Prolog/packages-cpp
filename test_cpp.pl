@@ -43,6 +43,7 @@
 :- encoding(utf8).
 
 :- use_module(library(plunit)).
+:- use_module(test_common).
 
 :- use_foreign_library(foreign(test_cpp)).
 
@@ -52,17 +53,31 @@ test_cpp :-
 
 :- begin_tests(cpp).
 
-test(hello_1) :-
+test(hello) :-
     % TODO: this outputs to cout ... make a version that checks the output?
     hello(world).
 
-test(hello2_1) :-
+test(hello2) :-
     % TODO: this outputs to cout ... make a version that checks the output?
     hello2(world2).
 
-test(hello3_1) :-
+test(hello3) :-
     % TODO: this outputs to cout ... make a version that checks the output?
-    hello3('世界弐').
+    hello3(世界弐).
+
+test(hello_call) :-
+    hello_call(writeln(hello(世界四))).
+test(hello_call, error(existence_error(procedure,writeln_wrong/1))) :-
+    hello_call(writeln_wrong(hello(世界四))).
+test(hello_call, fail) :-
+    hello_call(atom(hello(foo))).
+
+test(hello_query) :-
+    hello_query(writeln, hello(世界四)).
+test(hello_query, error(existence_error(procedure,writeln_wrong/1))) :-
+    hello_query(writeln_wrong, hello(世界四)).
+test(hello_query, fail) :-
+    hello_query(atom, hello(foo)).
 
 test(add_3, Result == 666) :-
     add(667, -1, Result).
@@ -164,8 +179,13 @@ test(hostname_1, [Host == Host2]) :-
 test(cappend, Result = [a,b,c,d,e]) :-
     cappend([a,b,c], [d,e], Result).
 
-test(call_atom_1) :-
-    call_atom('writeln(abc)'). % smoke test
+test(cpp_call) :-
+    cpp_call('writeln(abc)', [normal]). % smoke test
+
+cpp_call(Goal, Flags) :-
+    query_flags(Flags, CombinedFlag),
+    cpp_call_(Goal, CombinedFlag).
+
 
 test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
     square_roots(5, Result).
@@ -455,6 +475,21 @@ test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO
     cpp_options([token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))], false, _R).
 test(scan_options, [blocked(gc_crash), fixme(should_error)]) :- % error(domain_error(cpp_options,unknown_option(blah)))
     cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar), unknown_option:blah}, true, _).
+
+test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_ffi/1,_Msg))) :-
+    throw_domain_ffi(qqsv("ABC")).
+
+test(error_term, [fixme(needs_context), error(domain_error(footype,qqsv("ABC")),_)]) :-
+    throw_domain_cpp1(qqsv("ABC")).
+
+test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_cpp2/1,_Msg))) :-
+    throw_domain_cpp2(qqsv("ABC")).
+
+test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_cpp3/1,_Msg))) :-
+    throw_domain_cpp3(qqsv("ABC")).
+
+test(error_term, [fixme(needs_context), error(domain_error(footype,qqsv("ABC")),_)]) :-
+    throw_domain_cpp4(qqsv("ABC")).
 
 :- end_tests(cpp).
 

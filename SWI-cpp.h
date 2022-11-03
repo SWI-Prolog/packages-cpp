@@ -83,7 +83,7 @@ public:
   { functor = PL_new_functor(PL_new_atom_wchars(wcslen(name), name), arity);
   }
 
-  operator const functor_t(void) const
+  operator functor_t(void) const
   { return functor;
   }
 

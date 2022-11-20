@@ -303,7 +303,7 @@ private:
 
 public:
   PlTerm(const PlTerm&) = default;
-  explicit PlTerm(const PlAtom& a)
+  explicit PlTerm(const PlAtom& a) : WrappedC<term_t>(PL_new_term_ref())
   { PlCheck(PL_put_atom(C_, a.C_));
   }
 

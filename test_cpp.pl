@@ -207,6 +207,7 @@ test(malloc) :-
     malloc(1000, Result), % smoke test
     free(Result).
 
+:- if(\+current_prolog_flag(asan, true)).
 too_big_alloc_request(Request) :-
     current_prolog_flag(address_bits, Bits),
     (   Bits == 32
@@ -249,6 +250,7 @@ test(malloc) :-
                             type_error(integer,_)])).
 
 :- endif.
+:- endif.                    % \+current_prolog_flag(asan, true)
 
 test(new_chars_1) :-
     new_chars(1000, Result), % smoke test

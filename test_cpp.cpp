@@ -1014,14 +1014,14 @@ PREDICATE(cpp_options, 3)
 
   PlStringBuffers _string_buffers; // for descr's contents
   PlCheck(PL_scan_options(options.C_, flags, "cpp_options", scan_options,
-                          &quoted, &length, &callback.C_, &token.C_, &descr));
+			  &quoted, &length, &callback.C_, &token.C_, &descr));
 
   PlCheck(result.unify_term(PlCompound("options",
-                                       PlTermv(PlTerm_integer(quoted),
-                                               PlTerm_integer(length),
-                                               callback,
-                                               PlTerm(token),
-                                               PlTerm_string(descr)))));
+				       PlTermv(PlTerm_integer(quoted),
+					       PlTerm_integer(length),
+					       callback,
+					       token.C_ ? PlTerm(token) : PlTerm_var(),
+					       PlTerm_string(descr)))));
   // TODO: The following are needed if callback and token aren't used
   //       by a Prolog term (e.g., if they're stored in a "blob"):
   // callback.record();

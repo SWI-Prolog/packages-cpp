@@ -189,6 +189,17 @@ PREDICATE(hello_call, 1)
   return true;
 }
 
+PREDICATE(atom_string, 2)
+{ PlAtom a(A1.as_atom());
+  PlCheck(A2.unify_string(a.as_string()));
+  return true;
+}
+
+PREDICATE(term_string, 2)
+{ PlCheck(A2.unify_string(A1.as_string()));
+  return true;
+}
+
 PREDICATE(term, 1)
 { return A1.unify_term(PlCompound("hello", PlTermv(PlTerm_atom("world"))));
 }
@@ -279,7 +290,7 @@ PREDICATE(cpp_call_, 2)
   cout << flag_str << ": " << A1.as_string() << endl;
 
   try {
-    int rc = PlCall(A1.as_wstring(), flags);
+    int rc = PlCall(A1, flags);
     if ( flags & PL_Q_EXT_STATUS )
     { const char *status_str;
       switch ( rc )

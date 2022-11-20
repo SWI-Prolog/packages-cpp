@@ -66,6 +66,8 @@ test(hello3) :-
     hello3(世界弐).
 
 test(hello_call) :-
+    hello_call(writeln(hello(foo))).
+test(hello_call) :-
     hello_call(writeln(hello(世界四))).
 test(hello_call, error(existence_error(procedure,writeln_wrong/1))) :-
     hello_call(writeln_wrong(hello(世界四))).
@@ -78,6 +80,15 @@ test(hello_query, error(existence_error(procedure,writeln_wrong/1))) :-
     hello_query(writeln_wrong, hello(世界四)).
 test(hello_query, fail) :-
     hello_query(atom, hello(foo)).
+
+test(as_string, S == "foo") :-
+    atom_string(foo, S).
+test(as_string, S == "ä¸\u0096ç\u0095\u008Cå\u009B\u009B") :-
+    atom_string(世界四, S).
+test(as_string, S = "foo(bar)") :-
+    term_string(foo(bar), S).
+test(as_string, S = "hello(ä¸\u0096ç\u0095\u008Cå\u009B\u009B)") :-
+    term_string(hello(世界四), S).
 
 test(add_3, Result == 666) :-
     add(667, -1, Result).
@@ -180,7 +191,7 @@ test(cappend, Result = [a,b,c,d,e]) :-
     cappend([a,b,c], [d,e], Result).
 
 test(cpp_call) :-
-    cpp_call('writeln(abc)', [normal]). % smoke test
+    cpp_call(writeln(abc), [normal]). % smoke test
 
 cpp_call(Goal, Flags) :-
     query_flags(Flags, CombinedFlag),
@@ -189,7 +200,7 @@ cpp_call(Goal, Flags) :-
 
 test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
     square_roots(5, Result).
-test(square_roots_2b, error(resource_error(stack))) :-
+test(square_roots_2b, [blocked(possibly_causes_2nd_stack_error)]) :- % error(resource_error(stack))) :-
     square_roots(1000000000, _).
 
 test(malloc) :-

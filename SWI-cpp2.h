@@ -63,6 +63,7 @@ particularly integer conversions.
 #include <cwchar>
 #include <functional>
 #include <string>
+#include <iostream> // DO NOT SUBMIT
 
 #if INT_MAX != 0x7fffffff
   #error "Unexpected value for INT_MAX"
@@ -276,9 +277,9 @@ public:
 // the PREDICATE, which simply returns false ... if the failure was
 // caused by an exception, SWI-Prolog will detect that and turn the
 // failure into a Prolog exception.  Therefore, there is no need for
-// calling PL_exception(0) and doing something different if there is a
-// pending Prolog exception (if you need to call PL_exception(0), you
-// can use PlException_qid()).
+// calling PL_exception(0) and doing something different if there is
+// a pending Prolog exception (to call PL_exception(0), use
+// PlException_qid()).
 inline void
 PlCheck(int rc)
 { if ( !rc )
@@ -659,12 +660,10 @@ public:
   explicit PlException(const PlTerm& t)
     : PlTerm(t) {}
 
-public:
-
-  // The following methods override PlTerm, but we can't use the
-  // "override" keyword because the method isn't virtual and we don't
-  // want the overhead of virtual methods - we want PlTerm to be a
-  // thin wrapper on term_t.
+  // The following methods override PlTerm, but do not use the
+  // "override" keyword because the method isn't virtual. Because
+  // the API has PlTerm as a thin wrapper on term_t, with minimal
+  // overhead, there are no virtual methods.
   [[nodiscard]] const std::string  as_string(PlEncoding enc=ENC_OUTPUT) const { return string_term().as_string(enc); }
   [[nodiscard]] const std::wstring as_wstring() const { return string_term().as_wstring(); }
 
@@ -857,9 +856,9 @@ PlAtom::as_wstring() const
 
 inline std::string
 PlTerm::as_string(PlEncoding enc) const
-{ char *s;
+{ PlStringBuffers _string_buffers;
+  char *s;
   size_t len;
-  PlStringBuffers _string_buffers;
   nchars(&len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|static_cast<unsigned int>(enc));
   return std::string(s, len);
 }
@@ -913,7 +912,8 @@ PlTerm::record() const
 
 inline void
 PlTerm::nchars(size_t *len, char **s, unsigned int flags) const
-{ PlCheck(PL_get_nchars(C_, len, s, flags|CVT_EXCEPTION));
+{ PlStringBuffers _string_buffers;
+  PlCheck(PL_get_nchars(C_, len, s, flags|CVT_EXCEPTION));
 }
 
 		 /*******************************
@@ -1098,30 +1098,36 @@ private:
 inline int
 PlCall(const std::string& predicate, const PlTermv& args, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q(predicate, args, flags);
+  // std::cerr << "*** PlCall(1) flags=" << flags << ": " << predicate << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(const std::string& module, const std::string& predicate, const PlTermv& args, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q(module, predicate, args, flags);
+  // std::cerr << "*** PlCall(2) flags=" << flags << ": " << predicate << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(const std::string& goal, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q("call", PlTermv(PlCompound(goal)), flags);
+  // std::cerr << "*** PlCall(3) flags=" << flags << ": " << goal << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(const std::wstring& goal, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q("call", PlTermv(PlCompound(goal)), flags);
+  // std::cerr << "*** PlQuery(4) flags=" << flags << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(PlTerm goal, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q("call", PlTermv(goal), flags);
+  // DO NOT SUBMIT:
+  // std::cerr << "*** PlCall(5) flags=" << flags << ": " << goal.as_string() << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 

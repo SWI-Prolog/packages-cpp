@@ -466,27 +466,27 @@ test(cvt_i_bool, error(type_error(bool,0.0)))      :- cvt_i_bool(0.0, _R).
 test(cvt_i_bool, error(type_error(bool,"false")))  :- cvt_i_bool("false", _R).
 
 % TODO: the following sometimes causes a crash:
-test(scan_options, [blocked(gc_crash), R = options(1, 5, foo(bar), _, "")]) :- % Note use of (=)/2 because of uninstantiated variable
+test(scan_options, [R = options(1, 5, foo(bar), _, "")]) :- % Note use of (=)/2 because of uninstantiated variable
     cpp_options([quoted(true), length(5), callback(foo(bar))], false, R).
-test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+test(scan_options, [R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
     cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar))], false, R).
-test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+test(scan_options, [R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
     cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)], false, R).
-test(scan_options, [blocked(gc_crash), error(domain_error(cpp_options,unknown_option(blah)))]) :-
+test(scan_options, [error(domain_error(cpp_options,unknown_option(blah)))]) :-
     cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar)), unknown_option(blah)], true, _).
-test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+test(scan_options, [R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
     cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar)}, false, R).
-test(scan_options, [blocked(gc_crash), R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
+test(scan_options, [R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
     cpp_options([token(qqsv), descr("DESCR"), quoted, length(5), callback(foo(bar))], false, R).
-test(scan_options, [blocked(gc_crash), R == options(0, 5, foo(bar), qqsv, "DESCR")]) :-
+test(scan_options, [R == options(0, 5, foo(bar), qqsv, "DESCR")]) :-
     cpp_options([token(qqsv), descr("DESCR"), length(5), callback(foo(bar))], false, R).
-test(scan_options, [blocked(gc_crash), error(instantiation_error)]) :-
+test(scan_options, [error(instantiation_error)]) :-
     cpp_options([token(qqsv), _, descr("DESCR"), length(5), callback(foo(bar))], false, _).
-test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO: is this intended behavior?
+test(scan_options, [error(type_error(option,123))]) :- % TODO: is this intended behavior?
     cpp_options([token(qqsv), descr("DESCR"), 123, length(5), callback(foo(bar))], false, _R).
-test(scan_options, [blocked(gc_crash), error(type_error(option,123))]) :- % TODO: is this intended behavior?
+test(scan_options, [error(type_error(option,123))]) :- % TODO: is this intended behavior?
     cpp_options([token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))], false, _R).
-test(scan_options, [blocked(gc_crash), fixme(should_error)]) :- % error(domain_error(cpp_options,unknown_option(blah)))
+test(scan_options, [fixme(should_error)]) :- % error(domain_error(cpp_options,unknown_option(blah)))
     cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar), unknown_option:blah}, true, _).
 
 test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_ffi/1,_Msg))) :-

@@ -388,39 +388,6 @@ PREDICATE(delete_chars, 1)
   return true;
 }
 
-// TODO: the following code for detecting address-sanitizer
-//       is taken from pl-incl.h. See discussion about this
-//       in https://github.com/SWI-Prolog/swipl-devel/pull/1044
-
-/* Clang way to detect address_sanitizer */
-#ifndef __has_feature
-  #define __has_feature(x) 0
-#endif
-#ifndef __SANITIZE_ADDRESS__
-#if __has_feature(address_sanitizer)
-#define __SANITIZE_ADDRESS__
-#endif
-#endif
-
-
-PREDICATE(address_sanitizer, 0)
-{
-  #if defined(__SANITIZE_ADDRESS__)
-  return true;
-  #else
-  return false;
-  #endif
-}
-
-PREDICATE(address_sanitizer, 1)
-{
-  #if defined(__SANITIZE_ADDRESS__)
-  return A1.unify_bool(1);
-  #else
-  return A1.unify_bool(0);
-  #endif
-}
-
 class MyClass
 {
 public:

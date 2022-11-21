@@ -200,14 +200,14 @@ cpp_call(Goal, Flags) :-
 
 test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
     square_roots(5, Result).
-test(square_roots_2b, [blocked(possibly_causes_2nd_stack_error)]) :- % error(resource_error(stack))) :-
+test(square_roots_2b, error(resource_error(stack))) :-
     square_roots(1000000000, _).
 
 test(malloc) :-
     malloc(1000, Result), % smoke test
     free(Result).
 
-:- if(\+current_prolog_flag(asan, true)).
+:- if(\+ current_prolog_flag(asan, true)).
 too_big_alloc_request(Request) :-
     current_prolog_flag(address_bits, Bits),
     (   Bits == 32
@@ -256,7 +256,7 @@ test(new_chars_1) :-
     new_chars(1000, Result), % smoke test
     delete_chars(Result).
 
-:- if(\+ address_sanitizer).
+:- if(\+ current_prolog_flag(asan, true)).
 % ASAN has maximum 0x10000000000
 %   see ASAN_OPTIONS=allocator_may_return_null=1:soft_rss_limit_mb=...:hard_rss_limit_mb=...
 % https://github.com/google/sanitizers/issues/295

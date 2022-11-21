@@ -63,7 +63,6 @@ particularly integer conversions.
 #include <cwchar>
 #include <functional>
 #include <string>
-#include <iostream> // DO NOT SUBMIT
 
 #if INT_MAX != 0x7fffffff
   #error "Unexpected value for INT_MAX"
@@ -200,7 +199,17 @@ public:
   { verify();
   }
 
-  const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
+  const std::string get_mbchars(unsigned int flags) const
+  { PlStringBuffers _string_buffers;
+    size_t len;
+    char *s;
+    PlCheck(PL_atom_mbchars(C_, &len, &s, CVT_EXCEPTION|flags));
+    return std::string(s, len);
+  }
+
+  const std::string as_string(PlEncoding enc=ENC_OUTPUT) const
+  { return get_mbchars(static_cast<unsigned int>(enc));
+  }
   const std::wstring as_wstring() const;
 
   [[nodiscard]] bool operator ==(const char *s) const
@@ -304,7 +313,8 @@ private:
 public:
   PlTerm(const PlTerm&) = default;
   explicit PlTerm(const PlAtom& a) : WrappedC<term_t>(PL_new_term_ref())
-  { PlCheck(PL_put_atom(C_, a.C_));
+  { verify();
+    PlCheck(PL_put_atom(C_, a.C_));
   }
 
   // PlTerm& operator =(const PlTerm&) = delete; // see below
@@ -377,7 +387,20 @@ public:
 
   // TODO: PL_get_mpz(), PL_getr_mpq()
 
-  void nchars(size_t *len, char **s, unsigned int flags) const;
+  // Note that this returns a std::string whereas PL_get_nchars() just
+  // gets a char pointer. This can result in some extra copying, but
+  // you don't have to worry about the lifetim of the char pointer's
+  // data. It is a design decision to no provide wrapped access to
+  // PL_get_nchars() - if you use it, you should know what you're
+  // doing, and be able to justify it by performance profiling.
+  std::string get_nchars(unsigned int flags) const
+  { PlStringBuffers _string_buffers;
+    char  *s;
+    size_t len;
+    PlCheck(PL_get_nchars(C_, &len, &s, flags|CVT_EXCEPTION));
+    return std::string(s, len);
+  }
+
 
   [[nodiscard]] PlAtom as_atom() const;
   [[nodiscard]] bool get_if_atom(PlAtom *a) const
@@ -494,7 +517,6 @@ public:
 
   // E.g.: t.write(Serror, 1200, PL_WRT_NEWLINE|PL_WRT_QUOTED);
   void write(IOSTREAM *s, int precedence, int flags) const { PlCheck(PL_write_term(s, C_, precedence, flags)); }
-
 };
 
 
@@ -830,15 +852,6 @@ PlFunctor::name() const
 		 *	ATOM IMPLEMENTATION	*
 		 *******************************/
 
-inline const std::string
-PlAtom::as_string(PlEncoding enc) const
-{ PlStringBuffers _string_buffers;
-  size_t len;
-  char *s;
-  PlCheck( PL_atom_mbchars(C_, &len, &s, CVT_EXCEPTION|static_cast<unsigned int>(enc)) );
-  return std::string(s, len);
-}
-
 inline const std::wstring
 PlAtom::as_wstring() const
 { PlStringBuffers _string_buffers;
@@ -856,11 +869,7 @@ PlAtom::as_wstring() const
 
 inline std::string
 PlTerm::as_string(PlEncoding enc) const
-{ PlStringBuffers _string_buffers;
-  char *s;
-  size_t len;
-  nchars(&len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|static_cast<unsigned int>(enc));
-  return std::string(s, len);
+{ return get_nchars(CVT_ALL|CVT_WRITEQ|BUF_STACK|static_cast<unsigned int>(enc));
 }
 
 inline std::wstring
@@ -908,12 +917,6 @@ PlTerm::record() const
   if ( rec )
     return rec;
   throw PlFail();
-}
-
-inline void
-PlTerm::nchars(size_t *len, char **s, unsigned int flags) const
-{ PlStringBuffers _string_buffers;
-  PlCheck(PL_get_nchars(C_, len, s, flags|CVT_EXCEPTION));
 }
 
 		 /*******************************
@@ -1098,36 +1101,30 @@ private:
 inline int
 PlCall(const std::string& predicate, const PlTermv& args, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q(predicate, args, flags);
-  // std::cerr << "*** PlCall(1) flags=" << flags << ": " << predicate << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(const std::string& module, const std::string& predicate, const PlTermv& args, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q(module, predicate, args, flags);
-  // std::cerr << "*** PlCall(2) flags=" << flags << ": " << predicate << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(const std::string& goal, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q("call", PlTermv(PlCompound(goal)), flags);
-  // std::cerr << "*** PlCall(3) flags=" << flags << ": " << goal << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(const std::wstring& goal, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q("call", PlTermv(PlCompound(goal)), flags);
-  // std::cerr << "*** PlQuery(4) flags=" << flags << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 
 inline int
 PlCall(PlTerm goal, int flags = PL_Q_PASS_EXCEPTION)
 { PlQuery q("call", PlTermv(goal), flags);
-  // DO NOT SUBMIT:
-  // std::cerr << "*** PlCall(5) flags=" << flags << ": " << goal.as_string() << std::endl; // DO NOT SUBMIT
   return q.next_solution();
 }
 

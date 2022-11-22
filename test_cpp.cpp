@@ -987,7 +987,7 @@ PREDICATE(cpp_options, 3)
 				       PlTermv(PlTerm_integer(quoted),
 					       PlTerm_integer(length),
 					       callback,
-					       token.C_ ? PlTerm(token) : PlTerm_var(),
+					       token.not_null() ? PlTerm(token) : PlTerm_var(),
 					       PlTerm_string(descr)))));
   // TODO: The following are needed if callback and token aren't used
   //       by a Prolog term (e.g., if they're stored in a "blob"):

@@ -178,28 +178,26 @@ static PL_option_t ffi_options[] =
 */
 static foreign_t
 ffi_options_(term_t a1, term_t options)
-{ int    quoted   = FALSE;
-  size_t length   = 10;
-  term_t callback = 0; // TODO: should this be: PL_new_term_ref();
-  atom_t token    = 0;
+{ int    quoted     = FALSE;
+  size_t length     = 10;
+  term_t callback   = PL_new_term_ref(); /* default is a variable */
+  atom_t token      = ATOM_nil;
   const char *descr = "";
   int rc;
 
   PL_STRINGS_MARK();
 
   rc = PL_scan_options(options, 0, "ffi_options", ffi_options,
-                       &quoted, &length, &callback, &token, descr);
+		       &quoted, &length, &callback, &token, &descr);
 
   if ( rc )
-  { Sdprintf("ffi_options - quoted: %d\n", quoted);
-    Sdprintf("ffi_options - length: %zu\n", length);
-    Sdprintf("ffi_options - descr:  %s\n", descr);
-    if ( token )
-      Sdprintf("ffi_options - token:  %s\n", PL_atom_chars(token));
-    else
-      Sdprintf("ffi_options - token:  <not specified>\n");
-    if ( callback ) /* TODO: is this needed? */
-      rc = PL_unify(a1, callback);
+  { return PL_unify_term(a1,
+			 PL_FUNCTOR_CHARS, "options", 5,
+			   PL_BOOL,        quoted,
+			   PL_INT64,       length,
+			   PL_TERM,        callback,
+			   PL_ATOM,        token,
+			   PL_UTF8_STRING, descr);
   }
 
   PL_STRINGS_RELEASE();

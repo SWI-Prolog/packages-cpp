@@ -157,7 +157,7 @@ test(char_1, all(Result == ["//", "/ /", "/abC/", "/Hello World!/"])) :-
     ;   atom_ffi('Hello World!',   Result)
     ).
 
-% TODO: the following sometimes causes a crash:
+% TODO: fix the crashes: https://github.com/SWI-Prolog/swipl-devel/issues/1073
 test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-
     ffi_options(Callback, [quoted(true), length(5), callback(foo(bar))]).
 test(scan_options, [blocked(gc_crash), Callback == foo(bar)]) :-

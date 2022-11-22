@@ -549,6 +549,9 @@ Average = 10.333333333333334.
 \section{Rational for changes from version 1 (version 2)}
 \label{sec:cpp2-rationale}
 
+\subsection{Implicit constructors and conversion operators}
+\label{sec:cpp2-rationale-ctors}
+
 The original version of the C++ interface heavily used implicit
 constructors and conversion operators. This allowed, for example:
 \begin{code}
@@ -635,6 +638,34 @@ available (except for the implicit constructors and operators), but
 marked as "deprecated"; code that depends on the parts that have been
 removed can be easily changed to use the new interface.
 
+\subsection{Strings}
+\label{sec:cpp2-rationale-strings}
+
+The version API often used \ctype{char*} for both setting and setting
+string values. This is not a problem for setting (although encodings
+can be an issue), but can introduce subtle bugs in the lifetimes of
+pointers if the buffer stack isn't used properly. The buffer stack is
+abstracted into \ctype{PlStringBuffers}, but it would be preferable to
+avoid its use altogether. C++, unlike C, has a standard string that
+allows easily keeping a copy rather than dealing with a pointer that
+might become invalid. (Also, C++ strings can contain null characters.)
+
+C++ has default conversion operators from \ctype{char*} to
+\ctype{std::string}, so some of the API support only
+\ctype{std::string}, even though this can cause a small
+inefficiency. If this proves to be a problem, additional overloaded
+functions and methods can be provided in future (note that some
+compilers have optimizations that reduce the overheads of using
+\ctype{std::string}); but for performance-critical code, the C
+functions can still be used.
+
+There still remainds the problems of Unicode and encodings.
+\ctype{std::wstring} is one way of dealing with this. And for
+interfaces that use \ctype{std::string}, an encoding can be
+specified.\footnote{As of 2022-11, this had only been partially
+implemented}. Some of the details for this - such as the
+default encoding - may change slightly in the future.
+
 \section{Porting from version 1 to version 2}
 \label{sec:cpp2-porting-1-2}
 
@@ -656,7 +687,7 @@ Here is a list of typical changes:
   \item
     Examine uses of \ctype{char*} or \ctype{wchar_t} and replace them by
     \ctype{std::string} or \ctype{std::wstring} if appropriate.
-    For example, \exam{cout << "Hello " << A1.as_string.c_str()() << endl}
+    For example, \exam{cout << "Hello " << A1.as_string().c_str()() << endl}
     can be replaced by \exam{cout << "Hello " << A1.as_string() << endl}.
     In general, \ctype{std::string} is safer than \ctype{char*} because
     the latter can potentially point to freed memory.
@@ -1488,7 +1519,7 @@ was created.
     \cfunction{void}{reset}{}
 Sets the handle to an invalid valid - a subsequent call to is_valid()
 will return \const{false}.
-    \cfunction{const std:string}{as_string}{PlEncoding enc=EncLocale}
+    \cfunction{const std::string}{as_string}{PlEncoding enc=EncLocale}
 Returns the string representation of the atom.\footnote{If you wish
 to return a \ctype{char*} from a function, you should not do
 \exam{return t.as_string().c_str()} because that will return a pointer

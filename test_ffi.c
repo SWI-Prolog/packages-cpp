@@ -180,7 +180,7 @@ static foreign_t
 ffi_options_(term_t a1, term_t options)
 { int    quoted   = FALSE;
   size_t length   = 10;
-  term_t callback = 0;
+  term_t callback = 0; // TODO: should this be: PL_new_term_ref();
   atom_t token    = 0;
   const char *descr = "";
   int rc;
@@ -198,7 +198,8 @@ ffi_options_(term_t a1, term_t options)
       Sdprintf("ffi_options - token:  %s\n", PL_atom_chars(token));
     else
       Sdprintf("ffi_options - token:  <not specified>\n");
-    rc = PL_unify(a1, callback);
+    if ( callback ) /* TODO: is this needed? */
+      rc = PL_unify(a1, callback);
   }
 
   PL_STRINGS_RELEASE();

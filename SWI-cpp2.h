@@ -145,11 +145,11 @@ private:
 
 public:
   explicit PlStringBuffers()
-  { PL_mark_string_buffers(&__PL_mark); // TODO: modified PL_STRINGS_MARK() to be used here
+  { PL_mark_string_buffers(&__PL_mark); // TODO: modify PL_STRINGS_MARK() to be used here
   }
 
   ~PlStringBuffers()
-  { PL_release_string_buffers_from_mark(__PL_mark); // TODO: modified PL_STRINGS_RELEASE() to be used here
+  { PL_release_string_buffers_from_mark(__PL_mark); // TODO: modify PL_STRINGS_RELEASE() to be used here
   }
 };
 
@@ -214,7 +214,7 @@ public:
 
   [[nodiscard]] bool operator ==(const char *s) const
   { PlStringBuffers _string_buffers;
-    return strcmp(s, PL_atom_nchars(C_, nullptr)) == 0; // TODO: use PL_atom_mbchars()
+    return strcmp(s, PL_atom_nchars(C_, nullptr)) == 0; // TODO: use PL_atom_mbchars() or get_mbchars()
   }
   [[nodiscard]] bool operator ==(const wchar_t *s) const
   { PlStringBuffers _string_buffers;
@@ -223,7 +223,7 @@ public:
   [[nodiscard]] bool operator ==(const std::string& s) const
   { PlStringBuffers _string_buffers;
     size_t len;
-    const char* s0 = PL_atom_nchars(C_, &len); // TODO: use PL_atom_mbchars()
+    const char* s0 = PL_atom_nchars(C_, &len); // TODO: use PL_atom_mbchars() or get_mbchars()
     return std::string(s0, len) == s;
   }
   [[nodiscard]] bool operator ==(const std::wstring& s) const
@@ -387,12 +387,6 @@ public:
 
   // TODO: PL_get_mpz(), PL_getr_mpq()
 
-  // Note that this returns a std::string whereas PL_get_nchars() just
-  // gets a char pointer. This can result in some extra copying, but
-  // you don't have to worry about the lifetim of the char pointer's
-  // data. It is a design decision to no provide wrapped access to
-  // PL_get_nchars() - if you use it, you should know what you're
-  // doing, and be able to justify it by performance profiling.
   std::string get_nchars(unsigned int flags) const
   { PlStringBuffers _string_buffers;
     char  *s;

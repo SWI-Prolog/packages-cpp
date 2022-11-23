@@ -1909,7 +1909,7 @@ of these exceptions as well as selective trapping in C++.  Currently,
 these are \ctype{PlTypeEror} and \ctype{PlDomainError},
 \ctype{PlTermvDomainError}, \ctype{PlInstantiationError},
 \ctype{PlExistenceError}, \ctype{PermissionError}, \ctype{PlResourceError},
-and \cctype{PlException_qid}.
+and \ctype{PlException_qid}.
 
 To throw an exception, create an instance of \ctype{PlException} and
 use throw() or PlException::cppThrow().  The latter refines the C++

@@ -59,21 +59,20 @@ test(hello, Out == "Hello world\nHello world\nHello world\nHello world\nHello wo
 test(hello2, Out == "Hello2 world2\nHello2 world2\nHello2 world2\nHello2 world2\nHello2 world2\n") :-
     hello2(world2, Out).
 
-test(hello3) :-
-    % TODO: this outputs to cout ... make a version that checks the output?
-    hello3(世界弐).
+test(hello3, Out == "Hello3 世界弐\n") :-
+    hello3(世界弐, Out).
 
-test(hello_call) :-
-    hello_call(writeln(hello(foo))).
-test(hello_call) :-
-    hello_call(writeln(hello(世界四))).
+test(hello_call, Out == "hello(foo)\n") :-
+    with_output_to(string(Out), hello_call(writeln(hello(foo)))).
+test(hello_call, Out == "hello(世界四)\n") :-
+    with_output_to(string(Out), hello_call(writeln(hello(世界四)))).
 test(hello_call, error(existence_error(procedure,writeln_wrong/1))) :-
     hello_call(writeln_wrong(hello(世界四))).
 test(hello_call, fail) :-
     hello_call(atom(hello(foo))).
 
-test(hello_query) :-
-    hello_query(writeln, hello(世界四)).
+test(hello_query, Out == "hello(世界四)\n") :-
+    with_output_to(string(Out), hello_query(writeln, hello(世界四))).
 test(hello_query, error(existence_error(procedure,writeln_wrong/1))) :-
     hello_query(writeln_wrong, hello(世界四)).
 test(hello_query, fail) :-

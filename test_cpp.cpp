@@ -95,8 +95,9 @@ PREDICATE(hello2, 2)
   return A2.unify_string(buffer.str());
 }
 
-PREDICATE(hello3, 1)
+PREDICATE(hello3, 2)
 { PlAtom atom_a1(A1.as_atom());
+  char buf[1024];
 
   // Iostream doesn't work because `<<` doesn't support std::wstring:
   //   cout << "Hello3 " << atom_a1.wstring() << endl; /* Same output as hello/1 */
@@ -105,8 +106,9 @@ PREDICATE(hello3, 1)
   // character in it. In addition, a NUL ('\0') in the atom will cause
   // the rest of the atom to not be printed.
 
-  if ( Sfprintf(Suser_output, "Hello3 %Ws\n", atom_a1.as_wstring().c_str()) > 0 )
-    return true;
+  if ( Ssnprintf(buf, sizeof(buf),
+		 "Hello3 %Ws\n", atom_a1.as_wstring().c_str()) > 0 )
+    return A2.unify_chars(PL_STRING|REP_UTF8, strlen(buf), buf);
   return false;
 }
 

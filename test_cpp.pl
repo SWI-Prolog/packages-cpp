@@ -37,8 +37,8 @@
 /* This tests the examples in the SWI-cpp2.h documentation. */
 
 :- module(test_cpp,
-          [ test_cpp/0
-          ]).
+	  [ test_cpp/0
+	  ]).
 
 :- encoding(utf8).
 
@@ -49,7 +49,7 @@
 
 test_cpp :-
     run_tests([ cpp
-              ]).
+	      ]).
 
 :- begin_tests(cpp).
 
@@ -79,13 +79,13 @@ test(hello_query, fail) :-
     hello_query(atom, hello(foo)).
 
 test(as_string, S == "foo") :-
-    atom_string(foo, S).
+    atom_to_string(foo, S).
 test(as_string, S == "ä¸\u0096ç\u0095\u008Cå\u009B\u009B") :-
-    atom_string(世界四, S).
+    atom_to_string(世界四, S).
 test(as_string, S = "foo(bar)") :-
-    term_string(foo(bar), S).
+    term_to_string(foo(bar), S).
 test(as_string, S = "hello(ä¸\u0096ç\u0095\u008Cå\u009B\u009B)") :-
-    term_string(hello(世界四), S).
+    term_to_string(hello(世界四), S).
 
 test(add_3, Result == 666) :-
     add(667, -1, Result).
@@ -109,8 +109,8 @@ test(average_3, Average =:= Expected) :-
     average(X, testing:p(X), Average),
     Expected is (1+10+20)/3 .
 
-test(hello_0) :-
-    hello.
+test(hello_0, Out == "hello world\n") :-
+    with_output_to(string(Out), hello).
 
 test(term_1, Term = hello(world)) :-
     term(Term).
@@ -187,12 +187,13 @@ test(hostname_1, [Host == Host2]) :-
 test(cappend, Result = [a,b,c,d,e]) :-
     cappend([a,b,c], [d,e], Result).
 
-test(cpp_call) :-
-    cpp_call(writeln(abc), [normal]). % smoke test
+test(cpp_call, Out == "abc\n") :-
+    with_output_to(string(Out),
+		   cpp_call(writeln(abc), [normal])).
 
 cpp_call(Goal, Flags) :-
     query_flags(Flags, CombinedFlag),
-    cpp_call_(Goal, CombinedFlag).
+    cpp_call_(Goal, CombinedFlag, false).
 
 
 test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
@@ -211,7 +212,7 @@ too_big_alloc_request(Request) :-
     ->  Request = 0xffffffff
     ;   Bits == 64
     ->  Request = 0xffffffffffffffff
-        %         0x10000000000 is ASAN maximum on 64-bit machines
+	%         0x10000000000 is ASAN maximum on 64-bit machines
     ;   assertion(memberchk(Bits, [32,64]))
     ).
 
@@ -240,11 +241,11 @@ test(malloc) :-
 test(malloc) :-
     too_many_bits_alloc_request(Request),
     catch( ( malloc(Request, Result),
-             free(Result)
-           ),
-           error(E,_), true),
+	     free(Result)
+	   ),
+	   error(E,_), true),
     assertion(memberchk(E, [representation_error(_),
-                            type_error(integer,_)])).
+			    type_error(integer,_)])).
 
 :- endif.
 :- endif.                    % \+current_prolog_flag(asan, true)
@@ -271,16 +272,16 @@ test(new_chars_2, error(resource_error(memory))) :-
 test(new_chars_3) :-
     too_many_bits_alloc_request(Request),
     catch( ( new_chars(Request, Result),
-             delete_chars(Result)
-           ),
-           error(E,_), true),
+	     delete_chars(Result)
+	   ),
+	   error(E,_), true),
     assertion(memberchk(E, [representation_error(_),
-                            type_error(integer,_)])).
+			    type_error(integer,_)])).
 
 :- endif.
 
-test(name_arity_1) :-
-    name_arity(foo(bar,zot)).
+test(name_arity_1, Out == "name = foo, arity = 2\n") :-
+    name_arity(foo(bar,zot), Out).
 
 test(name_arity_3) :-
     name_arity(foo(bar,zot), Name, Arity),
@@ -289,7 +290,11 @@ test(name_arity_3) :-
 
 test(list_modules_0) :-
     % TODO: this outputs to cout ... make a version that checks the output?
-    list_modules.
+    list_modules(Text),
+    split_string(Text, "\n", "", Strings),
+    forall(( member(S, Strings), S \== ""),
+	   ( atom_string(M, S),
+	     current_module(M))).
 
 test(my_object, Contents == "foo-bar") :-
     make_my_object(MyObject),
@@ -326,61 +331,61 @@ test(c_PL_unify_nil_ex) :-
 % eq3/2.
 
 test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, error) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    error(occurs_check(B,f(B))) ]) :-
+				set_prolog_flag(occurs_check, error) )),
+		    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+		    error(occurs_check(B,f(B))) ]) :-
     eq1(X, f(X)).
 
 test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, true) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    fail]) :-
+				set_prolog_flag(occurs_check, true) )),
+		    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+		    fail]) :-
     eq1(X, f(X)).
 
 test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
-                               set_prolog_flag(occurs_check, false) )),
-                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
-                    true]) :-
+			       set_prolog_flag(occurs_check, false) )),
+		    cleanup(   set_prolog_flag(occurs_check, OCF) ),
+		    true]) :-
     eq1(X, f(X)).
 
 % Repeat the unify_error test, using eq2/2:
 
 test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, error) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    error(occurs_check(B,f(B))) ]) :-
+				set_prolog_flag(occurs_check, error) )),
+		    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+		    error(occurs_check(B,f(B))) ]) :-
     eq2(X, f(X)).
 
 test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, true) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    fail]) :-
+				set_prolog_flag(occurs_check, true) )),
+		    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+		    fail]) :-
     eq2(X, f(X)).
 
 test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
-                               set_prolog_flag(occurs_check, false) )),
-                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
-                    true]) :-
+			       set_prolog_flag(occurs_check, false) )),
+		    cleanup(   set_prolog_flag(occurs_check, OCF) ),
+		    true]) :-
     eq2(X, f(X)).
 
 % Repeat the unify_error test, using eq3/2:
 
 test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, error) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    error(occurs_check(B,f(B))) ]) :-
+				set_prolog_flag(occurs_check, error) )),
+		    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+		    error(occurs_check(B,f(B))) ]) :-
     eq3(X, f(X)).
 
 test(unify_error, [ setup(( current_prolog_flag(occurs_check, OCF),
-                                set_prolog_flag(occurs_check, true) )),
-                    cleanup(    set_prolog_flag(occurs_check, OCF) ),
-                    fail]) :-
+				set_prolog_flag(occurs_check, true) )),
+		    cleanup(    set_prolog_flag(occurs_check, OCF) ),
+		    fail]) :-
     eq3(X, f(X)).
 
 test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
-                               set_prolog_flag(occurs_check, false) )),
-                    cleanup(   set_prolog_flag(occurs_check, OCF) ),
-                    true]) :-
+			       set_prolog_flag(occurs_check, false) )),
+		    cleanup(   set_prolog_flag(occurs_check, OCF) ),
+		    true]) :-
     eq3(X, f(X)).
 
 % TODO: Add tests for as_string(enc), such as enc=EncLatin1 and atom is non-ascii
@@ -416,11 +421,11 @@ test(range_cpp6b, error(type_error(integer,foo))) :-
 
 % This is test wchar_1 in test_ffi.pl:
 test(wchar_1, all(Result == ["//0", "/ /1",
-                             "/abC/3",
-                             "/Hello World!/12",
-                             "/хелло/5",
-                             "/хелло 世界/8",
-                             "/網目錦へび [àmímé níshíkíhéꜜbì]/26"])) :-
+			     "/abC/3",
+			     "/Hello World!/12",
+			     "/хелло/5",
+			     "/хелло 世界/8",
+			     "/網目錦へび [àmímé níshíkíhéꜜbì]/26"])) :-
     (   w_atom_cpp('',             Result)
     ;   w_atom_cpp(' ',            Result)
     ;   w_atom_cpp('abC',          Result)
@@ -440,7 +445,8 @@ test(type_error_string, S == "Type error: `foofoo' expected, found `'foo-bar'' (
     assertion(A\==B).
 
 test(int_info) :-
-    forall(int_info(Name, Info), format('~q~n', [Name:Info])).
+    findall(Name:Info, int_info(Name, Info), Infos),
+    assertion(memberchk(uint32_t:int_info(uint32_t,4,0,4294967295), Infos)).
 % int_info_cut test checks that PL_PRUNED works as expected:
 test(int_info_cut, Name:Info == bool:int_info(bool, 1, 0, 1)) :-
     int_info(Name, Info), !.
@@ -483,13 +489,13 @@ test(scan_options, [error(type_error(option,123))]) :- % TODO: is this intended 
     cpp_options([token(qqsv), descr("DESCR"), 123, length(5), callback(foo(bar))], false, _R).
 test(scan_options, [error(type_error(option,123))]) :- % TODO: is this intended behavior?
     cpp_options([token(qqsv), 123, descr("DESCR"), length(5), callback(foo(bar))], false, _R).
-test(scan_options, [fixme(should_error)]) :- % error(domain_error(cpp_options,unknown_option(blah)))
+test(scan_options, [error(domain_error(cpp_options,unknown_option:blah))]) :-
     cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar), unknown_option:blah}, true, _).
 
 test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_ffi/1,_Msg))) :-
     throw_domain_ffi(qqsv("ABC")).
 
-test(error_term, [fixme(needs_context), error(domain_error(footype,qqsv("ABC")),_)]) :-
+test(error_term, [error(domain_error(footype,qqsv("ABC")),_)]) :-
     throw_domain_cpp1(qqsv("ABC")).
 
 test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_cpp2/1,_Msg))) :-
@@ -498,7 +504,7 @@ test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_cp
 test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_cpp3/1,_Msg))) :-
     throw_domain_cpp3(qqsv("ABC")).
 
-test(error_term, [fixme(needs_context), error(domain_error(footype,qqsv("ABC")),_)]) :-
+test(error_term, [error(domain_error(footype,qqsv("ABC")),_)]) :-
     throw_domain_cpp4(qqsv("ABC")).
 
 :- end_tests(cpp).

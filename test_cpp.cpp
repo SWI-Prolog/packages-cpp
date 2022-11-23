@@ -126,10 +126,11 @@ PREDICATE(add_num, 3)
   return result.unify_float(sum);
 }
 
-PREDICATE(name_arity, 1)
-{ cout << "name = " << A1.name().as_string() << ", arity = " << A1.arity() << endl;
+PREDICATE(name_arity, 2)
+{ std::stringstream buffer;
 
-  return true;
+  buffer << "name = " << A1.name().as_string() << ", arity = " << A1.arity() << endl;
+  return A2.unify_string(buffer.str());
 }
 
 PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
@@ -143,15 +144,16 @@ PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
   return true;
 }
 
-PREDICATE(list_modules, 0)
-{ PlTermv av(1);
+PREDICATE(list_modules, 1)
+{ std::stringstream buffer;
+  PlTermv av(1);
 
   PlQuery q("current_module", av);
   while( q.next_solution() )
-    cout << av[0].as_string() << endl;
+    buffer << av[0].as_string() << endl;
 
   PlCheck(q.cut());
-  return true;
+  return A1.unify_string(buffer.str());
 }
 
 PREDICATE(average, 3)			/* average(+Templ, :Goal, -Average) */
@@ -189,13 +191,13 @@ PREDICATE(hello_call, 1)
   return true;
 }
 
-PREDICATE(atom_string, 2)
+PREDICATE(atom_to_string, 2)
 { PlAtom a(A1.as_atom());
   PlCheck(A2.unify_string(a.as_string()));
   return true;
 }
 
-PREDICATE(term_string, 2)
+PREDICATE(term_to_string, 2)
 { PlCheck(A2.unify_string(A1.as_string()));
   return true;
 }
@@ -272,8 +274,9 @@ PREDICATE(cappend, 3)
 //       ends up in the debugger.
 //       Possibly this is because PlCall needs the flags
 //       PL_Q_CATCH_EXCEPTION and not PL_Q_PASS_EXCEPTION?
-PREDICATE(cpp_call_, 2)
+PREDICATE(cpp_call_, 3)
 { int flags = A2.as_int();
+  int verbose = A3.as_bool();
   std::string flag_str;
   // if ( flags & PL_Q_DEBUG )        flag_str.append(",debug");
   // if ( flags & PL_Q_DETERMINISTIC) flag_str.append(",deterministic");
@@ -287,7 +290,8 @@ PREDICATE(cpp_call_, 2)
     flag_str = "cpp_call";
   else
     flag_str = std::string("cpp_call(").append(flag_str.substr(1)).append(")");
-  cout << flag_str << ": " << A1.as_string() << endl;
+  if ( verbose )
+    cout << flag_str << ": " << A1.as_string() << endl;
 
   try {
     int rc = PlCall(A1, flags);
@@ -301,26 +305,35 @@ PREDICATE(cpp_call_, 2)
 	case PL_S_YIELD:     status_str = "yield";     break;
 	default:             status_str = "???";       break;
       }
-      cout << "... after call, rc=" << rc << ": " << status_str << endl;
+      if ( verbose )
+	cout << "... after call, rc=" << rc << ": " << status_str << endl;
     } else
-    { cout << "... after call, rc=" << rc << endl;
+    { if ( verbose )
+	cout << "... after call, rc=" << rc << endl;
     }
 
     if ( rc )
-      cout << "cpp_call result: rc=" << rc << ": " << A1.as_string() << endl;
-    else
+    { if ( verbose )
+	cout << "cpp_call result: rc=" << rc << ": " << A1.as_string() << endl;
+    } else
     { PlException_qid ex;
       if ( ex.is_null() )
-	cout << "cpp_call failed" << endl;
-      else
-	cout << "cpp_call failed: ex: " << ex.as_string() << endl;
+      { if ( verbose )
+	  cout << "cpp_call failed" << endl;
+      } else
+      { if ( verbose )
+	  cout << "cpp_call failed: ex: " << ex.as_string() << endl;
+      }
     }
     return rc; // TODO: this is wrong with some query flags
   } catch ( PlException& ex )
   { if ( ex.is_null() )
-      cout << "cpp_call except is_null" << endl;
-    else
-      cout << "cpp_call exception: " << ex.as_string() << endl;
+    { if ( verbose )
+	cout << "cpp_call except is_null" << endl;
+    } else
+    { if ( verbose )
+	cout << "cpp_call exception: " << ex.as_string() << endl;
+    }
     throw;
   }
 }
@@ -890,7 +903,7 @@ int_info_(const std::string name, PlTerm result)
 PREDICATE_NONDET(int_info, 2)
 { PlForeignContextPtr<IntInfoContext> ctxt(handle);
 
-  // When PL_PRUNED is called, it's possible for A1 to be bound;
+  // When PL_PRUNED is called A1 is not bound;
   // therefore, we need to do the switch on PL_foreign_control(handle)
   // before checking A1.is_variable(). We can't put the test for
   // A1.is_variable outside the PL_foreign_control(handle) switch

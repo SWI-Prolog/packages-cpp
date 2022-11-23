@@ -262,7 +262,7 @@ PREDICATE(cappend, 3)
   PlTerm_var e;
 
   while(l1.next(e))
-    l3.append(e);
+    PlCheck(l3.append(e));
 
   return A2.unify_term(l3);
 }
@@ -295,11 +295,11 @@ PREDICATE(cpp_call_, 2)
     { const char *status_str;
       switch ( rc )
       { case PL_S_EXCEPTION: status_str = "exception"; break;
-        case PL_S_FALSE:     status_str = "false";     break;
-        case PL_S_TRUE:      status_str = "true";      break;
-        case PL_S_LAST:      status_str = "last";      break;
-        case PL_S_YIELD:     status_str = "yield";     break;
-        default:             status_str = "???";       break;
+	case PL_S_FALSE:     status_str = "false";     break;
+	case PL_S_TRUE:      status_str = "true";      break;
+	case PL_S_LAST:      status_str = "last";      break;
+	case PL_S_YIELD:     status_str = "yield";     break;
+	default:             status_str = "???";       break;
       }
       cout << "... after call, rc=" << rc << ": " << status_str << endl;
     } else
@@ -311,9 +311,9 @@ PREDICATE(cpp_call_, 2)
     else
     { PlException_qid ex;
       if ( ex.is_null() )
-        cout << "cpp_call failed" << endl;
+	cout << "cpp_call failed" << endl;
       else
-        cout << "cpp_call failed: ex: " << ex.as_string() << endl;
+	cout << "cpp_call failed: ex: " << ex.as_string() << endl;
     }
     return rc; // TODO: this is wrong with some query flags
   } catch ( PlException& ex )
@@ -353,7 +353,7 @@ PREDICATE(square_roots, 2)
   PlTerm_tail list(A2);
 
   for(int i=0; i<end; i++)
-    list.append(PlTerm_float(sqrt(double(i))));
+    PlCheck(list.append(PlTerm_float(sqrt(double(i)))));
 
   return list.close();
 }
@@ -700,7 +700,7 @@ PREDICATE_NONDET(range_cpp, 3)
   switch( PL_foreign_control(handle) )
   { case PL_FIRST_CALL:
       ctxt.set(new RangeContext(t_low.as_long(),
-                                t_high.as_long()));
+				t_high.as_long()));
       break;
     case PL_REDO:
       break;
@@ -861,10 +861,10 @@ PREDICATE(unify_foo_string_2b, 1)
 #define X(name, x_type, x_min, x_max)                    \
     {name,                                               \
      PlCompound("int_info",                              \
-                PlTermv(PlTerm_atom(name),               \
-                        PlTerm_integer(sizeof (x_type)),  \
-                        PlTerm_integer(x_min),             \
-                        PlTerm_integer(x_max))).record() },
+		PlTermv(PlTerm_atom(name),               \
+			PlTerm_integer(sizeof (x_type)),  \
+			PlTerm_integer(x_min),             \
+			PlTerm_integer(x_max))).record() },
 
 typedef std::map<const std::string, record_t> IntInfo;
 
@@ -904,7 +904,7 @@ PREDICATE_NONDET(int_info, 2)
   switch( PL_foreign_control(handle) )
   { case PL_FIRST_CALL:
       if ( !A1.is_variable() ) // int_info is a map, so unique on lookup
-        return int_info_(A1.as_string(), A2);
+	return int_info_(A1.as_string(), A2);
       ctxt.set(new IntInfoContext());
       break;
     case PL_REDO:
@@ -921,7 +921,7 @@ PREDICATE_NONDET(int_info, 2)
     { PlCheck(A1.unify_atom(ctxt->it->first));
       ctxt->it++;
       if ( ctxt->it == int_info.cend() )
-        return true; // Last result: no choice point
+	return true; // Last result: no choice point
       ctxt.keep();
       PL_retry_address(ctxt.get()); // Succeed with choice point
     }
@@ -956,7 +956,7 @@ PREDICATE(w_atom_cpp_, 2)
 
 
 /* TODO: Move the "cpp_options" predicate and the associated tests
-         to somewhere in main SWI-Prolog system. */
+	 to somewhere in main SWI-Prolog system. */
 
 static PL_option_t scan_options[] =
 { PL_OPTION("quoted",   OPT_BOOL),

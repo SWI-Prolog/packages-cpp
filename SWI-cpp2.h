@@ -4,7 +4,7 @@
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
     Copyright (c)  2000-2022, University of Amsterdam
-                              VU University Amsterdam
+			      VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
@@ -380,7 +380,7 @@ public:
   [[nodiscard]] unsigned      as_uint()     const { unsigned      v; integer(&v); return v; }
   [[nodiscard]] unsigned long as_ulong()    const { unsigned long v; integer(&v); return v; }
   [[nodiscard]] bool          as_bool()     const { bool          v; integer(&v); return v; }
-                void          as_nil()      const;
+		void          as_nil()      const;
   [[nodiscard]] double        as_float()    const;
   [[nodiscard]] double        as_double()   const { return as_float(); }
   [[nodiscard]] void *        as_pointer()  const; // TODO: replace with C++ interface to blobs
@@ -930,7 +930,7 @@ public:
   }
 
 					/* building */
-  bool append(const PlTerm& e)
+  [[nodiscard]] bool append(const PlTerm& e)
   { // TODO: PlTerm_var tmp, ex; replace PL_unify_*() with unify_*() methods
     term_t tmp;
     if ( (tmp = PL_new_term_ref()) &&
@@ -943,12 +943,12 @@ public:
     return false;
   }
 
-  bool close()
+  [[nodiscard]] bool close()
   { return unify_nil();
   }
 
 					/* enumerating */
-  bool next(PlTerm& t)
+  [[nodiscard]] bool next(PlTerm& t)
   { if ( PL_get_list(C_, t.C_, C_) )
       return true;
 
@@ -1321,31 +1321,31 @@ PlCompound::PlCompound(const std::wstring& text)
 inline
 PlCompound::PlCompound(const char *functor, const PlTermv& args)
 { PlCheck(PL_cons_functor_v(C_,
-                            PL_new_functor(PL_new_atom(functor), args.size()),
-                            args.termv()));
+			    PL_new_functor(PL_new_atom(functor), args.size()),
+			    args.termv()));
 }
 
 inline
 PlCompound::PlCompound(const wchar_t *functor, const PlTermv& args)
 { PlCheck(PL_cons_functor_v(
-                            C_,
-                            PL_new_functor(PL_new_atom_wchars(wcslen(functor), functor),
-                                           args.size()),
-                            args.termv()));
+			    C_,
+			    PL_new_functor(PL_new_atom_wchars(wcslen(functor), functor),
+					   args.size()),
+			    args.termv()));
 }
 
 inline
 PlCompound::PlCompound(const std::string& functor, const PlTermv& args)
 { PlCheck(PL_cons_functor_v(C_,
-                            PL_new_functor(PL_new_atom_nchars(functor.size(), functor.data()), args.size()),
-                            args.termv()));
+			    PL_new_functor(PL_new_atom_nchars(functor.size(), functor.data()), args.size()),
+			    args.termv()));
 }
 
 inline
 PlCompound::PlCompound(const std::wstring& functor, const PlTermv& args)
 { PlCheck(PL_cons_functor_v(C_,
-                            PL_new_functor(PL_new_atom_wchars(functor.size(), functor.data()), args.size()),
-                            args.termv()));
+			    PL_new_functor(PL_new_atom_wchars(functor.size(), functor.data()), args.size()),
+			    args.termv()));
 }
 
 		 /*******************************
@@ -1424,7 +1424,7 @@ PlException::string_term() const
   PlTermv av(2);
 
   PlCheck(av[0].unify_term(PlCompound("print_message",
-                                      PlTermv("error", *this))));
+				      PlTermv("error", *this))));
   PlQuery q("$write_on_string", av);
   if ( q.next_solution() )
     return av[1];

@@ -53,13 +53,11 @@ test_cpp :-
 
 :- begin_tests(cpp).
 
-test(hello) :-
-    % TODO: this outputs to cout ... make a version that checks the output?
-    hello(world).
+test(hello, Out == "Hello world\nHello world\nHello world\nHello world\nHello world\n") :-
+    hello(world, Out).
 
-test(hello2) :-
-    % TODO: this outputs to cout ... make a version that checks the output?
-    hello2(world2).
+test(hello2, Out == "Hello2 world2\nHello2 world2\nHello2 world2\nHello2 world2\nHello2 world2\n") :-
+    hello2(world2, Out).
 
 test(hello3) :-
     % TODO: this outputs to cout ... make a version that checks the output?

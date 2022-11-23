@@ -60,6 +60,7 @@ how the various predicates can be called from Prolog.
 #include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
 #include <iostream>
+#include <sstream>
 #include <unistd.h>
 #include <errno.h>
 #include <math.h>
@@ -70,31 +71,28 @@ how the various predicates can be called from Prolog.
 using namespace std;
 
 
-PREDICATE(hello, 1)
-{ cout << "Hello " << A1.as_string() << endl;
-  cout << "Hello " << A1.as_string().c_str() << endl; // Same output as previous line
-  cout << "Hello " << A1.as_string(EncLatin1).c_str() << endl; // Also same, if it's ASCII
-  cout << "Hello " << A1.as_string(EncUTF8).c_str() << endl;
-  cout << "Hello " << A1.as_string(EncLocale).c_str() << endl; // Can vary by locale settings
+PREDICATE(hello, 2)
+{ std::stringstream buffer;
+  buffer << "Hello " << A1.as_string() << endl;
+  buffer << "Hello " << A1.as_string().c_str() << endl; // Same output as previous line
+  buffer << "Hello " << A1.as_string(EncLatin1).c_str() << endl; // Also same, if it's ASCII
+  buffer << "Hello " << A1.as_string(EncUTF8).c_str() << endl;
+  buffer << "Hello " << A1.as_string(EncLocale).c_str() << endl; // Can vary by locale settings
 
-  return true;
-}
-
-PREDICATE(hello2, 1)
-{ PlAtom atom_a1(A1.as_atom());
-  // The following have the same output as hello/1, if A1 is an atom
-  cout << "Hello2 " << atom_a1.as_string() << endl;
-  cout << "Hello2 " << A1.as_string().c_str() << endl;
-  cout << "Hello2 " << A1.as_string(EncLatin1).c_str() << endl;
-  cout << "Hello2 " << A1.as_string(EncUTF8).c_str() << endl;
-  cout << "Hello2 " << A1.as_string(EncLocale).c_str() << endl;
-  return true;
+  return A2.unify_string(buffer.str());
 }
 
 PREDICATE(hello2, 2)
 { PlAtom atom_a1(A1.as_atom());
-  PlCheck(A2.unify_string(atom_a1.as_string(EncUTF8)));
-  return true;
+  std::stringstream buffer;
+  // The following have the same output as hello/1, if A1 is an atom
+  buffer << "Hello2 " << atom_a1.as_string() << endl;
+  buffer << "Hello2 " << A1.as_string().c_str() << endl;
+  buffer << "Hello2 " << A1.as_string(EncLatin1).c_str() << endl;
+  buffer << "Hello2 " << A1.as_string(EncUTF8).c_str() << endl;
+  buffer << "Hello2 " << A1.as_string(EncLocale).c_str() << endl;
+
+  return A2.unify_string(buffer.str());
 }
 
 PREDICATE(hello3, 1)

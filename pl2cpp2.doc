@@ -556,7 +556,7 @@ The original version of the C++ interface heavily used implicit
 constructors and conversion operators. This allowed, for example:
 \begin{code}
 PREDICATE(hello, 1)
-{ cout << "Hello " << (char *)A1 << endl;
+{ cout << "Hello " << A1.as_string() << endl;
   return true;
 }
 
@@ -1338,7 +1338,7 @@ PREDICATE(write_list, 1)
   PlTerm e;
 
   while(tail.next(e))
-    cout << (char *)e << endl;
+    cout << e.as_string() << endl;
 
   return true;
 }
@@ -1638,7 +1638,7 @@ PREDICATE(list_modules, 0)
 
   PlQuery q("current_module", av);
   while( q.next_solution() )
-    cout << (char *)av[0] << endl;
+    cout << av[0].as_string() << endl;
 
   return true;
 }
@@ -1906,7 +1906,10 @@ no extra work for the programmer.
 For some commonly used exceptions, subclasses of \ctype{PlException}
 have been created to exploit both their constructors for easy creation
 of these exceptions as well as selective trapping in C++.  Currently,
-these are \ctype{PlTypeEror} and \ctype{PlDomainError}.
+these are \ctype{PlTypeEror} and \ctype{PlDomainError},
+\ctype{PlTermvDomainError}, \ctype{PlInstantiationError},
+\ctype{PlExistenceError}, \ctype{PermissionError}, \ctype{PlResourceError},
+and \cctype{PlException_qid}.
 
 To throw an exception, create an instance of \ctype{PlException} and
 use throw() or PlException::cppThrow().  The latter refines the C++
@@ -1927,11 +1930,9 @@ Currently defined methods are:
 
 \begin{description}
     \constructor{PlException}{const PlTerm \&t}
-Create an exception from a general Prolog term.  This is provides the
+Create an exception from a general Prolog term.  This provides the
 interface for throwing any Prolog terms as an exception.
-    \cppcast{PlException}{wchar_t *}
-    \nodescription
-    \cppcast{PlException}{char *}
+    \cfunction{std::string}{as_string}{}
 The exception is translated into a message as produced by
 print_message/2.  The character data is stored in a ring.  Example:
 
@@ -1940,7 +1941,7 @@ print_message/2.  The character data is stored in a ring.  Example:
   try
   { PlCall("consult(load)");
   } catch ( PlException& ex )
-  { cerr << (char *) ex << endl;
+  { cerr << ex.as_string() << endl;
   }
 \end{code}
     \cfunction{int}{plThrow}{}
@@ -1965,16 +1966,17 @@ The following example illustrates this behaviour:
 \begin{code}
 PREDICATE(call_atom, 1)
 { try
-  { return PlCall((char *)A1);
+  { return PlCall(A1.as_string());
   } catch ( PlTypeError& ex )
   { cerr << "Type Error caugth in C++" << endl;
-    cerr << "Message: \"" << (char *)ex << "\"" << endl;
+    cerr << "Message: \"" << ex.as_string() << "\"" << endl;
     return false;
   }
 }
 \end{code}
 
 \end{description}
+
 
 
 \subsection{The class PlTypeError (version 2)}

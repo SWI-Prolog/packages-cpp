@@ -106,8 +106,10 @@ PREDICATE(hello3, 2)
   // character in it. In addition, a NUL ('\0') in the atom will cause
   // the rest of the atom to not be printed.
 
-  if ( Ssnprintf(buf, sizeof(buf),
-		 "Hello3 %Ws\n", atom_a1.as_wstring().c_str()) > 0 )
+  int len = Ssnprintf(buf, sizeof buf,
+		      "Hello3 %Ws\n", atom_a1.as_wstring().c_str());
+  if ( len > 0 )
+    // TODO: use len when fixed: https://github.com/SWI-Prolog/swipl-devel/issues/1074
     return A2.unify_chars(PL_STRING|REP_UTF8, strlen(buf), buf);
   return false;
 }
@@ -152,7 +154,7 @@ PREDICATE(list_modules, 1)
   while( q.next_solution() )
     buffer << av[0].as_string() << endl;
 
-  PlCheck(q.cut());
+  q.cut();
   return A1.unify_string(buffer.str());
 }
 
@@ -169,20 +171,21 @@ PREDICATE(average, 3)			/* average(+Templ, :Goal, -Average) */
   { sum += A1.as_long();
     n++;
   }
-  PlCheck(q.cut());
+  q.cut();
   return A3.unify_float(double(sum) / double(n));
 }
 
 PREDICATE(hello, 0)
 { PlQuery q("write", PlTermv(PlTerm_atom("hello world\n")));
-  int rc = q.next_solution();
-  PlCheck(q.cut());
-  return rc;
+  PlCheck(q.next_solution());
+  return true;
 }
 
 PREDICATE(hello_query, 2)
 { PlQuery q(A1.as_string(), PlTermv(A2));
   PlCheck(q.next_solution());
+  // There's no need for calling q.cut() - it's done implicitly by the
+  // query's destructor.
   return true;
 }
 

@@ -676,9 +676,13 @@ class PlException : public PlTerm
 {
 public:
   explicit PlException(const PlAtom& a)
-    : PlTerm(PlTerm_atom(a).C_) {}
+    : PlTerm(PlTerm_atom(a).C_)
+  { verify();
+  }
   explicit PlException(const PlTerm& t)
-    : PlTerm(t) {}
+    : PlTerm(t)
+  { verify();
+  }
 
   // The following methods override PlTerm, but do not use the
   // "override" keyword because the method isn't virtual. Because
@@ -1071,25 +1075,25 @@ public:
   // Because of this, you shouldn't use PlCheck(q.next_solution())
   [[nodiscard]] int next_solution();
 
-  [[nodiscard]] bool cut()
+  void cut()
   { qid_t qid_orig =  qid_;
     qid_ = 0;
     if ( qid_orig )
-      return PL_cut_query(qid_orig);  // rc: exception occurred in a cleanup handler
-    return true;
+      PlCheck(PL_cut_query(qid_orig));  // rc: exception occurred in a cleanup handler
   }
 
-  [[nodiscard]] bool close_destroy()
+  void close_destroy()
   { qid_t qid_orig =  qid_;
     qid_ = 0;
     if ( qid_orig )
-      return PL_close_query(qid_orig);  // rc: exception occurred in a cleanup handler
-    return true;
+      PlCheck(PL_close_query(qid_orig));  // rc: exception occurred in a cleanup handler
   }
 
-  ~PlQuery()
-  { // Don't do: PlCheck(close()) because must not throw exception in destructor
-    (void)cut(); // *not* close() - which destroys data&bindings from query  }
+  ~PlQuery() noexcept(false)
+  { // cut() can throw a C++ exception - throwing an exception from a
+    // destructor is "potentially dangerous" but it's necessary to
+    // ensure proper behaviour in Prolog.
+    cut(); // *not* close() - which destroys data&bindings from query
   }
 
 private:
@@ -1508,8 +1512,11 @@ public:
     PlCheck(PL_cleanup(status_and_flags));
   }
 
-  ~PlEngine()
-  { (void)PL_cleanup(0); // Can't throw out of a destructor
+  ~PlEngine() noexcept(false)
+  { // cleanup() can throw a C++ exception - throwing an exception
+    // from a destructor is "potentially dangerous" but it's necessary
+    // to ensure proper behaviour in Prolog.
+      cleanup();
   }
 
 private:

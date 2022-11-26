@@ -80,12 +80,18 @@ test(hello_query, fail) :-
 
 test(as_string, S == "foo") :-
     atom_to_string(foo, S).
-test(as_string, S == "ä¸\u0096ç\u0095\u008Cå\u009B\u009B") :-
-    atom_to_string(世界四, S).
 test(as_string, S = "foo(bar)") :-
     term_to_string(foo(bar), S).
+:- if(\+current_prolog_flag(windows, true)).
+% The C++ atom_to_string/2 takes the raw bytes from atom and creates
+% a byte string.  This doesn't work in Windows as we use a different
+% representation.   This is dubious anyway.  Delete entirely fix when
+% the C++ interface properly supports encodings.
+test(as_string, S == "ä¸\u0096ç\u0095\u008Cå\u009B\u009B") :-
+    atom_to_string(世界四, S).
 test(as_string, S = "hello(ä¸\u0096ç\u0095\u008Cå\u009B\u009B)") :-
     term_to_string(hello(世界四), S).
+:- endif.
 
 test(add_3, Result == 666) :-
     add(667, -1, Result).

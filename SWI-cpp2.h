@@ -587,21 +587,25 @@ private:
   term_t a0_; // A vector of term_t
 
 public:
+  explicit PlTermv()
+    : size_(0),
+      a0_(PlTerm::null) { }
   explicit PlTermv(size_t n)
     : size_(n),
       a0_(PL_new_term_refs(static_cast<int>(n)))
-  { if ( ! a0_ )
+  { if ( size_ && ! a0_ )
       throw PlFail();
   }
   explicit PlTermv(size_t n, const PlTerm& t0)
     : size_(n),
       a0_(t0.C_)
-  { if ( ! a0_ )
+  { if ( size_ && ! a0_ )
       throw PlFail();
   }
 
   term_t termv() const
-  { return a0_;
+  { // TODO: test ! a0_ ( or size_ > 0 )
+    return a0_;
   }
 
   size_t size() const
@@ -1051,9 +1055,12 @@ public:
   }
   // TODO: PlQuery(const wstring& ...)
   PlQuery(const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
-    : qid_(PL_open_query(static_cast<module_t>(0), flags,
+    : qid_(PL_open_query(static_cast<module_t>(0),
+                         flags,
                          // TODO: throw if PL_predicate() returns 0
-			 PL_predicate(name.c_str(), static_cast<int>(av.size()), "user"),
+			 PL_predicate(name.c_str(),
+                                      static_cast<int>(av.size()),
+                                      "user"), // TODO: module_t m should be NULL?
 			 av.termv()))
   { verify();
   }

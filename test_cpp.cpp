@@ -189,6 +189,13 @@ PREDICATE(hello_query, 2)
   return true;
 }
 
+PREDICATE(call_cut, 1)
+{ PlQuery q(A1.as_string(), PlTermv());
+  PlCheck(q.next_solution());
+  q.cut();
+  return true;
+}
+
 PREDICATE(hello_call, 1)
 { PlCheck(PlCall(A1));
   return true;

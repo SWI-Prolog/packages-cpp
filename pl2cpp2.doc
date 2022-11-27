@@ -1943,9 +1943,7 @@ these are \ctype{PlTypeEror} and \ctype{PlDomainError},
 and \ctype{PlException_qid}.
 
 To throw an exception, create an instance of \ctype{PlException} and
-use throw() or PlException::cppThrow().  The latter refines the C++
-exception class according to the represented Prolog exception before
-calling throw().
+use throw().
 
 \begin{code}
   char *data = "users";
@@ -2097,24 +2095,26 @@ to Prolog or using \ctype{PlFrame}). Use of some intermediate types
 causing more hash-table lookups. This could be fixed, at the price of
 slighly complicating the interface.
 
-\subsection{Notes on exception}
+\subsection{Notes on exceptions}
 \label{sec:cpp2-exceptions-notes}
 
-Exceptions are normal Prolog terms. You can use the convenience class
-\ctype{PlException} and PlException::plThrow(), but this is not
-mandatory.  The exception term may not be unbound; that is, throw(_)
-must raise an error. The C++ code and underlying C code do not
-explicitly check for the term being a variable, and behaviour of
-raising an exception that is an unbound term is undefined, including
-the possibility of causing a crash or corrupting data.
+Exceptions are normal Prolog terms that are handled specially by the
+PREDICATE macro when they are used by a C++ \exam{throw}, and
+converted into Prolog exceptions.  The exception term may not be
+unbound; that is, throw(_) must raise an error. The C++ code and
+underlying C code do not explicitly check for the term being a
+variable, and behaviour of raising an exception that is an unbound
+term is undefined, including the possibility of causing a crash or
+corrupting data.
 
 The Prolog exception term error(Formal, _) is special.  If the 2nd
-argument of error/2 is undefined, the system normally uses the logic
-from library(prolog_stack) to insert a stack trace there. However, the
-C++ interface does not currently do this.  So, the C code
-\exam{PL_domain_error(Domain,Culprit)} creates a term
-\exam{error(domain_error,Culprit),_)}
-then calls PL_raise_exception() and returns control back to Prolog.
+argument of error/2 is undefined, and the term is thrown, the system
+finds the catcher (if any), and calls the hooks in
+library(prolog_stack) to add the context and stack trace information
+when appropriate.  That is, \exam{throw PlDomainError(Domain,Culprit)}
+ends up doing the same thing as calling
+\exam{PL_domain_error(Domain,Culprit)} which internally calls
+PL_raise_exception() and returns control back to Prolog.
 
 The VM handling of calling to C finds the \const{FALSE} return code,
 checks for the pending exception and propagates the exception into the

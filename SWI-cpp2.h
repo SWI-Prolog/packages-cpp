@@ -1056,8 +1056,8 @@ public:
   // TODO: PlQuery(const wstring& ...)
   PlQuery(const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
     : qid_(PL_open_query(static_cast<module_t>(0),
-                         flags,
-                         // TODO: throw if PL_predicate() returns 0
+			 flags,
+			 // TODO: throw if PL_predicate() returns 0
 			 PL_predicate(name.c_str(),
                                       static_cast<int>(av.size()),
                                       "user"), // TODO: module_t m should be NULL?
@@ -1066,8 +1066,10 @@ public:
   }
   PlQuery(const std::string& module, const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
     : qid_(PL_open_query(static_cast<module_t>(0), flags,
-                         // TODO: throw if PL_predicate() returns 0
-			 PL_predicate(name.c_str(), static_cast<int>(av.size()), module.c_str()),
+			 // TODO: throw if PL_predicate() returns 0
+			 PL_predicate(name.c_str(),
+                                      static_cast<int>(av.size()),
+                                      module.c_str()),
 			 av.termv()))
   { verify();
   }

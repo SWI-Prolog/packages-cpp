@@ -189,6 +189,13 @@ PREDICATE(hello_query, 2)
   return true;
 }
 
+PREDICATE(call_cut, 1)
+{ PlQuery q(A1.as_string(), PlTermv());
+  PlCheck(q.next_solution());
+  q.cut();
+  return true;
+}
+
 PREDICATE(hello_call, 1)
 { PlCheck(PlCall(A1));
   return true;
@@ -500,7 +507,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_atom p_atom4(std::string("abc"));
   PlTerm_atom p_atom5(std::wstring(L"世界"));
   PlTerm_term_t t_t(PL_new_term_ref());
-  PlTerm_term_t t_null; // null
+  PlTerm_term_t t_null(PlTerm::null);
   PlTerm_integer t_int1(std::numeric_limits<int>::max());
   PlTerm_integer t_int1b(std::numeric_limits<int>::min());
   PlTerm_integer t_int2(std::numeric_limits<long>::max());
@@ -524,7 +531,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom atom3(std::string("atom3"));
   PlAtom atom4(std::wstring(L"原子4"));
   PlAtom a5a(t_atom1.as_atom());
-  PlAtom atom_null;
+  PlAtom atom_null(PlAtom::null);
   // The following are unsafe (the as_string() is deleted in the statement):
   //   const char *   x01  = t_var.as_string().c_str();
   //   const wchar_t *x01a = t_var.as_wstring().c_str();
@@ -990,7 +997,7 @@ PREDICATE(cpp_options, 3)
   int         quoted     = false;
   size_t      length     = 10;
   PlTerm_var  callback;
-  PlAtom      token;
+  PlAtom      token(PlAtom::null);
   const char *descr      = "";
   bool        opt_all_v  = opt_all.as_bool();
   int         flags      = opt_all_v ? OPT_ALL : 0;

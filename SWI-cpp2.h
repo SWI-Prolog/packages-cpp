@@ -88,7 +88,32 @@ particularly integer conversions.
 class PlAtom;
 class PlTerm;
 class PlTermv;
-void PlCheck(int rc);
+
+
+// A pseudo-exception for quick exist on failure, for use by the unify
+// methods.  This is special-cased in the PREDICATE et al macros.
+// Note that it is *not* a subclass of PlException. See the
+// documentation for more details on how this works with returning
+// Prolog failure and returning exceptions.
+class PlFail
+{
+public:
+  explicit PlFail() {}
+};
+
+
+// Throw PlFail on failure or exception.  This exception is caught by
+// the PREDICATE, which simply returns false ... if the failure was
+// caused by an exception, SWI-Prolog will detect that and turn the
+// failure into a Prolog exception.  Therefore, there is no need for
+// calling PL_exception(0) and doing something different if there is
+// a pending Prolog exception (to call PL_exception(0), use
+// PlException_qid()).
+inline void
+PlCheck(int rc)
+{ if ( !rc )
+    throw PlFail();
+}
 
 
 		 /*******************************
@@ -105,9 +130,8 @@ public:
   bool not_null() const { return C_ != null; }
   void verify() const; // Throw exception if is_null()
 
-public:
-  WrappedC<C_t>() : C_(null) { }
-  explicit WrappedC<C_t>(C_t v) : C_(v) { }
+  explicit WrappedC<C_t>(C_t v)
+    : C_(v) { }
   WrappedC<C_t>(const WrappedC<C_t>&) = default;
   // WrappedC<C_t>& operator =(const WrappedC<C_t>&) = default; // deprecated/deleted in PlTerm
   operator bool() const = delete; // Use not_null() instead
@@ -159,7 +183,8 @@ public:
 class PlFunctor : public WrappedC<functor_t>
 {
 public:
-  PlFunctor(functor_t v = null) : WrappedC<functor_t>() { }
+  PlFunctor(functor_t v)
+    : WrappedC<functor_t>(v) { }
   // PlFunctor(const char*) is handled by std::string constructor
   explicit PlFunctor(const std::string& name, size_t arity);
   explicit PlFunctor(const std::wstring& name, size_t arity);
@@ -168,7 +193,10 @@ public:
 
   // TODO: use PlPredicate, PlModule when implemented:
   predicate_t pred(module_t m) const {
-    return PL_pred(C_, m);
+    predicate_t p = PL_pred(C_, m);
+    if ( p == nullptr )
+      throw PlFail();
+    return p;
   }
 
   PlAtom name() const;
@@ -182,8 +210,8 @@ public:
 class PlAtom : public WrappedC<atom_t>
 {
 public:
-  PlAtom() : WrappedC<atom_t>() { } // Make constructor public
-  explicit PlAtom(atom_t v) : WrappedC<atom_t>(v) { }
+  explicit PlAtom(atom_t v)
+    : WrappedC<atom_t>(v) { }
   explicit PlAtom(const std::string& text) // TODO: add encoding
     : WrappedC<atom_t>(PL_new_atom_nchars(text.size(), text.data()))
   { verify();
@@ -269,30 +297,6 @@ public:
 		 *     GENERIC PROLOG TERM	*
 		 *******************************/
 
-
-// A pseudo-exception for quick exist on failure, for use by the unify
-// methods.  This is special-cased in the PREDICATE et al macros.
-// Note that it is *not* a subclass of PlException.
-class PlFail
-{
-public:
-  explicit PlFail() {}
-};
-
-
-// Throw PlFail on failure or exception.  This exception is caught by
-// the PREDICATE, which simply returns false ... if the failure was
-// caused by an exception, SWI-Prolog will detect that and turn the
-// failure into a Prolog exception.  Therefore, there is no need for
-// calling PL_exception(0) and doing something different if there is
-// a pending Prolog exception (to call PL_exception(0), use
-// PlException_qid()).
-inline void
-PlCheck(int rc)
-{ if ( !rc )
-    throw PlFail();
-}
-
 class PlTerm : public WrappedC<term_t>
 {
 protected:
@@ -310,7 +314,8 @@ private:
 
 public:
   PlTerm(const PlTerm&) = default;
-  explicit PlTerm(const PlAtom& a) : WrappedC<term_t>(PL_new_term_ref())
+  explicit PlTerm(const PlAtom& a)
+    : WrappedC<term_t>(PL_new_term_ref())
   { verify();
     PlCheck(PL_put_atom(C_, a.C_));
   }
@@ -529,13 +534,14 @@ public:
 class PlTerm_var : public PlTerm
 {
 public:
-  explicit PlTerm_var() : PlTerm() {}
+  explicit PlTerm_var() { } // PlTerm() calls Pl_new_term_ref()
 };
 
 class PlTerm_term_t : public PlTerm
 {
 public:
-  explicit PlTerm_term_t(term_t t = null) : PlTerm(t) {}
+  explicit PlTerm_term_t(term_t t)
+    : PlTerm(t) {}
 };
 
 class PlTerm_integer : public PlTerm
@@ -575,7 +581,6 @@ public:
   explicit PlTerm_recorded(record_t r) { PlCheck(PL_recorded(r, C_)); }
 };
 
-
 		 /*******************************
 		 *	   TERM VECTOR		*
 		 *******************************/
@@ -587,21 +592,22 @@ private:
   term_t a0_; // A vector of term_t
 
 public:
-  explicit PlTermv(size_t n)
+  explicit PlTermv(size_t n = 0)
     : size_(n),
-      a0_(PL_new_term_refs(static_cast<int>(n)))
-  { if ( ! a0_ )
+      a0_(n ? PL_new_term_refs(static_cast<int>(n)) : PlTerm::null)
+  { if ( size_ && a0_ == PlTerm::null )
       throw PlFail();
   }
   explicit PlTermv(size_t n, const PlTerm& t0)
     : size_(n),
       a0_(t0.C_)
-  { if ( ! a0_ )
+  { if ( size_ && a0_ == PlTerm::null )
       throw PlFail();
   }
 
   term_t termv() const
-  { return a0_;
+  { // Note that a0_ can be PlTerm::null if size_ == 0
+    return a0_;
   }
 
   size_t size() const
@@ -830,6 +836,7 @@ WrappedC<C_t>::verify() const
 
 inline
 PlFunctor::PlFunctor(const std::string& name, size_t arity)
+  : WrappedC<functor_t>(null)
 { PlAtom a(name);
   C_ = PL_new_functor(a.C_, arity);
   PL_unregister_atom(a.C_);
@@ -838,6 +845,7 @@ PlFunctor::PlFunctor(const std::string& name, size_t arity)
 
 inline
 PlFunctor::PlFunctor(const std::wstring& name, size_t arity)
+  : WrappedC<functor_t>(null)
 { PlAtom a(name);
   C_ = PL_new_functor(a.C_, arity);
   PL_unregister_atom(a.C_);
@@ -1026,7 +1034,7 @@ public:
 
 private:
   void verify()
-  { if ( !fid_ )
+  { if ( fid_ == static_cast<fid_t>(0) )
       throw PlFail();
   }
 };
@@ -1051,16 +1059,21 @@ public:
   }
   // TODO: PlQuery(const wstring& ...)
   PlQuery(const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
-    : qid_(PL_open_query(static_cast<module_t>(0), flags,
-                         // TODO: throw if PL_predicate() returns 0
-			 PL_predicate(name.c_str(), static_cast<int>(av.size()), "user"),
+    : qid_(PL_open_query(static_cast<module_t>(0),
+			 flags,
+			 // TODO: throw if PL_predicate() returns 0
+			 PL_predicate(name.c_str(),
+				      static_cast<int>(av.size()),
+			              "user"), // TODO: static_cast<module_id>(0)
 			 av.termv()))
   { verify();
   }
   PlQuery(const std::string& module, const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
     : qid_(PL_open_query(static_cast<module_t>(0), flags,
-                         // TODO: throw if PL_predicate() returns 0
-			 PL_predicate(name.c_str(), static_cast<int>(av.size()), module.c_str()),
+			 // TODO: throw if PL_predicate() returns 0
+			 PL_predicate(name.c_str(),
+				      static_cast<int>(av.size()),
+			              module.c_str()),
 			 av.termv()))
   { verify();
   }
@@ -1098,7 +1111,7 @@ public:
 
 private:
   void verify()
-  { if ( !qid_ )
+  { if ( qid_ == static_cast<qid_t>(0) )
       throw PlFail();
   }
 };
@@ -1314,7 +1327,7 @@ PlCompound::PlCompound(const wchar_t *text)
 inline
 PlCompound::PlCompound(const std::string& text, PlEncoding enc)
 { term_t t = PL_new_term_ref();
-  if ( ! t )
+  if ( t == PlTerm::null )
     throw PlFail();
 
   // TODO: PL_put_term_from_chars() should take an unsigned int flags

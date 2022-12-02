@@ -30,7 +30,7 @@ More specifically:
     \cfuncref{PlTerm_term_t}{t}, \cfuncref{PlTerm_integer}{i},
     \cfuncref{PlTerm_int64}{i}, \cfuncref{PlTerm_uint64}{i},
     \cfuncref{PlTerm_size_t}{i},
-    \cfuncref{PlTerm_float}{v}, or PlTerm_pointer{}{p}).
+    \cfuncref{PlTerm_float}{v}, or \cfuncref{PlTerm_pointer}{p}).
   \item
     Instead of returning \const{false} from a predicate to indicate
     failure, you can use \exam{throw PlFail()}. The convenience
@@ -40,12 +40,12 @@ More specifically:
     The "cast" operators (e.g., \exam{(char*)t}, \exam{(int64_t)t})
     have been deprecated, replaced by "getters" (e.g.,
     \exam{t.as_string()}, \exam{t.as_int64_t()}).\footnote{The form
-    \exam{(char*)t} is a C-style cast; the preferred form in C++ is
+    \exam{(char*)t} is a C-style cast; C++'s preferred form is
     more verbose: \exam{static_cast<char*>(t)}.}
   \item
     The overloaded assignment operator for unification is deprecated;
-    replaced by unify_term(), unify_atom(), etc., and the helper
-    PlCheck().
+    replaced by \cfuncref{unify_term}{}, \cfuncref{unify_atom}{}, etc., and the helper
+    \cfuncref{PlCheck}{}.
   \item
     Methods that return \ctype{char*} have been replaced by methods
     that return \ctype{std::string} to ensure that lifetime issues
@@ -54,12 +54,13 @@ More specifically:
     \exam{return t.as_string().c_str()} because that will return
     a pointer to local or stack memory. Instead, you will need to
     change your interface to return a \ctype{std::string} and apply
-    the c_str{} method to it. These errors can \emph{sometimes} be caught by
+    the \exam{c_str()} method to it. These errors can \emph{sometimes} be caught by
     specifying the Gnu C++ or Clang options \exam{-Wreturn-stack-address}
     or \exam{-Wreturn-local-addr} - Clang seems to do a better
     analysis.}
   \item
-    Type-checking methods have been added: type(), is_variable(), is_atom(), etc.
+    Type-checking methods have been added: \cfuncref{type}{}, \cfuncref{is_variable}{},
+    \cfuncref{is_atom}{}, etc.
   \item
     \ctype{PlString} has been renamed to \ctype{PlTerm_string} to make it clear
     that it's a term that contains a Prolog string.
@@ -157,8 +158,8 @@ or an error (the equivalent of calling throw/1). When an exception is
 raised, it is important that a return be made to the calling
 environment as soon as possible. In C code, this requires checking
 every call to check for failure, which can become cumbersome. C++ has
-exceptions, so instead the code can wrap calls to PL_*() functions with
-PlCheck(), which will do \exam{throw PlFail()} to exit from the top
+exceptions, so instead the code can wrap calls to \cfuncref{PL_*}{} functions with
+\cfuncref{PlCheck}{}, which will do \exam{throw PlFail()} to exit from the top
 level of the foreign predicate, and handle the failure or exception
 appropriately.
 
@@ -185,9 +186,8 @@ PREDICATE(eq, 2)
 }
 \end{code}
 
-
 \section{Overview (version 2)}
-\label{sec:cppd-overview}
+\label{sec:cpp-overview}
 
 The most useful area for exploiting C++ features is type-conversion.
 Prolog variables are dynamically typed and all information is passed
@@ -197,6 +197,69 @@ Constructors and operator definitions provide flexible operations and
 integration with important C-types (\ctype{char *}, \ctype{wchar_t*},
 \ctype{long} and \ctype{double}), plus the C++-types (\ctype{std::string},
 \ctype{std::wstring}).
+
+\subsection{Design philosophy of the classes}
+\label{sec:cpp2-philosophy}
+
+See also \secref{cpp2-naming}.
+
+The general philosophy for C++ classes is that a "half-created" object
+should not be possible - that is, the constructor should either
+succeed with a completely usable object or it should throw an
+exception. This API tries to follow that philosophy, but there are
+some important exceptions and caveats. (For more on how the C++ and
+Prolog exceptions interrelate, see \secref{cpp2-exceptions}.)
+
+The various classes (\ctype{PlAtom}, \ctype{PlTerm}, etc.) are thin
+wrappers around the C interface's types (\ctype{atom_t},
+\ctype{term_t}, etc.). As such they inherit the concept of "null" from
+these types (which is abstracted as \ctype{PlAtom::null},
+\ctype{PlTerm::null}, etc., which typically is equivalent to
+\const{0}. You can check whether the object is "fully created" by
+using the \cfuncref{verify}{} method - it will throw an exception if the
+object is \const{null}.
+
+However, most of the classes have constructors that create a
+"complete" object. For example,
+\begin{code}
+PlAtom foo("foo");
+\end{code}
+will ensure that the object \exam{foo} is useable and will throw an
+exception if the atom can't be created.
+
+To help avoid programming errors, most of the classes do not have a
+default "empty" constructor. For example, if you with to create a
+\ctype{PlAtom} that is uninitialized, you must explicitly use
+\exam{PlAtom(PlAtom::null)}. This make some code a bit more cumbersome
+because you can't omit the default constructors in struct initalizers.
+
+Many of the classes wrap long-lived items, such as atoms, functors,
+predicates, or modules. For these, it's often a good idea to define
+them as \ctype{static} variables that get created at load time, so
+that a lookup for each use isn't needed (atoms are unique, so
+\exam{PlAtom("foo")} requires a lookup for an atom \exam{foo} and
+creates one if it isn't found). Sometimes, it's desirable to create
+them "lazily", such as:
+
+\begin{code}
+static PlAtom foo(PlAtom::null};
+   ...
+if ( foo.is_null() )
+  foo = PlAtom("foo");
+\end{code}
+
+The class \ctype{PlTerm} (which wraps \ctype{term_t}) is the class
+that programmers are most likely to use. Although it can be created
+from a \ctype{term_t} value, it is intended to be used with a
+constructor that gives it an initial value. The default constructor
+calls PL_new_term_ref() and throws an exception if this fails. The
+various constructors are described in
+\secref{cpp2-plterm-constructurs}. Note that the default constructor
+is not public; to create a "variable" term, you should use the
+subclass constructor \cfuncref{PlTerm_var}{}.
+
+\subsection{Summary of classes}
+\label{sec:class-summary}
 
 The list below summarises the classes defined in the C++ interface.
 
@@ -216,10 +279,7 @@ The subclass constructors are as follows. If a constructor fails
 \begin{description}
     \classitem{PlTerm_atom}
 Subclass of \ctype{PlTerm} with constructors for building
-a term that contains an atom. If the atom is the default value
-of \exam{PlAtom::null}, this creates an uninstantiated variable -
-that is, \exam{PlTerm_atom(PlAtom())} is the same as
-\exam{Plterm_var()}.
+a term that contains an atom.
     \classitem{PlTerm_var}
 Subclass of \ctype{PlTerm} with constructors for building
 a term that contains an uninstantiated variable. Typically
@@ -329,6 +389,8 @@ is arranged through a macro called \cfuncref{PREDICATE}{}.
 \subsection{Naming conventions, utility functions and methods (version 2)}
 \label{sec:cpp2-naming}
 
+See also \secref{cpp2-philosophy}.
+
 The classes all have names starting with "Pl", using CamelCase;
 this contrasts with the C functions that start with "PL_" and
 use underscores.
@@ -363,9 +425,9 @@ all define the following methods and constants:
     \exam{reset(new_value)} - set the wrapped value
   \item
     \exam{verify()} - if the wrapped value (\exam{C_})
-    is \exam{null}, throw a PlFail() exception. Typically, this check
+    is \exam{null}, throw a \cfuncref{PlFail}{} exception. Typically, this check
     is done after an allocation function such as Plnew_term_ref()
-    returns a null value, so the PlFail() is turned into a a resource
+    returns a null value, so the \cfuncref{PlFail}{} is turned into a a resource
     error. However, if there is no pending exception, this results in
     simple failure (see \secref{cpp2-exceptions-notes}).
 \item
@@ -396,7 +458,7 @@ PREDICATE(mypred, 2)
 \end{code}
 
 For functions in \file{SWI-Prolog.h} that don't have a C++ equivalent
-in \file{SWI-cpp2.h}, PlCheck() is a convenience function that checks
+in \file{SWI-cpp2.h}, \cfuncref{PlCheck}{} is a convenience function that checks
 the return code and throws a \ctype{PlFail} exception on failure. The
 \cfuncref{PREDICATE}{} code catches \ctype{PlFail} exceptions and
 converts them to the \ctype{foreign_t} return code for failure.  If
@@ -413,7 +475,7 @@ prepended with "as_".
 
 "Getters" for integers have an additionnal problem, in that C++
 doesn't define the sizes of \ctype{int} and \ctype{long}, nor for
-\ctype{size_t}. It seems to be impossible to make an overload() method
+\ctype{size_t}. It seems to be impossible to make an overloaded method
 that works for all the various combinations of integer types on all
 compilers, so there are specific methods for \ctype{int64_t},
 \ctype{uint64_t}, \ctype{size_t}.
@@ -463,8 +525,8 @@ PREDICATE(hello, 1)
 The arguments to \cfuncref{PREDICATE}{} are the name and arity of the predicate.
 The macros A<n> provide access to the predicate arguments by position
 and are of the type \ctype{PlTerm}. The C or C++ string for a \ctype{PlTerm}
-can be extracted using as_string(), or as_wstring() methods;\footnote{The C-string
-values can be extracted from \ctype{std::string} by using c_str(), but you
+can be extracted using \cfuncref{as_string}{}, or \cfuncref{as_wstring}{} methods;\footnote{The C-string
+values can be extracted from \ctype{std::string} by using \cfuncref{c_str}{}, but you
 must be careful to not return a pointer to a local/stack value.}
 and similar access methods provide an easy type-conversion
 for most Prolog data-types, using the output of write/1 otherwise:
@@ -505,10 +567,10 @@ PREDICATE(add, 3)  // add(+X, +Y, +Result)
 }
 \end{code}
 
-The as_long() method for a \ctype{PlTerm} performs a PL_get_long_ex()
+The \cfuncref{as_long}{} method for a \ctype{PlTerm} performs a PL_get_long_ex()
 and throws a C++ exception if the Prolog argument is not a Prolog
 integer or float that can be converted without loss to a
-\ctype{long}. The unify_integer() method of \ctype{PlTerm} is defined
+\ctype{long}. The \cfuncref{unify_integer}{} method of \ctype{PlTerm} is defined
 to perform unification and returns \const{true} or \const{false}
 depending on the result.
 
@@ -532,11 +594,11 @@ binds \arg{Var} and will unify \arg{Average} with average of the
 
 \ctype{PlQuery} takes the name of a predicate and the goal-argument
 vector as arguments. From this information it deduces the arity and
-locates the predicate. The mehod next_solution() yields
+locates the predicate. The method \cfuncref{next_solution}{} yields
 \const{true} if there was a solution and \const{false} otherwise. If
 the goal yields a Prolog exception, it is mapped into a C++ exception.
 A return to Prolog does an implicit "cut" (PL_cut_query()); this
-can also be done explicitly by the PlQuery::cut() method.
+can also be done explicitly by the \cfuncref{PlQuery::cut}{} method.
 
 \begin{code}
 PREDICATE(average, 3) /* average(+Templ, :Goal, -Average) */
@@ -640,9 +702,9 @@ auto t = PlTerm_atom("someName");
     to the left-hand-side to returning a ctype{bool}. In addition,
     the result of unification should always be checked (e.g., an
     "always succeed" unification could fail due to an out-of-memory
-    error), so it's useful to have both unify_XXX() methods that return
-    a ctype{bool} and unify_XXX_ex() methods that throw an exception
-    on unification failure.
+    error); the \cfuncref{unify_XXX}{} methods return
+    a \ctype{bool} and they can be wrapped inside a \cfuncref{PlCheck}{}
+    to raise an exception on unification failure.
 \end{itemize}
 
 Over time, it is expected that some of these restrictions will be
@@ -713,7 +775,7 @@ Here is a list of typical changes:
 
   \item
     Instead of returning \const{false} from a predicate for failure,
-    you can do \exam{throw PlFail()}. This mechanism is also used by
+    you can do \exam{throw \cfuncref{PlFail}{}}. This mechanism is also used by
     \cfuncref{PlCheck}{rc}. Note that throwing an exception is
     significantly slower than returning \const{false}, so
     performance-critical code should avoid \cfuncref{PlCheck}{rc}.
@@ -737,10 +799,7 @@ Here is a list of typical changes:
     The operator \exam{=} for unification has been deprecated,
     replaced by various \exam{unify_XXX}` methods
     (\cfuncref{PlTerm::unify_term}{t2},
-    \cfuncref{PlTerm::unify_atom}{a}, etc.). If you expect the
-    unification to always succeed, you should use the various
-    unification methods whose names end with \exam{_ex}, which will
-    throw \exam{PlFail()} to immediately report failure.
+    \cfuncref{PlTerm::unify_atom}{a}, etc.).
 
   \item
     The various "cast" operators have been deprecated or deleted;
@@ -766,28 +825,27 @@ code generated by the \cfuncref{PREDICATE}{} macro. See also
 
 For example, this code:
 \begin{code}
-  PREDICATE(unify_zero, 1)
-  { if ( !PL_unify_integer(A1.C_, 0) )
-      return false;
-    return true;
-  }
+PREDICATE(unify_zero, 1)
+{ if ( !PL_unify_integer(A1.C_, 0) )
+    return false;
+  return true;
+}
 \end{code}
-can be written this way (but with a performance penalty for handling
-the \exam{throw}):
+can instead be written this way:
 \begin{code}
-  void
-  PREDICATE(unify_zero, 1)
-  { if ( !PL_unify_integer(A1.C_, 0) )
-      throw PlFail();
-    return true;
-  }
+void
+PREDICATE(unify_zero, 1)
+{ if ( !PL_unify_integer(A1.C_, 0) )
+    throw PlFail();
+  return true;
+}
 \end{code}
-or, equivalently:
+or:
 \begin{code}
-  PREDICATE(unify_zero, 1)
-  { PlCheck(PL_unify_integer(t.C_, 0));
-    return true;
-  }
+PREDICATE(unify_zero, 1)
+{ PlCheck(PL_unify_integer(t.C_, 0));
+  return true;
+}
 \end{code}
 or:
 \begin{code}
@@ -808,7 +866,8 @@ signficant slowdown. A simple benchmark showed a 15x to 20x slowdown
 using \exam{throw PlFail()} compared to \exam{return false} (comparing
 the first code sample above with the second and third samples; the
 speed difference seems to have been because in the second sample, the
-compiler did a better job of inlining)
+compiler did a better job of inlining). However, for most code, this
+difference will be barely noticeable.
 
 There was no significant performance difference between the C++
 version and this C version:
@@ -819,7 +878,7 @@ unify_zero(term_t a1)
 }
 \end{code}
 
-\subsection{PlCheck() convenience function}
+\subsection{\cfuncref{PlCheck}{} convenience function}
 \label{sec:cpp2-plcheck}
 
 In general, wherever there is a method that wraps a C "PL_"
@@ -916,12 +975,6 @@ Typically, these functions return a \const{0} (\const{false}) or
 \const{1} (\const{true}) value for whether they succeeded or not. For
 failure, there might also be an exception created - this can be tested
 by calling PL_excpetion(0).
-
-Typically, functions that can set an exception end with "_ex()".  For
-example, PL_unify_nil() returns \const{0} or \const{1} according to
-whether the term is \const{false} or \const{true}; PL_unify_nil_ex()
-also checks the term for being being a valid value and creates a type
-error exception if not.
 
 There are three major groups of methods:
 \begin{itemize}
@@ -1050,38 +1103,6 @@ C++ types. Wherever \ctype{string} is shown, you can use:
 
 \end{description}
 
-\begin{description}
-    \cfunction{void}{PlTerm::unify_term_ex}{PlTerm}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_atom_ex}{PlAtom}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_atom_ex}{string}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_list_codes_ex}{string}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_list_chars_ex}{string}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_integer_ex}{int}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_float_ex}{double}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_string_ex}{string}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_functor_ex}{PlFunctor}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_pointer_ex}{void *}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_nil_ex}{}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_blob_ex}{void *blob, size_t len, PL_blob_t *type}
-    \nodescription
-    \cfunction{void}{PlTerm::unify_chars_ex}{int flags, size_t len, const char *s}
-
-Each of the unification methods has a corresponding method that ends with "_ex",
-which does the unification and throws \ctype{PlFail} on failure.
-
-\end{description}
-
 Here is an example:
 \begin{code}
 PREDICATE(hostname, 1)
@@ -1091,19 +1112,20 @@ PREDICATE(hostname, 1)
   return false;
 }
 \end{code}
-An alternative way of writing this would use the \ctype{PlFail} exception and
-the "_ex" form of the unification method. In this particular case, the code is
-more verbose; but for more complex foreign predicates, this style results in
-less verbose code.
+An alternative way of writing this would use the \cfuncref{PlCheck}{}
+to raise an exception if the unification fails.
 \begin{code}
 PREDICATE(hostname2, 1)
 { char buf[256];
-  if ( gethostname(buf, sizeof buf) != 0 )
-    throw PlFail();
-  A1.unify_atom_ex(buf);
+  PlCheck(gethostname(buf, sizeof buf) == 0);
+  PlCheck(A1.unify_atom(buf));
   return true;
 }
 \end{code}
+
+Of course, in a real program, the failure of
+\cfuncref{gethostname}{buf}{sizeof buf} should create an error term
+than contains information from \const{errno}.
 
 
 \subsection{Comparison (version 2)}
@@ -1336,7 +1358,7 @@ now points to the new variable \arg{B}.
 This function returns \const{true} if the unification succeeded and
 \const{false} otherwise.  No exceptions are generated.
 
-The example below translates the main() argument vector to Prolog and
+The example below translates the \cfuncref{main}{} argument vector to Prolog and
 calls the prolog predicate entry/1 with it.
 
 \begin{code}
@@ -1347,8 +1369,8 @@ main(int argc, char **argv)
   PlTail l(av[0]);
 
   for(int i=0; i<argc; i++)
-    l.append(argv[i]);
-  l.close();
+    PlCheck(l.append(argv[i]));
+  PlCheck(l.close());
 
   PlQuery q("entry", av);
   return q.next_solution() ? 0 : 1;
@@ -1529,7 +1551,7 @@ atom.  Otherwise a \except{type_error} is thrown.
     \nodescription
     \cfunction{int}{PlAtom::operator ==}{const std::wstring\& text}
 Yields \const{true} if the atom represents \arg{text}, \const{false}
-otherwise.  Performs a strcmp() or similar for this.
+otherwise.  Performs a \cfuncref{strcmp}{} or similar for this.
     \cfunction{int}{PlAtom::operator ==}{const PlAtom \&a}
 Compares the two atom-handles, returning \const{true} or
 \const{false}. Because atoms are unique, there is no need
@@ -1549,14 +1571,14 @@ Verifies that the handle is valid. This can be used after calling
 a function that returns an atom handle, to check that a new atom
 was created.
     \cfunction{void}{reset}{}
-Sets the handle to an invalid valid - a subsequent call to is_valid()
-will return \const{false}.
+Sets the handle to an invalid valid - a subsequent call to \cfuncref{is_null}{}
+will return \const{true}.
     \cfunction{const std::string}{as_string}{PlEncoding enc=EncLocale}
 Returns the string representation of the atom.\footnote{If you wish
 to return a \ctype{char*} from a function, you should not do
 \exam{return t.as_string().c_str()} because that will return a pointer
 into the stack (Gnu C++ or Clang options \exam{-Wreturn-stack-address}
-or \exam{-Wreturn-local-addr} can \emph{sometimes} catch this, as can
+or \exam{-Wreturn-local-addr}) can \emph{sometimes} catch this, as can
 the runtime address sanitizer when run with
 \exam{detect_stack_use_after_return=1}.}
 This does not
@@ -1664,7 +1686,7 @@ Prolog exceptions are mapped to C++ exceptions.
 Discards the query, but does not delete an of the data created
 by the query. If there is any pending Prolog exception, it is
 mapped to a C++ exception and thrown.
-The call to cut() done implicitly by \ctype{PlQuery}'s destructor.
+The call to \cfuncref{PlQuery::cut}{} is done implicitly by \ctype{PlQuery}'s destructor.
 
 Below is an example listing the currently defined Prolog modules
 to the terminal.
@@ -1686,8 +1708,8 @@ In addition to the above, the following functions have been defined.
 \begin{description}
     \cfunction{int}{PlCall}{const char *predicate, const PlTermv \&av}
 Creates a \ctype{PlQuery} from the arguments generates the
-first next_solution() and destroys the query.  Returns the
-result of next_solution() or an exception.
+first \cfuncref{next_solution}{} and destroys the query.  Returns the
+result of \cfuncref{next_solution}{} or an exception.
     \cfunction{int}{PlCall}{const char *module, const char *predicate,
 			    const PlTermv \&av}
 Same, locating the predicate in the named module.
@@ -1695,7 +1717,7 @@ Same, locating the predicate in the named module.
     \nodescription
     \cfunction{int}{PlCall}{const char *goal}
 Translates \arg{goal} into a term and calls this term as the other
-PlCall() variations. Especially suitable for simple goals such as making
+\cfuncref{PlCall}{} variations. Especially suitable for simple goals such as making
 Prolog load a file.
 \end{description}
 
@@ -1736,7 +1758,7 @@ assertWord(const char *word)
 
   av[0] = PlCompound("word", PlTermv(word));
   PlQuery q("assert", av);
-  q.next_solution();
+  PlCheck(q.next_solution());
 }
 \end{code}
 
@@ -1756,7 +1778,7 @@ PREDICATE(can_unify, 2)
 }
 \end{code}
 
-PlRewindOnFail() is a convenience function that does a frame rewind if
+\cfuncref{PlRewindOnFail}{f} is a convenience function that does a frame rewind if
 unification fails. Here is an example, where \exam{name_to_term}
 contains a map from names to terms (which are made global by using the
 PL_record() function):
@@ -1983,33 +2005,6 @@ print_message/2.  The character data is stored in a ring.  Example:
     \cfunction{int}{plThrow}{}
 Used in the \cfuncref{PREDICATE}{} wrapper to pass the exception to Prolog.  See
 PL_raise_exeption().
-    \cfunction{int}{cppThrow}{}
-Used by PlQuery::next_solution() to refine a generic \ctype{PlException}
-representing a specific class of Prolog exceptions to the corresponding
-C++ exception class and finally then executes throw().  Thus, if a
-\ctype{PlException} represents the term
-
-\begin{quote}
-\term{error}{\term{type_error}{Expected, Actual}, Context}
-\end{quote}
-
-PlException::cppThrow() throws a \ctype{PlTypeEror} exception. This
-ensures consistency in the exception-class whether the exception is
-generated by the C++-interface or returned by Prolog.
-
-The following example illustrates this behaviour:
-
-\begin{code}
-PREDICATE(call_atom, 1)
-{ try
-  { return PlCall(A1.as_string());
-  } catch ( PlTypeError& ex )
-  { cerr << "Type Error caugth in C++" << endl;
-    cerr << "Message: \"" << ex.as_string() << "\"" << endl;
-    return false;
-  }
-}
-\end{code}
 
 \end{description}
 
@@ -2093,7 +2088,7 @@ Not all functionality of the C-interface is provided, but as
 type-conversion between the two (using the \exam{C_} field), this interface
 can be freely mixed with the functions defined for plain C.
 For checking return codes from C functions, it is recommended to
-use PlCheck().
+use \cfuncref{PlCheck}{}.
 
 Using this interface rather than the plain C-interface requires a little
 more resources. More term-references are wasted (but reclaimed on return
@@ -2139,7 +2134,7 @@ invalidate the exception term.  So, between raising the exception and
 returning control back to Prolog we must make sure not to do anything
 that invalidates the exception term.  If you suspect something like
 that to happen, use the debugger with a breakpoint on
-__do_undo__LD() defined in \file{pl-wam.c}.
+\cfuncref{__do_undo__LD}{} defined in \file{pl-wam.c}.
 
 In order to always preserve Prolog exceptions and return as quickly as
 possible to Prolog on an exception, some of the C++ classes can throw
@@ -2170,7 +2165,7 @@ consequences.
 
 As of 2022-11, some details remain to be decided, mostly to do
 with encodings. A few methods have a \ctype{PlEncoding} optional
-parameter (e.g., PlTerm::as_string()), but this hasn't yet been
+parameter (e.g., \cfuncref{PlTerm::as_string}{}), but this hasn't yet been
 extended to all methods that take or return a string. Also, the
 details of how the default encoding is set have not yet been decided.
 

@@ -230,7 +230,7 @@ with_small_stacks(Free, Goal) :-
 	set_prolog_flag(stack_limit, Old)).
 
 test(square_roots_2b, error(resource_error(stack))) :-
-    with_small_stacks(5 000 000,
+    with_small_stacks(5 000 000, % 400 000 seems to be about the smallest allowed value
 		      square_roots(1000000000, _)).
 
 test(malloc) :-

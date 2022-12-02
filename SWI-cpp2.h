@@ -191,8 +191,7 @@ public:
 
   bool operator ==(functor_t to) = delete;
 
-  // TODO: use PlPredicate, PlModule when implemented:
-  predicate_t pred(module_t m) const {
+  [[deprecated("use PlPredicate")]] predicate_t pred(module_t m) const {
     predicate_t p = PL_pred(C_, m);
     if ( p == nullptr )
       throw PlFail();
@@ -581,6 +580,34 @@ class PlTerm_recorded : public PlTerm
 {
 public:
   explicit PlTerm_recorded(record_t r) { PlCheck(PL_recorded(r, C_)); }
+};
+
+class PlModule : public WrappedC<module_t>
+{
+public:
+  explicit PlModule(const std::string& name)
+    : WrappedC<module_t>(PL_new_module(PlAtom(name).C_))
+  { verify();
+  }
+  explicit PlModule(PlAtom name)
+    : WrappedC<module_t>(PL_new_module(name.C_))
+  { verify();
+  }
+};
+
+class PlPredicate : public WrappedC<predicate_t>
+{
+public:
+  explicit PlPredicate()
+    : WrappedC<predicate_t>(PlPredicate::null) { }
+  explicit PlPredicate(PlFunctor f)
+    : WrappedC<predicate_t>(PL_pred(f.C_, static_cast<module_t>(PlModule::null)))
+  { verify();
+  }
+  explicit PlPredicate(PlFunctor f, PlModule m)
+    : WrappedC<predicate_t>(PL_pred(f.C_, m.C_))
+  { verify();
+  }
 };
 
 
@@ -1056,27 +1083,24 @@ private:
   qid_t qid_;
 
 public:
-  PlQuery(predicate_t pred, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
-    : qid_(PL_open_query(static_cast<module_t>(0), flags, pred, av.termv()))
+  PlQuery(PlPredicate pred, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
+    : qid_(PL_open_query(static_cast<module_t>(0), flags, pred.C_, av.termv()))
   { verify();
   }
   // TODO: PlQuery(const wstring& ...)
+  // TODO: PlQuery({PlAtom,PlFunctor,PlPredicate} ...)
   PlQuery(const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
     : qid_(PL_open_query(static_cast<module_t>(0),
 			 flags,
-			 // TODO: throw if PL_predicate() returns 0
-			 PL_predicate(name.c_str(),
-				      static_cast<int>(av.size()),
-			              "user"), // TODO: static_cast<module_id>(0)
+			 PlPredicate(PlFunctor(name, av.size())).C_,
 			 av.termv()))
   { verify();
   }
   PlQuery(const std::string& module, const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
-    : qid_(PL_open_query(static_cast<module_t>(0), flags,
-			 // TODO: throw if PL_predicate() returns 0
-			 PL_predicate(name.c_str(),
-				      static_cast<int>(av.size()),
-			              module.c_str()),
+    : qid_(PL_open_query(static_cast<module_t>(0),
+			 flags,
+			 PlPredicate(PlFunctor(name, av.size()),
+				     PlModule(name)).C_,
 			 av.termv()))
   { verify();
   }

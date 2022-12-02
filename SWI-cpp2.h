@@ -209,8 +209,6 @@ public:
 class PlAtom : public WrappedC<atom_t>
 {
 public:
-  PlAtom() // allow implicit "null" constructor, even though a bit dangerous
-    : WrappedC<atom_t>(null) { }
   explicit PlAtom(atom_t v)
     : WrappedC<atom_t>(v) { }
   explicit PlAtom(const std::string& text) // TODO: add encoding
@@ -585,6 +583,8 @@ public:
 class PlModule : public WrappedC<module_t>
 {
 public:
+  explicit PlModule(module_t m)
+    : WrappedC<module_t>(m) { }
   explicit PlModule(const std::string& name)
     : WrappedC<module_t>(PL_new_module(PlAtom(name).C_))
   { verify();
@@ -598,8 +598,8 @@ public:
 class PlPredicate : public WrappedC<predicate_t>
 {
 public:
-  explicit PlPredicate()
-    : WrappedC<predicate_t>(PlPredicate::null) { }
+  explicit PlPredicate(predicate_t p)
+    : WrappedC<predicate_t>(p) { }
   explicit PlPredicate(PlFunctor f)
     : WrappedC<predicate_t>(PL_pred(f.C_, static_cast<module_t>(PlModule::null)))
   { verify();

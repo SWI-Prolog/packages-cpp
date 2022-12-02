@@ -85,8 +85,9 @@ test(as_string, S = "foo(bar)") :-
 :- if(\+current_prolog_flag(windows, true)).
 % The C++ atom_to_string/2 takes the raw bytes from atom and creates
 % a byte string.  This doesn't work in Windows as we use a different
-% representation.   This is dubious anyway.  Delete entirely fix when
-% the C++ interface properly supports encodings.
+% representation.   This is dubious anyway.
+% TODO: Delete entire fix when the C++ interface properly supports encodings.
+%       See: https://swi-prolog.discourse.group/t/ann-swi-prolog-9-1-0/5964/3
 test(as_string, S == "ä¸\u0096ç\u0095\u008Cå\u009B\u009B") :-
     atom_to_string(世界四, S).
 test(as_string, S = "hello(ä¸\u0096ç\u0095\u008Cå\u009B\u009B)") :-
@@ -117,6 +118,16 @@ test(average_3, Average =:= Expected) :-
 
 test(hello_0, Out == "hello world\n") :-
     with_output_to(string(Out), hello).
+
+call_cut_test :-
+    setup_call_cleanup(true,
+                       between(1, 5, _X),
+                       atom_codes(_,_)).
+
+test(call_cut, error(existence_error(procedure,call_cut_test/0))) :-
+    % This tests that an error in ~PlQuery() is handled properly
+    % See discussion: https://github.com/SWI-Prolog/packages-cpp/pull/27
+    call_cut("call_cut_test").
 
 test(term_1, Term = hello(world)) :-
     term(Term).
@@ -254,13 +265,7 @@ test(malloc) :-
 			    type_error(integer,_)])).
 
 :- endif.
-:- endif.                    % \+current_prolog_flag(asan, true)
 
-test(new_chars_1) :-
-    new_chars(1000, Result), % smoke test
-    delete_chars(Result).
-
-:- if(\+ current_prolog_flag(asan, true)).
 % ASAN has maximum 0x10000000000
 %   see ASAN_OPTIONS=allocator_may_return_null=1:soft_rss_limit_mb=...:hard_rss_limit_mb=...
 % https://github.com/google/sanitizers/issues/295
@@ -270,8 +275,6 @@ test(new_chars_2, error(resource_error(memory))) :-
     too_big_alloc_request(Request),
     new_chars(Request, Result),
     delete_chars(Result).
-
-:- endif.
 
 :- if(current_prolog_flag(bounded,false)).
 
@@ -285,6 +288,11 @@ test(new_chars_3) :-
 			    type_error(integer,_)])).
 
 :- endif.
+:- endif.
+
+test(new_chars_1) :-
+    new_chars(1000, Result), % smoke test
+    delete_chars(Result).
 
 test(name_arity_1, Out == "name = foo, arity = 2\n") :-
     name_arity(foo(bar,zot), Out).

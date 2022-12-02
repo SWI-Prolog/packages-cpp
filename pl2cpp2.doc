@@ -299,6 +299,12 @@ Data Types}).
 \classitem{PlFunctor}
 A wrapper for \ctype{functor_t}, which maps to the internal
 representation of a name/arity pair.
+\classitem{PlPredicate}
+A wrapper for \ctype{predicate_t}, which maps to the internal
+representation of a Prolog predicate.
+\classitem{PlModule}
+A wrapper for \ctype{module_t}, which maps to the internal
+representation of a Prolog module.
     \classitem{PlQuery}
 Represents opening and enumerating the solutions to a Prolog query.
     \classitem{PlFail}

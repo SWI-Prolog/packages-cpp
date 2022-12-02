@@ -121,8 +121,8 @@ test(hello_0, Out == "hello world\n") :-
 
 call_cut_test :-
     setup_call_cleanup(true,
-                       between(1, 5, _X),
-                       atom_codes(_,_)).
+		       between(1, 5, _X),
+		       atom_codes(_,_)).
 
 test(call_cut, error(existence_error(procedure,call_cut_test/0))) :-
     % This tests that an error in ~PlQuery() is handled properly
@@ -215,8 +215,23 @@ cpp_call(Goal, Flags) :-
 
 test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
     square_roots(5, Result).
+
+:- meta_predicate with_small_stacks(+, 0).
+with_small_stacks(Free, Goal) :-
+    garbage_collect,
+    statistics(globalused, G),
+    statistics(trailused, T),
+    statistics(localused, L),
+    NewLimit is G+L+T+Free,
+    current_prolog_flag(stack_limit, Old),
+    setup_call_cleanup(
+	set_prolog_flag(stack_limit, NewLimit),
+	Goal,
+	set_prolog_flag(stack_limit, Old)).
+
 test(square_roots_2b, error(resource_error(stack))) :-
-    square_roots(1000000000, _).
+    with_small_stacks(5 000 000,
+		      square_roots(1000000000, _)).
 
 test(malloc) :-
     malloc(1000, Result), % smoke test

@@ -187,7 +187,7 @@ PREDICATE(eq, 2)
 \end{code}
 
 \section{Overview (version 2)}
-\label{sec:cpp-overview}
+\label{sec:cpp2-overview}
 
 The most useful area for exploiting C++ features is type-conversion.
 Prolog variables are dynamically typed and all information is passed
@@ -439,8 +439,9 @@ all define the following methods and constants:
 
 The \exam{C_} field can be used wherever a \ctype{atom_t} or
 \ctype{term_t} is used. For example, the PL_scan_options() example
-code can be written as follows.  Note the use of \exam{&callback.C_}
+code can be written as follows.  Note the use of \exam{\&callback.C_}
 to pass a pointer to the wrapped \ctype{term_t} value.
+
 \begin{code}
 PREDICATE(mypred, 2)
 { auto options = A2;
@@ -751,7 +752,7 @@ default encoding - may change slightly in the future.
 \label{sec:cpp2-porting-1-2}
 
 The easiest way of porting from \file{SWI-cpp.h} to \file{SWI-cpp2.h}
-is to change the \exam{#include "SWI-cpp.h"} to \exam{#include "SWI-cpp2.h"}
+is to change the \exam{\#include "SWI-cpp.h"} to \exam{\#include "SWI-cpp2.h"}
 and look at the warning and error messages. Where possible, version 2
 keeps old interfaces with a "deprecated" flag if there is a better way
 of doing things with version 2.
@@ -1132,7 +1133,7 @@ than contains information from \const{errno}.
 \label{sec:cpp2-plterm-comparison}
 
 \begin{description}
-    \cfunction{int}{PlTerm::compare}{const PlTerm& t2}
+    \cfunction{int}{PlTerm::compare}{const PlTerm \&t2}
     \nodescription
     \cfunction{bool}{PlTerm::operator ==}{const PlTerm \&t}
     \nodescription
@@ -1175,7 +1176,7 @@ conversion was successful, but the strings are not equal and an
 \except{type_error} exception if the conversion failed.
 \end{description}
 
-Below are some typical examples.  See \secref{dirplatom} for direct
+Below are some typical examples.  See \secref{cpp2-dirplatom} for direct
 manipulation of atoms in their internal representation.
 
 \begin{center}
@@ -1470,7 +1471,7 @@ critical and only a few comparisons have to be made. It validates
 or float) extracts the represented text and uses strcmp() to match the
 strings.
 
-\subsection{Direct comparision to PlAtom}		\label{sec:dirplatom}
+\subsection{Direct comparision to PlAtom}		\label{sec:cpp2-dirplatom}
 
 Example:
 
@@ -1504,7 +1505,7 @@ PREDICATE(test, 1)
 }
 \end{code}
 
-This approach is basically the same as \secref{dirplatom}, but in
+This approach is basically the same as \secref{cpp2-dirplatom}, but in
 nested if-then-else the extraction of the atom from the term is
 done only once.
 
@@ -1681,7 +1682,6 @@ Same, but performs the predicate lookup in the indicated module.
 Provide the next solution to the query.  Yields \const{true} if
 successful and \const{false} if there are no (more) solutions.
 Prolog exceptions are mapped to C++ exceptions.
-\end{description}
     \cfunction{void}{PlQuery::cut()}{}
 Discards the query, but does not delete an of the data created
 by the query. If there is any pending Prolog exception, it is
@@ -1702,6 +1702,7 @@ PREDICATE(list_modules, 0)
   return true;
 }
 \end{code}
+\end{description}
 
 In addition to the above, the following functions have been defined.
 

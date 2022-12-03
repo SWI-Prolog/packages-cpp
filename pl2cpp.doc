@@ -1,4 +1,4 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[11pt,a4paper]{report}
 \usepackage{times}
 \usepackage{pl}
 \usepackage{plpage}
@@ -414,7 +414,7 @@ conversion was successful, but the strings are not equal and an
 \except{type_error} exception if the conversion failed.
 \end{description}
 
-Below are some typical examples.  See \secref{dirplatom} for direct
+Below are some typical examples.  See \secref{cpp-dirplatom} for direct
 manipulation of atoms in their internal representation.
 
 \begin{center}
@@ -695,7 +695,7 @@ critical and only a few comparisons have to be made. It validates
 or float) extracts the represented text and uses strcmp() to match the
 strings.
 
-\subsection*{Direct comparision to PlAtom}		\label{sec:dirplatom}
+\subsection*{Direct comparision to PlAtom}		\label{sec:cpp-dirplatom}
 
 Example:
 
@@ -726,7 +726,7 @@ PREDICATE(test, 1)
     ...;
 \end{code}
 
-This approach is basically the same as \secref{dirplatom}, but in
+This approach is basically the same as \secref{cpp-dirplatom}, but in
 nested if-then-else the extraction of the atom from the term is
 done only once.
 

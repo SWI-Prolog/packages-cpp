@@ -215,7 +215,7 @@ wrappers around the C interface's types (\ctype{atom_t},
 \ctype{term_t}, etc.). As such they inherit the concept of "null" from
 these types (which is abstracted as \ctype{PlAtom::null},
 \ctype{PlTerm::null}, etc., which typically is equivalent to
-\const{0}. You can check whether the object is "fully created" by
+\const{0}). You can check whether the object is "fully created" by
 using the \cfuncref{verify}{} method - it will throw an exception if the
 object is \const{null}.
 
@@ -248,8 +248,8 @@ if ( foo.is_null() )
   foo = PlAtom("foo");
 \end{code}
 
-The class \ctype{PlTerm} (which wraps \ctype{term_t}) is the class
-that programmers are most likely to use. Although it can be created
+The class \ctype{PlTerm} (which wraps \ctype{term_t}) is the most
+used. Although a \cctype{PlTerm} object can be created
 from a \ctype{term_t} value, it is intended to be used with a
 constructor that gives it an initial value. The default constructor
 calls PL_new_term_ref() and throws an exception if this fails. The
@@ -893,7 +893,7 @@ a function starting with "PL_"), the return code can be "false"
 either because of failure or because an exception happened.
 If the cause is an exception, then the only sensible thing is to
 return to Prolog immediately; throwing \ctype{PlFail} will do this.
-See also \secref{cpp2-exceptions-notes}).
+See also \secref{cpp2-exceptions-notes}.
 
 
 \section{The class PlTerm (version 2)}

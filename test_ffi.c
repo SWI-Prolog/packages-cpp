@@ -194,7 +194,7 @@ ffi_options_(term_t a1, term_t options)
   { return PL_unify_term(a1,
 			 PL_FUNCTOR_CHARS, "options", 5,
 			   PL_BOOL,        quoted,
-			   PL_INT64,       length,
+			   PL_INT64,       (int64_t)length,
 			   PL_TERM,        callback,
 			   PL_ATOM,        token,
 			   PL_UTF8_STRING, descr);

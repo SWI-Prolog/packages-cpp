@@ -203,12 +203,12 @@ PREDICATE(hello_call, 1)
 
 PREDICATE(atom_to_string, 2)
 { PlAtom a(A1.as_atom());
-  PlCheck(A2.unify_string(a.as_string()));
+  PlCheck(A2.unify_string(a.as_string(EncUTF8)));
   return true;
 }
 
 PREDICATE(term_to_string, 2)
-{ PlCheck(A2.unify_string(A1.as_string()));
+{ PlCheck(A2.unify_string(A1.as_string(EncUTF8)));
   return true;
 }
 

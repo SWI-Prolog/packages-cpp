@@ -48,6 +48,8 @@
 
 :- use_foreign_library(foreign(test_ffi)).
 
+:- encoding(utf8).
+
 test_ffi :-
     run_tests([ ffi,
                 wchar

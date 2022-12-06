@@ -1096,11 +1096,12 @@ public:
 			 av.termv()))
   { verify();
   }
+  // TODO; Should resolve module only once.
   PlQuery(const std::string& module, const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
-    : qid_(PL_open_query(static_cast<module_t>(0),
+    : qid_(PL_open_query(PlModule(module).C_,
 			 flags,
 			 PlPredicate(PlFunctor(name, av.size()),
-				     PlModule(name)).C_,
+				     PlModule(module)).C_,
 			 av.termv()))
   { verify();
   }

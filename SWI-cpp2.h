@@ -109,12 +109,8 @@ public:
 // calling PL_exception(0) and doing something different if there is
 // a pending Prolog exception (to call PL_exception(0), use
 // PlException_qid()).
-inline void
-PlCheck(int rc)
-{ if ( !rc )
-    throw PlFail();
-}
-
+[[nodiscard]] inline bool PlCheckEx(int rc);
+inline void PlCheck(int rc);
 
 		 /*******************************
 		 * COMMON OPERATIONS (TEMPLATE) *
@@ -854,6 +850,26 @@ public:
 };
 
 
+[[nodiscard]] inline bool
+PlCheckEx(int rc)
+{ term_t ex;
+
+  if ( !rc && (ex=PL_exception(0)) )
+    throw PlException_qid();
+
+  return rc;
+}
+
+
+inline void
+PlCheck(int rc)
+{ if ( !PlCheckEx(rc) )
+    throw PlFail();
+}
+
+
+
+
 		 /*******************************
 		 *   PLFUNCTOR IMPLEMENTATION	*
 		 *******************************/
@@ -1232,9 +1248,7 @@ PlTerm::name_arity(PlAtom *name, size_t *arity) const
 
 inline bool
 PlTerm::chkex(int rc)
-{ if ( rc )
-    return rc;
-  throw PlFail();
+{ return PlCheckEx(rc);
 }
 
 
@@ -1517,7 +1531,7 @@ PlQuery::next_solution()
 
   if ( !rval )
     (void)close_destroy(); // TODO: what if this creates an exception?
-  return rval;
+  return PlCheckEx(rval);
 }
 
 

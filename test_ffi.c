@@ -401,40 +401,21 @@ static const char *test_environ[] =
    NULL};
 
 /* Get the values of `test_environ` into a Prolog list, building the
-   list head-to-tail. Compared to ffi_get_environ3_(), this will be
+   list head-to-tail. Compared to ffi_get_environ2_(), this will be
    faster if the `env` argument is instantiated, but a bit slower if
    it is uninstantiated. */
 static foreign_t
 ffi_get_environ1_(term_t env)
-{ term_t item = PL_new_term_ref();
-
-  // test_environ is used here instead of `extern char **environ`
-  for(const char **e = test_environ; *e; e++)
-  { if ( !PL_unify_list(env, item, env) ||
-         !PL_unify_atom_chars(item, *e) )
-      return FALSE;
-  }
-  return PL_unify_nil(env);
-}
-
-/* This is identical to ffi_get_environ1_(), except it creates a
-   term_t list, which is a copy of the argument env. This introduces
-   an extra reference in `env`, but allows writing to the `list`
-   term`. For this particular example, there's no advantage in doing
-   things this way, but it can be useful; for example, see the code
-   for ffi_write_atoms(). */
-static foreign_t
-ffi_get_environ2_(term_t env)
-{ term_t list = PL_copy_term_ref(env);
+{ term_t env_ref = PL_copy_term_ref(env);
   term_t item = PL_new_term_ref();
 
   // test_environ is used here instead of `extern char **environ`
   for(const char **e = test_environ; *e; e++)
-  { if ( !PL_unify_list(list, item, list) ||
+  { if ( !PL_unify_list(env_ref, item, env_ref) ||
          !PL_unify_atom_chars(item, *e) )
       return FALSE;
   }
-  return PL_unify_nil(list);
+  return PL_unify_nil(env_ref);
 }
 
 /* This builds the list tail-to-head and then unifies it with the
@@ -442,7 +423,7 @@ ffi_get_environ2_(term_t env)
    ffi_get_environ1_() `env` is uninstantiated, but slightly slower
    otherwise. */
 static foreign_t
-ffi_get_environ3_(term_t env)
+ffi_get_environ2_(term_t env)
 { term_t item = PL_new_term_ref();
   term_t l = PL_new_term_ref();
 
@@ -507,7 +488,6 @@ install_test_ffi(void)
   PL_register_foreign("query_rc_status_str", 4, query_rc_status_str_, 0);
   PL_register_foreign("ffi_get_environ1", 1, ffi_get_environ1_, 0);
   PL_register_foreign("ffi_get_environ2", 1, ffi_get_environ2_, 0);
-  PL_register_foreign("ffi_get_environ3", 1, ffi_get_environ3_, 0);
   PL_register_foreign("ffi_write_atoms",  2, ffi_write_atoms_,  0);
 }
 

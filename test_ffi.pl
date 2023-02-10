@@ -110,8 +110,6 @@ test(make_list, Env == ['SHELL=/bin/bash', 'TERMCAP=', 'PWD=/home/programmer/src
     ffi_get_environ1(Env).
 test(make_list, Env == ['SHELL=/bin/bash', 'TERMCAP=', 'PWD=/home/programmer/src/swipl-devel', 'LANG=en_US.UTF-8']) :-
     ffi_get_environ2(Env).
-test(make_list, Env == ['SHELL=/bin/bash', 'TERMCAP=', 'PWD=/home/programmer/src/swipl-devel', 'LANG=en_US.UTF-8']) :-
-    ffi_get_environ3(Env).
 
 test(get_list, Output == "fred\ncharles\nmindy\n") :-
     with_output_to(string(Output),

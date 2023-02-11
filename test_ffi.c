@@ -406,16 +406,16 @@ static const char *test_environ[] =
    it is uninstantiated. */
 static foreign_t
 ffi_get_environ1_(term_t env)
-{ term_t env_ref = PL_copy_term_ref(env);
+{ term_t tail = PL_copy_term_ref(env);
   term_t item = PL_new_term_ref();
 
   // test_environ is used here instead of `extern char **environ`
   for(const char **e = test_environ; *e; e++)
-  { if ( !PL_unify_list(env_ref, item, env_ref) ||
+  { if ( !PL_unify_list(tail, item, tail) ||
          !PL_unify_atom_chars(item, *e) )
       return FALSE;
   }
-  return PL_unify_nil(env_ref);
+  return PL_unify_nil(tail);
 }
 
 /* This builds the list tail-to-head and then unifies it with the
@@ -442,21 +442,24 @@ ffi_get_environ2_(term_t env)
 foreign_t
 ffi_write_atoms_(term_t stream, term_t l)
 { term_t head = PL_new_term_ref();   /* the elements */
-  term_t list = PL_copy_term_ref(l); /* copy (we modify list) */
+  term_t tail = PL_copy_term_ref(l); /* copy (we modify tail) */
   IOSTREAM* s;
   if ( !PL_get_stream(stream, &s, SIO_OUTPUT) )
     return FALSE;
 
-  while( PL_get_list(list, head, list) )
+  while( PL_get_list(tail, head, tail) )
   { char *atom_s;
 
     if ( PL_get_atom_chars(head, &atom_s) ) // TODO: PL_atom_wchars()
       Sfprintf(s, "%s\n", atom_s);
     else
+    { (void)PL_release_stream(s);
       return FALSE;
+    }
   }
 
-  return PL_get_nil(list);            /* test end for [] */
+  return PL_release_stream(s) &&
+    PL_get_nil(tail);            /* test end for [] */
 }
 
 

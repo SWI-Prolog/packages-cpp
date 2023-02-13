@@ -113,6 +113,22 @@ test(make_list, Env == ['SHELL=/bin/bash', 'TERMCAP=', 'PWD=/home/programmer/src
 test(get_list, Output == "fred\ncharles\nmindy\n") :-
     with_output_to(string(Output),
                    ffi_write_atoms(current_output, [fred,charles,mindy])).
+test(get_list, error(existence_error(stream,unknown_stream))) :-
+    ffi_write_atoms(unknown_stream, [fred,charles,mindy]).
+test(get_list, error(type_error(list,x))) :-
+    ffi_write_atoms(current_output, x).
+test(get_list, error(type_error(list,mindy))) :-
+    % This will put "fred\ncharles\n" into Output, but that will be
+    % undone by the error. (The behavior can be observed by outputting
+    % to a stream, which doesn't backtrack)
+    with_output_to(string(Output),
+                   ffi_write_atoms(current_output, [fred,charles|mindy])).
+test(get_list, error(instantiation_error)) :-
+    ffi_write_atoms(current_output, [X]).
+test(get_list, error(type_error(atom,1.0))) :-
+    ffi_write_atoms(current_output, [1.0]).
+test(get_list, error(type_error(atom,"foo"))) :-
+    ffi_write_atoms(current_output, ["foo"]).
 
 :- end_tests(ffi).
 

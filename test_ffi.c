@@ -180,20 +180,15 @@ ffi_options_(term_t a1, term_t options)
   int rc;
 
   PL_STRINGS_MARK();
-
     rc = PL_scan_options(options, 0, "ffi_options", ffi_options,
-		         &quoted, &length, &callback, &token, &descr);
-
-    if ( rc )
-    { return PL_unify_term(a1,
-			   PL_FUNCTOR_CHARS, "options", 5,
-			   PL_BOOL,        quoted,
-			   PL_INT64,       (int64_t)length,
-			   PL_TERM,        callback,
-			   PL_ATOM,        token,
-			   PL_UTF8_STRING, descr);
-    }
-
+		         &quoted, &length, &callback, &token, &descr) &&
+      PL_unify_term(a1,
+		    PL_FUNCTOR_CHARS, "options", 5,
+		    PL_BOOL,        quoted,
+		    PL_INT64,       (int64_t)length,
+		    PL_TERM,        callback,
+		    PL_ATOM,        token,
+		    PL_UTF8_STRING, descr);
   PL_STRINGS_RELEASE();
   return rc;
 }
@@ -207,15 +202,13 @@ ffi_options_(term_t a1, term_t options)
 static const char *
 ffi_term_chars(term_t t)
 { char *s;
-  int nchars_rc;
 
   if ( t == (term_t)-1 )
     return "<no-exception>";
   if ( !t )
     return "<null-term>";
 
-  nchars_rc = PL_get_nchars(t, NULL, &s, CVT_ALL|CVT_WRITEQ|CVT_EXCEPTION);
-  if ( nchars_rc )
+  if ( PL_get_nchars(t, NULL, &s, CVT_ALL|CVT_WRITEQ|CVT_EXCEPTION) )
     return s;
 
   return "<invalid term>";
@@ -444,26 +437,33 @@ ffi_get_environ2_(term_t env)
 }
 
 static foreign_t
-ffi_write_atoms_(term_t stream, term_t l)
+ffi_write_atoms_(term_t stream_t, term_t l)
 { term_t head = PL_new_term_ref();   /* the elements */
   term_t tail = PL_copy_term_ref(l); /* copy (we modify tail) */
-  IOSTREAM* s;
-  if ( !PL_get_stream(stream, &s, SIO_OUTPUT) )
+  IOSTREAM* stream;
+  if ( !PL_get_stream(stream_t, &stream, SIO_OUTPUT) )
     return FALSE;
 
-  while( PL_get_list(tail, head, tail) )
-  { char *atom_s;
-
-    if ( PL_get_atom_chars(head, &atom_s) ) // TODO: PL_atom_wchars()
-      Sfprintf(s, "%s\n", atom_s);
-    else
-    { (void)PL_release_stream(s);
-      return FALSE;
-    }
+  while( PL_get_list_ex(tail, head, tail) )
+  { char *s;
+    int get_chars_rc;
+    PL_STRINGS_MARK();
+      get_chars_rc = PL_get_chars(head, &s, CVT_ATOM|REP_MB|CVT_EXCEPTION);
+      if ( get_chars_rc )
+        Sfprintf(stream, "%s\n", s);
+    PL_STRINGS_RELEASE();
+    if ( !get_chars_rc )
+      break;
   }
+  int loop_had_exception = ( PL_exception(0) != (term_t)0 );
 
-  return PL_release_stream(s) &&
-    PL_get_nil(tail);            /* test end for [] */
+  /* if there's already an exception (from PL_get_list_ex() or
+     PL_get_chars()) and PL_release_stream() calls
+     PL_raise_exception(), then the most "severe" exception will be in
+     effect when this foreign predicate returns to Prolog. */
+  int stream_rc = PL_release_stream(stream);
+  return !loop_had_exception && stream_rc &&
+    PL_get_nil_ex(tail); /* test end for [] */
 }
 
 

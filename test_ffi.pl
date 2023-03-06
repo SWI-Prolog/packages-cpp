@@ -121,14 +121,47 @@ test(get_list, error(type_error(list,mindy))) :-
     % This will put "fred\ncharles\n" into Output, but that will be
     % undone by the error. (The behavior can be observed by outputting
     % to a stream, which doesn't backtrack)
-    with_output_to(string(Output),
+    with_output_to(string(_Output),
                    ffi_write_atoms(current_output, [fred,charles|mindy])).
 test(get_list, error(instantiation_error)) :-
-    ffi_write_atoms(current_output, [X]).
+    ffi_write_atoms(current_output, [_X]).
 test(get_list, error(type_error(atom,1.0))) :-
     ffi_write_atoms(current_output, [1.0]).
 test(get_list, error(type_error(atom,"foo"))) :-
     ffi_write_atoms(current_output, ["foo"]).
+
+test(save_load, V == V2) :-
+    V = 150,
+    tmp_file_stream(TmpFile, OutStream, [encoding(binary)]),
+    % TmpFile = '/tmp/FOOFOO', open(TmpFile, write, OutStream, [encoding(octet)]),
+    ffi_write_int64(OutStream, V),
+    close(OutStream),
+    open(TmpFile, read, InStream),
+    ffi_read_int64(InStream, V2),
+    close(InStream),
+    open(TmpFile, read, InStream2, [encoding(octet)]),
+    read_stream_to_codes(InStream2, Codes),
+    close(InStream2),
+    assertion(Codes == [0x2c, 0x82]). % zigzag encoding (little-endian)
+test(save_load, V == V2) :-
+    V = 0x010203fe,
+    tmp_file_stream(TmpFile, OutStream, [encoding(binary)]),
+    ffi_write_int32(OutStream, V),
+    close(OutStream),
+    open(TmpFile, read, InStream),
+    ffi_read_int32(InStream, V2),
+    close(InStream),
+    open(TmpFile, read, InStream2, [encoding(octet)]),
+    read_stream_to_codes(InStream2, Codes),
+    close(InStream2),
+    assertion(Codes == [1,2,3,0xfe]).
+test(save_load, [blocked(codes_output_is_not_binary), V == V2]) :-
+    V = 0xdeadbeef030201,
+    with_output_to(codes(Codes),
+                   (   % set_stream(current_output, encoding(octet)),
+                       ffi_write_int64(current_output, V)
+                   )),
+    V2 = Codes.
 
 :- end_tests(ffi).
 

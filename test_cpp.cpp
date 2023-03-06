@@ -303,8 +303,8 @@ PREDICATE(cpp_call_, 3)
   if ( verbose )
     cout << flag_str << ": " << A1.as_string() << endl;
 
-  try {
-    int rc = PlCall(A1, flags);
+  try
+  { int rc = PlCall(A1, flags);
     if ( flags & PL_Q_EXT_STATUS )
     { const char *status_str;
       switch ( rc )
@@ -381,22 +381,14 @@ PREDICATE(square_roots, 2)
   return list.close();
 }
 
-/* Create a dependency on malloc().  If the main system uses
- * tcmalloc (default when available), the shared object should
- * __not__ be linked against tcmalloc.  This code crashes when
- * compiled using
- *
- *     swipl-ld -o test -ltcmalloc -shared test.cpp
- */
-
-PREDICATE(malloc, 2)
-{ void *ptr = malloc(A1.as_size_t());
+PREDICATE(malloc_new, 2)
+{ char *ptr = new char[A1.as_size_t()];
   return A2.unify_pointer(ptr);
 }
 
-PREDICATE(free, 1)
-{ void *ptr = A1.as_pointer();
-  free(ptr);
+PREDICATE(free_delete, 1)
+{ char *ptr = static_cast<char*>(A1.as_pointer());
+  delete[] ptr;
   return true;
 }
 
@@ -873,20 +865,20 @@ PREDICATE(unify_foo_string_2b, 1)
   DECLS_ROW(unsigned long)      \
   DECLS_ROW(long long)          \
   DECLS_ROW(unsigned long long) \
-  DECLS_ROW(size_t)   \
-  DECLS_ROW(int32_t)  \
-  DECLS_ROW(uint32_t) \
-  DECLS_ROW(uint64_t) \
-  DECLS_ROW(int64_t)  \
-  DECLS_ROW(intptr_t) \
+  DECLS_ROW(size_t)             \
+  DECLS_ROW(int32_t)            \
+  DECLS_ROW(uint32_t)           \
+  DECLS_ROW(uint64_t)           \
+  DECLS_ROW(int64_t)            \
+  DECLS_ROW(intptr_t)           \
   DECLS_ROW(uintptr_t)
 
 #define X(name, x_type, x_min, x_max)                    \
     {name,                                               \
      PlCompound("int_info",                              \
 		PlTermv(PlTerm_atom(name),               \
-			PlTerm_integer(sizeof (x_type)),  \
-			PlTerm_integer(x_min),             \
+			PlTerm_integer(sizeof (x_type)), \
+			PlTerm_integer(x_min),           \
 			PlTerm_integer(x_max))).record() },
 
 typedef std::map<const std::string, record_t> IntInfo;

@@ -234,8 +234,8 @@ test(square_roots_2b, error(resource_error(stack))) :-
 		      square_roots(1000000000, _)).
 
 test(malloc) :-
-    malloc(1000, Result), % smoke test
-    free(Result).
+    malloc_new(1000, Result), % smoke test
+    free_delete(Result).
 
 :- if(\+ current_prolog_flag(asan, true)).
 too_big_alloc_request(Request) :-
@@ -262,21 +262,23 @@ too_many_bits_alloc_request(Request) :-
 
 :- endif.
 
-test(malloc) :-
+test(malloc, error(resource_error(memory))) :-
     too_big_alloc_request(Request),
-    malloc(Request, Result),
-    assertion(Result == 0),
-    free(Result).
+    malloc_new(Request, Result),
+    assertion(false).
+    %% If `new char[...]` doesn't throw std::bad_alloc, fall through to here:
+    % assertion(Result == 0),
+    % free_delete(Result).
 
 :- if(current_prolog_flag(bounded,false)).
 
 test(malloc) :-
     too_many_bits_alloc_request(Request),
-    catch( ( malloc(Request, Result),
-	     free(Result)
+    catch( ( malloc_new(Request, Result),
+	     free_delete(Result)
 	   ),
 	   error(E,_), true),
-    assertion(memberchk(E, [representation_error(_),
+    assertion(memberchk(E, [representation_error(uint64_t),
 			    type_error(integer,_)])).
 
 :- endif.

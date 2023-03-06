@@ -447,10 +447,9 @@ ffi_write_atoms_(term_t Stream, term_t l)
     return FALSE;
 
   while( rc && PL_get_list_ex(tail, head, tail) )
-  { char *s;
-
-    PL_STRINGS_MARK();
-      if ( (rc=PL_get_chars(head, &s, CVT_ATOM|REP_MB|CVT_EXCEPTION)) )
+  { PL_STRINGS_MARK();
+      char *s;
+      if ( (rc=PL_get_chars(head, &s, CVT_ATOM|REP_UTF8|CVT_EXCEPTION)) )
         Sfprintf(stream, "%s\n", s);
     PL_STRINGS_RELEASE();
   }
@@ -458,6 +457,63 @@ ffi_write_atoms_(term_t Stream, term_t l)
   return ( PL_release_stream(stream) &&
 	   rc &&
 	   PL_get_nil_ex(tail) );
+}
+
+
+// TODO: add tests for PL_qlf_getString(), PL_qlf_putString(), etc.
+
+static foreign_t
+ffi_write_int32_(term_t Stream, term_t i)
+{  int32_t v;
+  if ( ! PL_cvt_i_int32(i, &v) )
+    return FALSE;
+
+  IOSTREAM* stream;
+  if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
+    return FALSE;
+
+  PL_qlf_putInt32(v, stream);
+  // TODO: check error status of stream? Or does PL_release_stream() do that?
+  return PL_release_stream(stream);
+}
+
+static foreign_t
+ffi_read_int32_(term_t Stream, term_t i)
+{ IOSTREAM* stream;
+  if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
+    return FALSE;
+
+  int32_t v = PL_qlf_getInt32(stream);
+
+  int rc = PL_unify_integer(i, v);
+  return PL_release_stream(stream) && rc;
+}
+
+static foreign_t
+ffi_write_int64_(term_t Stream, term_t i)
+{  int64_t v;
+  if ( ! PL_get_int64_ex(i, &v) ) // TODO: PL_cvt_i_int64
+    return FALSE;
+
+  IOSTREAM* stream;
+  if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
+    return FALSE;
+
+  PL_qlf_putInt64(v, stream);
+  // TODO: check error status of stream? Or does PL_release_stream() do that?
+  return PL_release_stream(stream);
+}
+
+static foreign_t
+ffi_read_int64_(term_t Stream, term_t i)
+{ IOSTREAM* stream;
+  if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
+    return FALSE;
+
+  int64_t v = PL_qlf_getInt64(stream);
+
+  int rc = PL_unify_int64(i, v);
+  return PL_release_stream(stream) && rc;
 }
 
 
@@ -490,6 +546,10 @@ install_test_ffi(void)
   PL_register_foreign("ffi_get_environ1", 1, ffi_get_environ1_, 0);
   PL_register_foreign("ffi_get_environ2", 1, ffi_get_environ2_, 0);
   PL_register_foreign("ffi_write_atoms",  2, ffi_write_atoms_,  0);
+  PL_register_foreign("ffi_write_int32",  2, ffi_write_int32_, 0);
+  PL_register_foreign("ffi_read_int32",   2, ffi_read_int32_, 0);
+  PL_register_foreign("ffi_write_int64",  2, ffi_write_int64_, 0);
+  PL_register_foreign("ffi_read_int64",   2, ffi_read_int64_, 0);
 }
 
 install_t

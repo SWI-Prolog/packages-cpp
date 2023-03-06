@@ -5,7 +5,7 @@
     Author:        Peter Ludemann
     E-mail:        peter.ludemann@gmail.com
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2022, SWI-Prolog Solutions b.v.
+    Copyright (c)  2022-2023, SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -121,14 +121,34 @@ test(get_list, error(type_error(list,mindy))) :-
     % This will put "fred\ncharles\n" into Output, but that will be
     % undone by the error. (The behavior can be observed by outputting
     % to a stream, which doesn't backtrack)
-    with_output_to(string(Output),
+    with_output_to(string(_Output),
                    ffi_write_atoms(current_output, [fred,charles|mindy])).
 test(get_list, error(instantiation_error)) :-
-    ffi_write_atoms(current_output, [X]).
+    ffi_write_atoms(current_output, [_X]).
 test(get_list, error(type_error(atom,1.0))) :-
     ffi_write_atoms(current_output, [1.0]).
 test(get_list, error(type_error(atom,"foo"))) :-
     ffi_write_atoms(current_output, ["foo"]).
+
+test(save_load_int64, L == L2) :-
+    Mx is (1<<63)-1, Mn is -(1<<63),
+    L = [150, 0, -150, Mx, Mn],
+    tmp_file_stream(TmpFile, OutStream, [encoding(binary)]),
+    maplist(ffi_write_int64(OutStream), L),
+    close(OutStream),
+    same_length(L, L2),
+    open(TmpFile, read, InStream, [type(binary)]),
+    maplist(ffi_read_int64(InStream), L2),
+    close(InStream).
+test(save_load_int32, L == L2) :-
+    L = [-1, 0, 0x010203fe, 0x7fffffff, -0x8000000],
+    tmp_file_stream(TmpFile, OutStream, [encoding(binary)]),
+    maplist(ffi_write_int32(OutStream), L),
+    close(OutStream),
+    same_length(L, L2),
+    open(TmpFile, read, InStream, [type(binary)]),
+    maplist(ffi_read_int32(InStream), L2),
+    close(InStream).
 
 :- end_tests(ffi).
 

@@ -460,8 +460,6 @@ ffi_write_atoms_(term_t Stream, term_t l)
 }
 
 
-// TODO: add tests for PL_qlf_getString(), PL_qlf_putString(), etc.
-
 static foreign_t
 ffi_write_int32_(term_t Stream, term_t i)
 {  int32_t v;
@@ -472,8 +470,7 @@ ffi_write_int32_(term_t Stream, term_t i)
   if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
     return FALSE;
 
-  PL_qlf_putInt32(v, stream);
-  // TODO: check error status of stream? Or does PL_release_stream() do that?
+  PL_qlf_put_int32(v, stream);
   return PL_release_stream(stream);
 }
 
@@ -483,7 +480,7 @@ ffi_read_int32_(term_t Stream, term_t i)
   if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
     return FALSE;
 
-  int32_t v = PL_qlf_getInt32(stream);
+  int32_t v = PL_qlf_get_int32(stream);
 
   int rc = PL_unify_integer(i, v);
   return PL_release_stream(stream) && rc;
@@ -499,8 +496,7 @@ ffi_write_int64_(term_t Stream, term_t i)
   if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
     return FALSE;
 
-  PL_qlf_putInt64(v, stream);
-  // TODO: check error status of stream? Or does PL_release_stream() do that?
+  PL_qlf_put_int64(v, stream);
   return PL_release_stream(stream);
 }
 
@@ -510,7 +506,7 @@ ffi_read_int64_(term_t Stream, term_t i)
   if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
     return FALSE;
 
-  int64_t v = PL_qlf_getInt64(stream);
+  int64_t v = PL_qlf_get_int64(stream);
 
   int rc = PL_unify_int64(i, v);
   return PL_release_stream(stream) && rc;

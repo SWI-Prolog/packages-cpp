@@ -477,10 +477,12 @@ ffi_write_int32_(term_t Stream, term_t i)
 static foreign_t
 ffi_read_int32_(term_t Stream, term_t i)
 { IOSTREAM* stream;
+  int32_t v;
+
   if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
     return FALSE;
 
-  int32_t v = PL_qlf_get_int32(stream);
+  PL_qlf_get_int32(stream, &v);
 
   int rc = PL_unify_integer(i, v);
   return PL_release_stream(stream) && rc;
@@ -488,7 +490,7 @@ ffi_read_int32_(term_t Stream, term_t i)
 
 static foreign_t
 ffi_write_int64_(term_t Stream, term_t i)
-{  int64_t v;
+{ int64_t v;
   if ( ! PL_get_int64_ex(i, &v) ) // TODO: PL_cvt_i_int64
     return FALSE;
 
@@ -506,7 +508,8 @@ ffi_read_int64_(term_t Stream, term_t i)
   if ( !PL_get_stream(Stream, &stream, SIO_OUTPUT) )
     return FALSE;
 
-  int64_t v = PL_qlf_get_int64(stream);
+  int64_t v;
+  PL_qlf_get_int64(stream, &v);
 
   int rc = PL_unify_int64(i, v);
   return PL_release_stream(stream) && rc;

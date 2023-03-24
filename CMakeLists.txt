@@ -21,6 +21,7 @@ pkg_doc(
 # FFI tests. The `TEST_ONLY` for the plugin declaration prevents
 # installing the generated module.
 
+if(NOT STATIC_EXTENSIONS)
 test_libs(ffi cpp)
 
 swipl_plugin(
@@ -35,3 +36,4 @@ swipl_plugin(
     MODULE test_cpp
     C_LIBS ${SOCKET_LIBRARIES}
     C_SOURCES test_cpp.cpp)
+endif()

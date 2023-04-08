@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker and Peter Ludemann
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2022, SWI-Prolog Solutions b.v.
+    Copyright (c)  2022-2023, SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -56,11 +56,11 @@ how the various predicates can be called from Prolog.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #define PROLOG_MODULE "user"
+#include <iostream>
+#include <sstream>
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
-#include <iostream>
-#include <sstream>
 #include <unistd.h>
 #include <errno.h>
 #include <math.h>
@@ -70,9 +70,22 @@ how the various predicates can be called from Prolog.
 #include <map>
 using namespace std;
 
+#ifdef O_DEBUG
+#define DEBUG(g) g
+#else
+#define DEBUG(g) (void)0
+#endif
+
+
+PREDICATE(hello, 0)
+{ PlQuery q("write", PlTermv(PlTerm_atom("hello hello hello")));
+  PlCheckFail(q.next_solution());
+  return true;
+}
 
 PREDICATE(hello, 2)
 { std::stringstream buffer;
+  // This will result in an encoding error if A1 isn't Latin-1
   buffer << "Hello " << A1.as_string() << endl;
   buffer << "Hello " << A1.as_string().c_str() << endl; // Same output as previous line
   buffer << "Hello " << A1.as_string(EncLatin1).c_str() << endl; // Also same, if it's ASCII
@@ -140,8 +153,8 @@ PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
   PlTerm name(A2);
   PlTerm arity(A3);
 
-  PlCheck(name.unify_atom(term.name()));
-  PlCheck(arity.unify_integer(term.arity()));
+  PlCheckFail(name.unify_atom(term.name()));
+  PlCheckFail(arity.unify_integer(term.arity()));
 
   return true;
 }
@@ -175,15 +188,9 @@ PREDICATE(average, 3)			/* average(+Templ, :Goal, -Average) */
   return A3.unify_float(double(sum) / double(n));
 }
 
-PREDICATE(hello, 0)
-{ PlQuery q("write", PlTermv(PlTerm_atom("hello world\n")));
-  PlCheck(q.next_solution());
-  return true;
-}
-
-PREDICATE(hello_query, 2)
+PREDICATE(call_cpp, 2)
 { PlQuery q(A1.as_string(), PlTermv(A2));
-  PlCheck(q.next_solution());
+  PlCheckFail(q.next_solution());
   // There's no need for calling q.cut() - it's done implicitly by the
   // query's destructor.
   return true;
@@ -191,24 +198,38 @@ PREDICATE(hello_query, 2)
 
 PREDICATE(call_cut, 1)
 { PlQuery q(A1.as_string(), PlTermv());
-  PlCheck(q.next_solution());
-  q.cut();
+  PlCheckFail(q.next_solution());
+  q.cut(); // This tests that ~PlQuery() behaves correctly if cut() had been called
   return true;
 }
 
-PREDICATE(hello_call, 1)
-{ PlCheck(PlCall(A1));
+// TODO: add tests for PlQuery() with PL_Q_EXT_STATUS
+
+PREDICATE(call_cpp, 1)
+{ PlCheckFail(PlCall(A1));
   return true;
+}
+
+PREDICATE(call_cpp_ex, 2)
+{ try
+  { PlCheckFail(PlCall(A1, PL_Q_CATCH_EXCEPTION));
+  } catch ( PlException& ex )
+  { bool rc = A2.unify_term(ex.term());
+    ex.erase();
+    Plx_clear_exception();
+    return rc;
+  }
+  return A2.unify_string("no exception");
 }
 
 PREDICATE(atom_to_string, 2)
 { PlAtom a(A1.as_atom());
-  PlCheck(A2.unify_string(a.as_string(EncUTF8)));
+  PlCheckFail(A2.unify_string(a.as_string(EncUTF8)));
   return true;
 }
 
 PREDICATE(term_to_string, 2)
-{ PlCheck(A2.unify_string(A1.as_string(EncUTF8)));
+{ PlCheckFail(A2.unify_string(A1.as_string(EncUTF8)));
   return true;
 }
 
@@ -216,10 +237,9 @@ PREDICATE(term, 1)
 { return A1.unify_term(PlCompound("hello", PlTermv(PlTerm_atom("world"))));
 }
 
-PlAtom ATOM_atom("atom");
-
 PREDICATE(term, 2)
-{ PlAtom a(A1.as_atom());
+{ static PlAtom ATOM_atom("atom");
+  PlAtom a(A1.as_atom());
 
   if ( a.C_ == ATOM_atom.C_ )
     return A2.unify_atom("hello world"); // or A2.unify_term(PlAtom("hello world"));
@@ -245,7 +265,7 @@ PREDICATE(can_unify, 2)
 }
 
 PREDICATE(eq1, 2)
-{ PlCheck(A1.unify_term(A2));
+{ PlCheckFail(A1.unify_term(A2));
   return true;
 }
 
@@ -254,7 +274,7 @@ PREDICATE(eq2, 2)
 }
 
 PREDICATE(eq3, 2)
-{ PlCheck(PL_unify(A1.C_, A2.C_));
+{ PlCheckFail(PL_unify(A1.C_, A2.C_));
   return true;
 }
 
@@ -274,7 +294,7 @@ PREDICATE(cappend, 3)
   PlTerm_var e;
 
   while(l1.next(e))
-    PlCheck(l3.append(e));
+    PlCheckFail(l3.append(e));
 
   return A2.unify_term(l3);
 }
@@ -326,7 +346,7 @@ PREDICATE(cpp_call_, 3)
     { if ( verbose )
 	cout << "cpp_call result: rc=" << rc << ": " << A1.as_string() << endl;
     } else
-    { PlException_qid ex;
+    { PlTerm_term_t ex(Plx_exception(0));
       if ( ex.is_null() )
       { if ( verbose )
 	  cout << "cpp_call failed" << endl;
@@ -351,11 +371,12 @@ PREDICATE(cpp_call_, 3)
 PREDICATE(cpp_atom_codes, 2)
 { int rc = PlCall("atom_codes", PlTermv(A1, A2));
   if ( ! rc )
-  { PlException_qid ex;
+  { PlException ex(PlTerm_term_t(Plx_exception(0)));
     if ( ex.is_null() )
       cout << "atom_codes failed" << endl;
     else
       cout << "atom_codes failed: ex: " << ex.as_string() << endl; // Shouldn't happen
+    ex.erase();
   }
   return rc;
 }
@@ -376,9 +397,31 @@ PREDICATE(square_roots, 2)
   PlTerm_tail list(A2);
 
   for(int i=0; i<end; i++)
-    PlCheck(list.append(PlTerm_float(sqrt(double(i)))));
+    PlCheckFail(list.append(PlTerm_float(sqrt(double(i)))));
 
   return list.close();
+}
+
+PREDICATE(malloc_malloc, 2)
+{ char *ptr = static_cast<char*>(malloc(A1.as_size_t()));
+  return A2.unify_pointer(ptr);
+}
+
+PREDICATE(free_malloc, 1)
+{ char *ptr = static_cast<char*>(A1.as_pointer());
+  free(ptr);
+  return true;
+}
+
+PREDICATE(malloc_PL_malloc, 2)
+{ char *ptr = static_cast<char*>(Plx_malloc(A1.as_size_t()));
+  return A2.unify_pointer(ptr);
+}
+
+PREDICATE(free_PL_malloc, 1)
+{ char *ptr = static_cast<char*>(A1.as_pointer());
+  Plx_free(ptr);
+  return true;
 }
 
 PREDICATE(malloc_new, 2)
@@ -434,16 +477,21 @@ PREDICATE(make_functor, 3)  // make_functor(foo, x, foo(x))
     A3[1].unify_term(A2);
 }
 
+PREDICATE(cpp_arg, 3) // like arg/3 but Arg must be instantiated
+{ auto i = A1.as_uint64_t();
+  return A2[i].unify_term(A3);
+}
+
 PREDICATE(make_uint64, 2)
-{ PlCheck(A2.unify_integer(A1.as_uint64_t()));
+{ PlCheckFail(A2.unify_integer(A1.as_uint64_t()));
   return true;
 }
 
 PREDICATE(make_int64, 2)
 { int64_t i;
-  // This function is for testing PlCheck()
-  PlCheck(PL_get_int64_ex(A1.C_, &i));
-  PlCheck(A2.unify_integer(i));
+  // This tests PlEx<bool>
+  A1.get_int64_ex(&i);
+  PlCheckFail(A2.unify_integer(i));
   return true;
 }
 
@@ -482,8 +530,22 @@ PREDICATE(hostname2, 1)
 { char buf[255+1]; // SYSv2; POSIX.1 has a smaller HOST_NAME_MAX+1
   if ( no_gethostname(buf, sizeof buf) != 0 )
     throw PlFail();
-  PlCheck(A1.unify_atom(buf));
+  PlCheckFail(A1.unify_atom(buf));
   return true;
+}
+
+PREDICATE(eq_int64, 2)
+{ return A1 == A2.as_int64_t();
+}
+
+PREDICATE(lt_int64, 2)
+{ return A1 < A2.as_int64_t();
+}
+
+PREDICATE(get_atom_ex, 2)
+{ PlAtom a(PlTerm::null);
+  A1.get_atom_ex(&a);
+  return A2.unify_atom(a);
 }
 
 
@@ -498,8 +560,9 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_atom t_atom3(PlAtom("an atom"));
   PlTerm_atom p_atom4(std::string("abc"));
   PlTerm_atom p_atom5(std::wstring(L"世界"));
-  PlTerm_term_t t_t(PL_new_term_ref());
+  PlTerm_term_t t_t(Plx_new_term_ref());
   PlTerm_term_t t_null(PlTerm::null);
+  // The various integer types are also used in IntInfo.
   PlTerm_integer t_int1(std::numeric_limits<int>::max());
   PlTerm_integer t_int1b(std::numeric_limits<int>::min());
   PlTerm_integer t_int2(std::numeric_limits<long>::max());
@@ -512,7 +575,9 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_integer p_size2(std::numeric_limits<size_t>::max());
   PlTerm_float t_float(1.23);
   PlTerm_pointer t_ptr(&t_var);
-  PlTerm_recorded t_rec(PlTerm_atom("xyz").record());
+  // There's a better test for PlRecord in int_info/2
+  PlRecord       r_xyz(PlTerm_atom("xyz").record());
+  PlTerm         t_rec(r_xyz.term());
   PlTerm_string t_string1("abc");
   PlTerm_string t_string2(L"世界");
   const char codes[] = {81,82,83,0};
@@ -544,7 +609,6 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
     t_int1.integer(&v4);
     t_int1.integer(&v5);
   }
-  // TODO: combine this test with t_something.integer(&x04) etc.
   long           x04 = t_atom2.as_long();
   int            x05 = t_int1.as_int();
   uint32_t       x06 = t_var.as_uint32_t();
@@ -560,11 +624,8 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   size_t         x21 = t_var.arity();
   PlAtom         x22 = t_var.name();
 
-  // TODO: add comparisons, etc.
-
   //(void)x01;
   //(void)x01a;
-  // TODO: std::string string() const;
   (void)a5a;
   (void)x04;
   (void)x05;
@@ -655,15 +716,15 @@ PREDICATE(unify_int_set, 1)
   int64_t       i_int64         = 0;
   uint64_t      i_uint64        = 0;
 
-  PlCheck(A1.unify_integer(i_int));
-  PlCheck(A1.unify_integer(i_unsigned));
-  PlCheck(A1.unify_integer(i_long));
-  PlCheck(A1.unify_integer(i_unsigned_long));
-  PlCheck(A1.unify_integer(i_size));
-  PlCheck(A1.unify_integer(i_int32));
-  PlCheck(A1.unify_integer(i_uint32));
-  PlCheck(A1.unify_integer(i_int64));
-  PlCheck(A1.unify_integer(i_uint64));
+  PlCheckFail(A1.unify_integer(i_int));
+  PlCheckFail(A1.unify_integer(i_unsigned));
+  PlCheckFail(A1.unify_integer(i_long));
+  PlCheckFail(A1.unify_integer(i_unsigned_long));
+  PlCheckFail(A1.unify_integer(i_size));
+  PlCheckFail(A1.unify_integer(i_int32));
+  PlCheckFail(A1.unify_integer(i_uint32));
+  PlCheckFail(A1.unify_integer(i_int64));
+  PlCheckFail(A1.unify_integer(i_uint64));
 
   return true;
 }
@@ -674,15 +735,15 @@ PREDICATE(c_PL_unify_nil, 1)          { return static_cast<foreign_t>(PL_unify_n
 
 PREDICATE(cpp_unify_nil, 1)           { return A1.unify_nil(); }
 
-PREDICATE(check_c_PL_unify_nil, 1)    { PlCheck(PL_unify_nil(A1.C_));    return true; }
+PREDICATE(check_c_PL_unify_nil, 1)    { PlEx<bool>(PL_unify_nil(A1.C_)); return true; }
 
-// Repeat the above 4, for *_ex():
+// Repeat the above, for *_ex():
 
 PREDICATE(c_PL_unify_nil_ex, 1)       { return static_cast<foreign_t>(PL_unify_nil_ex(A1.C_)); }
 
-PREDICATE(cpp_unify_nil_ex, 1)        { return A1.unify_nil_ex(); }
+PREDICATE(cpp_unify_nil_ex, 1)        { A1.unify_nil_ex(); return true; }
 
-PREDICATE(check_c_PL_unify_nil_ex, 1) { PlCheck(PL_unify_nil_ex(A1.C_)); return true; }
+PREDICATE(check_c_PL_unify_nil_ex, 1) { PlEx<bool>(PL_unify_nil_ex(A1.C_)); return true; }
 
 
 
@@ -690,32 +751,31 @@ PREDICATE(c_PL_get_nil, 1)            { return static_cast<foreign_t>(PL_get_nil
 
 PREDICATE(cpp_as_nil, 1)              { A1.as_nil();                     return true; }
 
-PREDICATE(check_c_PL_get_nil, 1)      { PlCheck(PL_get_nil(A1.C_));      return true; }
+PREDICATE(check_c_PL_get_nil, 1)      { PlEx<bool>(PL_get_nil(A1.C_));      return true; }
 
-PREDICATE(check_c_PL_get_nil_ex, 1)   { PlCheck(PL_get_nil_ex(A1.C_));   return true; }
+PREDICATE(check_c_PL_get_nil_ex, 1)   { PlEx<bool>(PL_get_nil_ex(A1.C_));   return true; }
 
 // Functions re-implemented from ffi4pl.c
 
-// range_cpp/3 is equivalent to range_ffialloc/3
+// range_cpp/3 is similar to range_ffialloc/3
 
-/* range_cpp/3 is used in regression tests
+/* range_cpp/3 is used in regression tests:
    - PL_foreign_context_address() and malloc()-ed context.
 */
-struct RangeContext
+struct RangeCtxt
 { long i;
   long high;
-  explicit RangeContext(long i, long high)
+  explicit RangeCtxt(long i, long high)
     : i(i), high(high) { }
 };
 
 PREDICATE_NONDET(range_cpp, 3)
 { auto t_low = A1, t_high = A2, t_result = A3;
-  PlForeignContextPtr<RangeContext> ctxt(handle);
+  PlForeignContextPtr<RangeCtxt> ctxt(handle);
 
-  switch( PL_foreign_control(handle) )
+  switch( handle.foreign_control() )
   { case PL_FIRST_CALL:
-      ctxt.set(new RangeContext(t_low.as_long(),
-				t_high.as_long()));
+      ctxt.set(new RangeCtxt(t_low.as_long(), t_high.as_long()));
       break;
     case PL_REDO:
       break;
@@ -732,7 +792,8 @@ PREDICATE_NONDET(range_cpp, 3)
 
   ctxt->i += 1;
   if ( ctxt->i >= ctxt->high )
-    return true; // Last result: succeed without a choice point
+  { return true; // Last result: succeed without a choice point
+  }
 
   ctxt.keep();
   PL_retry_address(ctxt.get()); // Succeed with a choice point
@@ -741,50 +802,53 @@ PREDICATE_NONDET(range_cpp, 3)
 
 
 // For benchmarking `throw PlThrow()` vs `return false`
-// Times are given for 10 million failures
-// e.g.: time((between(1,10000000,X), unify_zero_0(X))).
-// Baseline: time((between(1,10000000,X), fail)).  0.44 sec
+// Times are given for 1 million failures
 
-// 0.68 sec  - essentially the same for time((... X=0).
+// 0.085 sec for ime((between(1,1000000,X), fail)).
+
+// 0.16 sec for time((between(1,1000000,X), X=0)).
+
+// 0.20 sec for time((between(1,1000000,X), unify_zero_0(X))).
 static foreign_t
 unify_zero_0(term_t a1)
-{ return static_cast<foreign_t>(PL_unify_integer(a1, 0));
+{ return static_cast<foreign_t>(Plx_unify_integer(a1, 0));
 }
 
-// If you wish to use the C-style install_test_cpp() style instead, you
-// need to use extern "C" to ensure that names don't get mangled.
-// So, it's easier to use the PlRegister class (which might need
-// modification to more than one argument).
+// unify_zero_0() is C code, not C++, but it's registered using
+// PlRegister class (this currently only works for foreign predicates
+// with a single argument).  If you wish to use the C-style
+// install_test_cpp() style instead, you need to use extern "C" to
+// ensure that names don't get mangled.
 
 static PlRegister _x_unify_zero_4_1(nullptr, "unify_zero_0", unify_zero_0);
 
-// 0.68 sec
+// 0.23 sec for time((between(1,1000000,X), unify_zero_1(X))).
 PREDICATE(unify_zero_1, 1)
-{ if ( !PL_unify_integer(A1.C_, 0) )
+{ if ( !Plx_unify_integer(A1.C_, 0) )
     return false;
   return true;
 }
 
-// 10.9 sec
+// 3.3 sec for time((between(1,1000000,X), unify_zero_2(X))).
 PREDICATE(unify_zero_2, 1)
-{ if ( !PL_unify_integer(A1.C_, 0) )
+{ if ( !Plx_unify_integer(A1.C_, 0) )
     throw PlFail();
   return true;
 }
 
-// 13.5 sec
+// 4.0 sec for time((between(1,1000000,X), unify_zero_3(X))).
 PREDICATE(unify_zero_3, 1)
-{ PlCheck( PL_unify_integer(A1.C_, 0) );
+{ PlCheckFail( Plx_unify_integer(A1.C_, 0) );
   return true;
 }
 
-// 15.1 sec
+// 4.0 sec for time((between(1,1000000,X), unify_zero_4(X))).
 PREDICATE(unify_zero_4, 1)
-{ PlCheck(A1.unify_integer(0));
+{ PlCheckFail(A1.unify_integer(0));
   return true;
 }
 
-// 0.71 sec
+// 0.23 sec for time((between(1,1000000,X), unify_zero_5(X))).
 PREDICATE(unify_zero_5, 1)
 { return A1.unify_integer(0);
 }
@@ -841,7 +905,6 @@ PREDICATE(unify_foo_string_2b, 1)
 
 // Predicates for checking native integer handling
 // See https://en.cppreference.com/w/cpp/types/numeric_limits
-// TODO: typeid(ty).name() (needs #include <typeinfo>, #include <typeindex>)
 
 #define DECLS_ROW(ty) X(#ty, ty, std::numeric_limits<ty>::min(), std::numeric_limits<ty>::max())
 
@@ -866,6 +929,8 @@ PREDICATE(unify_foo_string_2b, 1)
   DECLS_ROW(long long)          \
   DECLS_ROW(unsigned long long) \
   DECLS_ROW(size_t)             \
+  DECLS_ROW(int16_t)            \
+  DECLS_ROW(uint16_t)           \
   DECLS_ROW(int32_t)            \
   DECLS_ROW(uint32_t)           \
   DECLS_ROW(uint64_t)           \
@@ -881,46 +946,59 @@ PREDICATE(unify_foo_string_2b, 1)
 			PlTerm_integer(x_min),           \
 			PlTerm_integer(x_max))).record() },
 
-typedef std::map<const std::string, record_t> IntInfo;
+typedef std::map<const std::string, PlRecord> IntInfo;
 
-static const IntInfo int_info = { DECLS };
-#undef X
+// IntInfoCtxt has a pointer to the static IntInfo to get around a
+// memory leak. If int_info_static is at the top level of this file,
+// its constructor happens before Prolog has set up the memory
+// management for GMP (PlTerm_integer() with a suitably large value
+// uses GMP), and therefore the GMP value isn't freed when Prolog
+// terminates. However, if `int_info_static` is inside the
+// constructor, there's no leak.
 
-struct IntInfoContext
-{ IntInfo::const_iterator it;
-  explicit IntInfoContext()
-    : it(int_info.cbegin()) { }
+struct IntInfoCtxt
+{ IntInfo *int_info;
+  IntInfo::const_iterator it;
+  explicit IntInfoCtxt()
+  { static IntInfo int_info_static = { DECLS };
+    int_info = &int_info_static;
+    it = int_info->cbegin();
+  }
 };
 
+#undef X
+
+// int_info_(name, result, ctx) is called from int_info/2 to do a
+// lookup of the name in ctx->int_info (see the IntInfoCtxt
+// constructor for how this gets initialized). This finds a recored
+// term, from which a fresh term is concstructed using
+// PlRecord::term(), and the unification is done in the context of
+// PlRewindOnFail(). This ensures that if the unification fails, any
+// partial bindgins will be removed.
+
 static bool
-int_info_(const std::string name, PlTerm result)
-{ const auto it = int_info.find(name);
-  if ( it == int_info.cend() )
+int_info_(const std::string name, PlTerm result, IntInfoCtxt *ctxt)
+{ const auto it = ctxt->int_info->find(name);
+  if ( it == ctxt->int_info->cend() )
     return false;
 
-  PlTerm t = PlTerm_recorded(it->second);
-  return PlRewindOnFail([result,t]() -> bool { return result.unify_term(t); });
+  return PlRewindOnFail([&result,&it]() -> bool
+                        { return result.unify_term(it->second.term()); });
 }
 
 PREDICATE_NONDET(int_info, 2)
-{ PlForeignContextPtr<IntInfoContext> ctxt(handle);
+{ PlForeignContextPtr<IntInfoCtxt> ctxt(handle);
 
-  // When PL_PRUNED is called A1 is not bound;
-  // therefore, we need to do the switch on PL_foreign_control(handle)
-  // before checking A1.is_variable(). We can't put the test for
-  // A1.is_variable outside the PL_foreign_control(handle) switch
-  // because when PL_PRUNED happens, A1 might not be a variable. That
-  // is, we can't use A1.is_variable() as a way of checking whether we
-  // should do backtracking or not. So, we need to do an extra test
-  // for PL_FIRST_CALL and not allocate ctxt for backtracking if
-  // !A1.is_variable().  (There are, of course, other ways of
-  // structuring this code.)
+  // When called with PL_PRUNED, A1 is not bound; therefore, we need
+  // to do the switch on PL_foreign_control(handle) before checking
+  // A1.is_variable(). That is, we can't use A1.is_variable() as a way
+  // of checking whether we should do backtracking or not.
 
-  switch( PL_foreign_control(handle) )
+  switch( handle.foreign_control() )
   { case PL_FIRST_CALL:
       if ( !A1.is_variable() ) // int_info is a map, so unique on lookup
-	return int_info_(A1.as_string(), A2);
-      ctxt.set(new IntInfoContext());
+	return int_info_(A1.as_string(), A2, ctxt.get());
+      ctxt.set(new IntInfoCtxt());
       break;
     case PL_REDO:
       break;
@@ -931,13 +1009,15 @@ PREDICATE_NONDET(int_info, 2)
       return false;
   }
   assert(A1.is_variable());
-  while ( ctxt->it != int_info.cend() )
-  { if ( int_info_(ctxt->it->first, A2 ) )
-    { PlCheck(A1.unify_atom(ctxt->it->first));
+  while ( ctxt->it != ctxt->int_info->cend() )
+  { if ( int_info_(ctxt->it->first, A2, ctxt.get()) )
+    { if ( !A1.unify_atom(ctxt->it->first) )
+        return false; // Shouldn't happen because A1 is a varaible
       ctxt->it++;
-      if ( ctxt->it == int_info.cend() )
-	return true; // Last result: no choice point
-      ctxt.keep();
+      if ( ctxt->it == ctxt->int_info->cend() )
+      { return true; // Last result: no choice point
+      }
+      ctxt.keep(); // Need ctxt for REDO
       PL_retry_address(ctxt.get()); // Succeed with choice point
     }
     ctxt->it++;
@@ -948,22 +1028,25 @@ PREDICATE_NONDET(int_info, 2)
 
 PREDICATE(type_error_string, 3)
 { PlException e(PlTypeError("foofoo", A1));
-  std::wstring msg(e.as_wstring());
-  PlCheck(A2.unify_string(msg));
-  PlCheck(A3.unify_term(e));
+  // std::wstring msg(e.as_wstring()); // TODO: restore this
+  std::string msg(e.as_string());
+  PlCheckFail(A2.unify_string(msg));
+  PlCheckFail(A3.unify_term(e.term()));
+  e.erase();
   return true;
 }
 
 
-// Re-implementing w_atom_ffi_/2 in ffi4pl.c:
+// Re-implementing w_atom_ffi_/2:
 
 PREDICATE(w_atom_cpp_, 2)
 { auto stream = A1, t = A2;
   IOSTREAM* s;
-  PlCheck(PL_get_stream(stream.C_, &s, SIO_INPUT));
+  Plx_get_stream(stream.C_, &s, SIO_INPUT);
   { PlStringBuffers _string_buffers;
     size_t len;
-    const pl_wchar_t *sa = PL_atom_wchars(t.as_atom().C_, &len);
+    const pl_wchar_t *sa = Plx_atom_wchars(t.as_atom().C_, &len);
+    // TODO: Sfprintf() doesn't get format checked in C++
     Sfprintf(s, "/%Ws/%zd", sa, len);
   }
   return TRUE;
@@ -973,17 +1056,10 @@ PREDICATE(w_atom_cpp_, 2)
 /* TODO: Move the "cpp_options" predicate and the associated tests
 	 to somewhere in main SWI-Prolog system. */
 
-static PL_option_t scan_options[] =
-{ PL_OPTION("quoted",   OPT_BOOL),
-  PL_OPTION("length",   OPT_SIZE),
-  PL_OPTION("callback", OPT_TERM),
-  PL_OPTION("token",    OPT_ATOM),
-  PL_OPTION("descr",    OPT_STRING),
-  PL_OPTIONS_END
-};
-
 // cpp_options(+Options:list, +Opt_all:bool, -Result)
 //   Result is: cpp_options(Quoted,Length,Callback,Token,Descr)
+// Reimplementation of ffi_options_(), with an additional opt_all
+// parameter
 PREDICATE(cpp_options, 3)
 { auto options = A1, opt_all = A2, result = A3;
   int         quoted     = false;
@@ -994,16 +1070,26 @@ PREDICATE(cpp_options, 3)
   bool        opt_all_v  = opt_all.as_bool();
   int         flags      = opt_all_v ? OPT_ALL : 0;
 
-  PlStringBuffers _string_buffers; // for descr's contents
-  PlCheck(PL_scan_options(options.C_, flags, "cpp_options", scan_options,
-			  &quoted, &length, &callback.C_, &token.C_, &descr));
+  static PL_option_t scan_options[] =
+  { PL_OPTION("quoted",   OPT_BOOL),
+    PL_OPTION("length",   OPT_SIZE),
+    PL_OPTION("callback", OPT_TERM),
+    PL_OPTION("token",    OPT_ATOM),
+    PL_OPTION("descr",    OPT_STRING),
+    PL_OPTIONS_END
+  };
 
-  PlCheck(result.unify_term(PlCompound("options",
-				       PlTermv(PlTerm_integer(quoted),
-					       PlTerm_integer(length),
-					       callback,
-					       token.not_null() ? PlTerm(token) : PlTerm_var(),
-					       PlTerm_string(descr)))));
+  PlStringBuffers _string_buffers; // for descr's contents
+  PlEx<bool>(PL_scan_options(options.C_, flags, "cpp_options", scan_options,
+                             &quoted, &length, &callback.C_, &token.C_, &descr));
+
+  PlCheckFail(result.unify_term(
+                  PlCompound("options",
+                             PlTermv(PlTerm_integer(quoted),
+                                     PlTerm_integer(length),
+                                     callback,
+                                     token.not_null() ? PlTerm(token) : PlTerm_var(),
+                                     PlTerm_string(descr)))));
   // TODO: The following are needed if callback and token aren't used
   //       by a Prolog term (e.g., if they're stored in a "blob"):
   // callback.record();
@@ -1019,8 +1105,8 @@ PREDICATE(cvt_i_bool, 2)
 
 // TODO: add PlEngine tests
 
-PREDICATE(throw_domain_ffi, 1)
-{ return PL_domain_error("footype", A1.C_);
+PREDICATE(throw_domain_cpp0, 1)
+{ return Plx_domain_error("footype", A1.C_);
 }
 
 PREDICATE(throw_domain_cpp1, 1)
@@ -1028,15 +1114,50 @@ PREDICATE(throw_domain_cpp1, 1)
 }
 
 PREDICATE(throw_domain_cpp2, 1)
-{ PlCheck(PL_domain_error("footype", A1.C_));
+{ PlEx<bool>(Plx_domain_error("footype", A1.C_));
   return false; // Should never reach here
 }
 
 PREDICATE(throw_domain_cpp3, 1)
-{ PL_domain_error("footype", A1.C_);
-  throw PlFail();
+{ if ( !Plx_domain_error("footype", A1.C_) )
+    throw PlFail();
+  // Shouldn't fall through to here
+  Plx_clear_exception();
+  return true; // Shouldn't happen
 }
 
 PREDICATE(throw_domain_cpp4, 1)
 { return PlDomainError("footype", A1).plThrow();
+}
+
+PREDICATE(throw_instantiation_error_cpp, 1)
+{ throw PlInstantiationError(A1);
+}
+
+PREDICATE(throw_uninstantiation_error_cpp, 1)
+{ throw PlUninstantiationError(A1);
+}
+
+PREDICATE(throw_representation_error_cpp, 1)
+{ throw PlRepresentationError(A1.as_string().c_str());
+}
+
+PREDICATE(throw_type_error_cpp, 2)
+{ throw PlTypeError(A1.as_string().c_str(), A2);
+}
+
+PREDICATE(throw_domain_error_cpp, 2)
+{ throw PlDomainError(A1.as_string().c_str(), A2);
+}
+
+PREDICATE(throw_existence_error_cpp, 2)
+{ throw PlExistenceError(A1.as_string().c_str(), A2);
+}
+
+PREDICATE(throw_permission_error_cpp, 3)
+{ throw PlPermissionError(A1.as_string().c_str(), A2.as_string().c_str(), A3);
+}
+
+PREDICATE(throw_resource_error_cpp, 1)
+{ throw PlResourceError(A1.as_string().c_str());
 }

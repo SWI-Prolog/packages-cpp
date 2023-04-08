@@ -44,6 +44,8 @@
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- autoload(library(aggregate)).
+:- use_module(library(memfile)).
+:- use_module(library(readutil)).
 :- use_module(library(plunit)).
 
 :- use_foreign_library(foreign(test_ffi)).
@@ -56,6 +58,10 @@ test_ffi :-
                 scan,
                 call
 	      ]).
+
+% Some of the tests can result in crashes if there's a bug, so the
+% `output(on_failure)` option results in nothing being written.
+:- set_test_options([output(always)]).
 
 :- begin_tests(ffi).
 
@@ -139,7 +145,10 @@ test(save_load_int64, L == L2) :-
     same_length(L, L2),
     open(TmpFile, read, InStream, [type(binary)]),
     maplist(ffi_read_int64(InStream), L2),
-    close(InStream).
+    close(InStream),
+    read_file_to_codes(TmpFile, Codes, [type(binary)]),
+    % The following should be the same on both little- and big-endian machines.
+    assertion(Codes == [0x2c,0x82,0x80,0x2b,0x82,0x7e,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x81,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x81]).
 test(save_load_int32, L == L2) :-
     L = [-1, 0, 0x010203fe, 0x7fffffff, -0x8000000],
     tmp_file_stream(TmpFile, OutStream, [encoding(binary)]),
@@ -148,7 +157,51 @@ test(save_load_int32, L == L2) :-
     same_length(L, L2),
     open(TmpFile, read, InStream, [type(binary)]),
     maplist(ffi_read_int32(InStream), L2),
-    close(InStream).
+    close(InStream),
+    read_file_to_codes(TmpFile, Codes, [type(binary)]),
+    % The following should be the same on both little- and big-endian machines.
+    % assertion(Codes == [0xff,0xff,0xff,0xff,0,0,0,0,1,2,3,0xfe,0x7f,0xff,0xff,0xff,0xf8,0,0,0]).
+    % If int32_t is encoded using zigzag, this is the result:
+    assertion(Codes == [129,128,124,15,16,144,126,127,127,127,143,127,127,127,255]).
+
+test(save_load_int64, L == L2) :-
+    Mx is (1<<63)-1, Mn is -(1<<63),
+    L = [150, 0, -150, Mx, Mn],
+    new_memory_file(MemFile),
+    open_memory_file(MemFile, write, OutStream, [type(octet)]),
+    maplist(ffi_write_int64(OutStream), L),
+    close(OutStream),
+    same_length(L, L2),
+    open_memory_file(MemFile, read, InStream, [type(octet)]),
+    maplist(ffi_read_int64(InStream), L2),
+    close(InStream),
+    memory_file_to_codes(MemFile, Codes, octet),
+    % TODO: the following should be the same on both little- and
+    %       big-endian machines.
+    assertion(Codes == [0x2c,0x82,0x80,0x2b,0x82,0x7e,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x81,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x7f,0x81]).
+
+test(throw, error(instantiation_error,context(test_ffi:throw_instantiation_error_ffi/1,_))) :-
+    throw_instantiation_error_ffi(_X).
+test(throw, error(uninstantiation_error(abc),context(test_ffi:throw_uninstantiation_error_ffi/1,_))) :-
+    throw_uninstantiation_error_ffi(abc).
+
+test(throw, error(representation_error(some_resource))) :-
+    throw_representation_error_ffi(some_resource).
+
+test(throw, error(type_error(int,"abc"))) :-
+    throw_type_error_ffi(int, "abc").
+
+test(throw, error(domain_error(positive, -5))) :-
+    throw_domain_error_ffi(positive, -5).
+
+test(throw, error(existence_error(something_something, foo:bar/2))) :-
+    throw_existence_error_ffi(something_something, foo:bar/2).
+
+test(throw, error(permission_error(operation, type, the(culprit)))) :-
+    throw_permission_error_ffi(operation, type, the(culprit)).
+
+test(throw, error(resource_error('NO_RESOURCE'))) :-
+    throw_resource_error_ffi('NO_RESOURCE').
 
 :- end_tests(ffi).
 
@@ -158,7 +211,7 @@ test(save_load_int32, L == L2) :-
 % The following "wchar" tests are regression tests related
 % to https://github.com/SWI-Prolog/packages-pcre/issues/20
 
-test(wchar_1, all(Result == ["//0",
+test(wchar,   all(Result == ["//0",
                              "/ /1",
                              "/abC/3",
                              "/Hello World!/12",
@@ -174,7 +227,7 @@ test(wchar_1, all(Result == ["//0",
     ;   w_atom_ffi('網目錦へび [àmímé níshíkíhéꜜbì]', Result)
     ).
 
-test(wchar_2,
+test(wchar,
      [condition(\+ current_prolog_flag(windows, true)), % Windows doesn't like Unicode > 0xffff
       all(Result == ["/⛰⛱⛲⛾⛿/5","/\U0001FB00/1","/ᢰᢱ\x18FF\/3","/⻰⻱⻲⻳/4"])]) :-
     (   w_atom_ffi('⛰⛱⛲⛾⛿', Result)
@@ -183,7 +236,7 @@ test(wchar_2,
     ;   w_atom_ffi('⻰⻱⻲⻳', Result)
     ).
 
-test(wchar_2b, % Same as wchar_2, but uses atom_codes
+test(wchar, % Same as wchar_2, but uses atom_codes
      [condition(\+ current_prolog_flag(windows, true)), % Windows doesn't like Unicode > 0xffff
       all(Result == [[47, 0x26f0, 0x26f1, 0x26f2, 0x26fe, 0x26ff, 47, 53],
                      [47, 0x1FB00, 47, 49],
@@ -261,8 +314,8 @@ test(ffi_call) :-
              Exc_0, Exc_qid, Exc_0_2, NextRc),
     assertion(NextRc == 0),
     assertion(Exc_0 == Exc_0_2),
-    match_existence_error(Exc_0, MatchExc_0),
-    match_existence_error(Exc_qid, MatchExc_qid),
+    match_existence_error_string(Exc_0, MatchExc_0),
+    match_existence_error_string(Exc_qid, MatchExc_qid),
     % The terms from Exc_0 and Exc_qid are different
     assertion(MatchExc_0.1 \== MatchExc_qid.1).
 test(ffi_call) :-
@@ -272,16 +325,42 @@ test(ffi_call) :-
     assertion(NextRc == 0),
     assertion(Exc_0 == "<null-term>"),
     assertion(Exc_0_2 == "<null-term>"),
-    match_existence_error(Exc_qid, _MatchExc_qid).
+    match_existence_error_string(Exc_qid, _MatchExc_qid).
 
-match_existence_error(Str, Matches) :-
-    % Match 1: the term_t value
-    % Match 2: the contents of context(...)
+test(ffi_call) :-
+    ffi_call(unknown_pred(foo), [nodebug,pass_exception,clear_return_true,exc_term],
+             "nodebug,pass_exception,clear_return_true,exc_term",
+             Exc_0, Exc_qid, Exc_0_2, NextRc),
+    assertion(NextRc == 0),
+    assertion(Exc_0 == Exc_0_2),
+    match_existence_error_term(Exc_0),
+    match_existence_error_term(Exc_qid).
+test(ffi_call) :-
+    ffi_call(unknown_pred(foo), [nodebug,catch_exception,clear_return_true,exc_term],
+             "nodebug,catch_exception,clear_return_true,exc_term",
+             Exc_0, Exc_qid, Exc_0_2, NextRc),
+    assertion(NextRc == 0),
+    assertion(Exc_0 == "<null-term>"),
+    assertion(Exc_0_2 == "<null-term>"),
+    match_existence_error_term(Exc_qid).
+
+%! match_existence_error_string(+Str, -Matches).
+% Utility predicate for checking that a term, when turned into a string,
+% matches a particular existence error.
+% Str: the error term, as a string
+% Matches: gets a dict with:
+%            1: the term_t value as a string
+%            2: the contents of context(...) as a string
+match_existence_error_string(Str, Matches) :-
     MatchRE = "^<([0-9]+)>:error\\(existence_error\\(procedure,test_ffi:unknown_pred/1\\),context\\((.*)\\)\\)$",
     (   re_matchsub(MatchRE, Str, Matches)
     *-> true
     ;   assertion(re_matchsub(MatchRE, Str, Matches))
     ).
+
+match_existence_error_term(Term) :-
+    assertion(subsumes_term(error(existence_error(procedure, test_ffi:unknown_pred/1),
+                                  context(_,_)), Term)).
 
 test(ffi_call_no_options, blocked('Activates trace/debug mode')) :-
     ffi_call(non_existant_pred(foo), [], "").
@@ -323,8 +402,8 @@ query_flag(deterministic,	I) => I =  0x0100.
 % and pseudo-flags (see XX_Q_* flags in test_ffi.c):
 query_flag(clear_return_true,   I) => I = 0x01000.
 query_flag(close_query,         I) => I = 0x02000.
+query_flag(exc_term,            I) => I = 0x04000.
 
-% TODO: are there any other mutually exclusive flags?
 check_query_flag(Flags) :-
     query_flag(normal, F1),
     query_flag(catch_exception, F2),

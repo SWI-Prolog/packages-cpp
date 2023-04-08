@@ -43,6 +43,12 @@
 #include <string.h>
 #include <wctype.h>
 
+#ifdef O_DEBUG
+#define DEBUG(g) g
+#else
+#define DEBUG(g) (void)0
+#endif
+
 /* range_ffi/3 is used in regression tests
    - PL_foreign_context() passing an int for the context.
  */
@@ -78,11 +84,12 @@ range_ffi(term_t t_low, term_t t_high, term_t t_result, control_t handle)
   }
 }
 
-/* range_ffialloc/3 is used in regression tests
+/* range_ffialloc/3 is used in regression tests:
    - PL_foreign_context_address() and malloc()-ed context.
 */
 struct range_ctxt
 { long i;
+  long high;
 };
 
 static foreign_t
@@ -91,12 +98,14 @@ range_ffialloc(term_t t_low, term_t t_high, term_t t_result, control_t handle)
 
   switch( PL_foreign_control(handle) )
   { case PL_FIRST_CALL:
-      { long low;
-	if ( !PL_get_long_ex(t_low, &low) )
+      { long low, high;
+	if ( !PL_get_long_ex(t_low, &low) ||
+             !PL_get_long_ex(t_high, &high) )
 	  PL_fail;
 	if ( !(ctxt = malloc(sizeof *ctxt) ) )
 	  return (foreign_t)PL_resource_error("memory");
 	ctxt->i = low;
+        ctxt->high = high;
       }
       break;
     case PL_REDO:
@@ -111,22 +120,21 @@ range_ffialloc(term_t t_low, term_t t_high, term_t t_result, control_t handle)
       PL_fail;
   }
 
-  { long high;
-    if ( !PL_get_long_ex(t_high, &high) ||
-	 ctxt->i >= high ||
-	 !PL_unify_integer(t_result, ctxt->i) )
-    { free(ctxt);
-      PL_fail;
-    }
-    ctxt->i += 1;
-    if ( ctxt->i == high )
-    { free(ctxt);
-      PL_succeed; /* Last result: succeed without a choice point */
-    }
-    PL_retry_address(ctxt); /* Succeed with a choice point */
+  if ( ctxt->i >= ctxt->high ||
+       !PL_unify_integer(t_result, ctxt->i) )
+  { free(ctxt);
+    PL_fail;
   }
+
+  ctxt->i += 1;
+  if ( ctxt->i == ctxt->high )
+  { free(ctxt);
+    PL_succeed; /* Last result: succeed without a choice point */
+  }
+  PL_retry_address(ctxt); /* Succeed with a choice point */
 }
 
+// Regression test for https://github.com/SWI-Prolog/packages-pcre/issues/20
 static foreign_t
 w_atom_ffi_(term_t stream, term_t t)
 { IOSTREAM* s;
@@ -142,6 +150,7 @@ w_atom_ffi_(term_t stream, term_t t)
   return TRUE;
 }
 
+// Regression test forhttps://github.com/SWI-Prolog/packages-pcre/issues/20
 static foreign_t
 atom_ffi_(term_t stream, term_t t)
 { IOSTREAM* s;
@@ -214,10 +223,14 @@ ffi_term_chars(term_t t)
   return "<invalid term>";
 }
 
-/* Unify A2 with A1.as_string() */
+/* Unify A1 and A2 if use_unify, else
+   Unify A2 with A1.as_string() */
 static int
-unify_term_as_string(term_t A1, term_t A2)
-{ char buf[1000]; /* TODO: malloc as big as needed */
+unify_term_as_term_or_string(term_t A1, term_t A2, int use_unify)
+{ if ( A1 && use_unify )
+    return PL_unify(A1, A2);
+
+  char buf[1000]; /* TODO: malloc as big as needed */
   int u_rc;
 
   PL_STRINGS_MARK();
@@ -247,6 +260,7 @@ unify_term_as_string(term_t A1, term_t A2)
 
 #define XX_Q_CLEAR_RETURN_TRUE  0x01000
 #define XX_Q_CLOSE_QUERY        0x02000
+#define XX_Q_EXC_TERM           0x04000
 
 /* For debugging: turn the query call flags into human-readable form.
    This is mainly intended for verifying that query_flags/2 has done
@@ -275,6 +289,7 @@ query_flags_str_(term_t flags_t, term_t flags_str_t)
   if ( flags&PL_Q_EXT_STATUS )        strcat(flags_str, ",ext_status");
   if ( flags&XX_Q_CLEAR_RETURN_TRUE ) strcat(flags_str, ",clear_return_true");
   if ( flags&XX_Q_CLOSE_QUERY )       strcat(flags_str, ",close_query");
+  if ( flags&XX_Q_EXC_TERM )          strcat(flags_str, ",exc_term");
 
   return PL_unify_string_chars(flags_str_t, &flags_str[1]);
 }
@@ -317,6 +332,8 @@ query_rc_status_str_(term_t rc_t, term_t flags_t, term_t rc_bool_t,
    PL_exception(0), PL_exception(qid) after PL_next_solution() and
    Exc_0_2 is unified with the string form of PL_exception(0) after
    PL_cut_query() [in all cases, only if the exception isn't 0].
+   - if XX_Q_EXC_ERM, then Exc_0, Exc_qid, Exc_0_2 are unified as a term
+     or "<null-term>"
    The exceptions are returned as strings to get around problems
    with lifetimes of terms (probably only needed for
    PL_exception(qid), but done for all, for uniformity).  Note the
@@ -350,15 +367,15 @@ ffi_call_exc_(term_t goal, term_t flags_t,
     }
     { term_t exc_0 = PL_exception(0);
       term_t exc_qid = PL_exception(qid);
-      if ( !unify_term_as_string(exc_0, exc_0_t) ||
-           !unify_term_as_string(exc_qid, exc_qid_t) )
+      if ( ! unify_term_as_term_or_string(exc_0, exc_0_t, flags&XX_Q_EXC_TERM) ||
+           ! unify_term_as_term_or_string(exc_qid, exc_qid_t, flags&XX_Q_EXC_TERM) )
       { PL_close_query(qid);
         return FALSE;
       }
     }
-    cut_rc = (flags&XX_Q_CLOSE_QUERY) ? PL_close_query(qid) :PL_cut_query(qid);
+    cut_rc = (flags&XX_Q_CLOSE_QUERY) ? PL_close_query(qid) : PL_cut_query(qid);
     { term_t exc_0_2 = PL_exception(0);
-      if ( !unify_term_as_string(exc_0_2, exc_0_2_t) )
+      if ( !unify_term_as_term_or_string(exc_0_2, exc_0_2_t, flags&XX_Q_EXC_TERM) )
         return FALSE;
     }
     if ( flags&XX_Q_CLEAR_RETURN_TRUE )
@@ -371,6 +388,7 @@ ffi_call_exc_(term_t goal, term_t flags_t,
 
 /* For debugging: unit tests can swallow debug output when there's
    a system crash, so use sdprintf_() or sdprintfnl_() instead. */
+/* TODO: is this needed?   :- set_test_options([output(always)]). */
 static foreign_t
 sdprintf_(term_t t)
 { PL_STRINGS_MARK();
@@ -515,6 +533,101 @@ ffi_read_int64_(term_t Stream, term_t i)
   return PL_release_stream(stream) && rc;
 }
 
+static foreign_t
+throw_instantiation_error_ffi(term_t culprit)
+{ return PL_instantiation_error(culprit);
+}
+
+static foreign_t
+throw_uninstantiation_error_ffi(term_t culprit)
+{ return PL_uninstantiation_error(culprit);
+}
+
+static foreign_t
+throw_representation_error_ffi(term_t resource)
+{ char *resource_s;
+  if ( !PL_get_atom_chars(resource, &resource_s) )
+    return FALSE;
+  return PL_representation_error(resource_s);
+}
+
+static foreign_t
+throw_type_error_ffi(term_t expected, term_t culprit)
+{ char *expected_s;
+  if ( !PL_get_atom_chars(expected, &expected_s) )
+    return FALSE;
+  return PL_type_error(expected_s, culprit);
+}
+
+static foreign_t
+throw_domain_error_ffi(term_t expected, term_t culprit)
+{ char *expected_s;
+  if ( !PL_get_atom_chars(expected, &expected_s) )
+    return FALSE;
+  return PL_domain_error(expected_s, culprit);
+}
+
+static foreign_t
+throw_existence_error_ffi(term_t type, term_t culprit)
+{ char *type_s;
+  if ( !PL_get_atom_chars(type, &type_s) )
+    return FALSE;
+  return PL_existence_error(type_s, culprit);
+}
+
+static foreign_t
+throw_permission_error_ffi(term_t operation,
+                           term_t type, term_t culprit)
+{ char *operation_s, *type_s;
+  if ( !PL_get_atom_chars(operation, &operation_s) ||
+       !PL_get_atom_chars(type, &type_s) )
+    return FALSE;
+  return PL_permission_error(operation_s, type_s, culprit);
+}
+
+static foreign_t
+throw_resource_error_ffi(term_t resource)
+{ char *resource_s;
+  if ( !PL_get_atom_chars(resource, &resource_s) )
+    return FALSE;
+  return PL_resource_error(resource_s);
+}
+
+
+/* TODO: remove - this is for debugging int_info/2 in test_cpp.cpp */
+static foreign_t
+int_info_ffi(term_t name_a, term_t i1_a, term_t i2_a, term_t i3_a, term_t tv)
+{ char *name;
+  int i1, i2, i3;
+  if ( !PL_get_atom_chars(name_a, &name) ||
+       !PL_get_integer_ex(i1_a, &i1) ||
+       !PL_get_integer_ex(i2_a, &i2) ||
+       !PL_get_integer_ex(i3_a, &i3) )
+    return FALSE;
+  term_t name_t = PL_new_term_ref();
+  term_t i1_t = PL_new_term_ref();
+  term_t i2_t = PL_new_term_ref();
+  term_t i3_t = PL_new_term_ref();
+  if ( !PL_put_atom_chars(name_t, name) ||
+       !PL_put_int64(i1_t, (int64_t)i1) ||
+       !PL_put_int64(i2_t, (int64_t)i2) ||
+       !PL_put_int64(i3_t, (int64_t)i3) )
+    return FALSE;
+  term_t a0 = PL_new_term_refs(4);
+  if ( !a0 ||
+       !PL_put_term(a0+0, name_t) ||
+       !PL_put_term(a0+1, i1_t) ||
+       !PL_put_term(a0+2, i2_t) ||
+       !PL_put_term(a0+3, i3_t) )
+    return FALSE;
+  functor_t f = PL_new_functor(PL_new_atom("int_info"), 4);
+  assert(f != 0);
+  term_t c = PL_new_term_ref();
+  if ( !PL_cons_functor_v(c, f, a0) )
+    return FALSE;
+  return PL_unify(c, tv);
+}
+
 
 /* These are used for testing install/uninstall */
 static char* range_ffi_str;
@@ -530,9 +643,7 @@ install_test_ffi(void)
   assert(range_ffi_str);
   strncpy(range_ffi_str, RANGE_FFI_STR_CONTENTS, RANGE_FFI_STR_LEN);
   assert(0 == strncmp(range_ffi_str, RANGE_FFI_STR_CONTENTS, RANGE_FFI_STR_LEN));
-  #ifdef O_DEBUG
-    Sdprintf("install_range_test_ffi %s\n", range_ffi_str);
-  #endif
+  DEBUG(Sdprintf("install_range_test_ffi %s\n", range_ffi_str));
 
   PL_register_foreign("w_atom_ffi_",  2, w_atom_ffi_,   0);
   PL_register_foreign("atom_ffi_",    2, atom_ffi_,     0);
@@ -549,6 +660,15 @@ install_test_ffi(void)
   PL_register_foreign("ffi_read_int32",   2, ffi_read_int32_, 0);
   PL_register_foreign("ffi_write_int64",  2, ffi_write_int64_, 0);
   PL_register_foreign("ffi_read_int64",   2, ffi_read_int64_, 0);
+  PL_register_foreign("throw_instantiation_error_ffi",   1, throw_instantiation_error_ffi, 0);
+  PL_register_foreign("throw_uninstantiation_error_ffi", 1, throw_uninstantiation_error_ffi, 0);
+  PL_register_foreign("throw_representation_error_ffi",  1, throw_representation_error_ffi, 0);
+  PL_register_foreign("throw_type_error_ffi",            2, throw_type_error_ffi, 0);
+  PL_register_foreign("throw_domain_error_ffi",          2, throw_domain_error_ffi, 0);
+  PL_register_foreign("throw_existence_error_ffi",       2, throw_existence_error_ffi, 0);
+  PL_register_foreign("throw_permission_error_ffi",      3, throw_permission_error_ffi, 0);
+  PL_register_foreign("throw_resource_error_ffi",        1, throw_resource_error_ffi, 0);
+  PL_register_foreign("int_info_ffi",                    5, int_info_ffi, 0);
 }
 
 install_t

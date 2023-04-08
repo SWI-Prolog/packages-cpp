@@ -27,7 +27,7 @@
 \begin{abstract}
 This document describes a C++ interface to SWI-Prolog. SWI-Prolog could
 be used with C++ for a very long time, but only by calling the extern
-"C" functions of the C-interface. The interface described herein
+"C" functions of the C-interface. The interface described here
 provides a true C++ layer around the C-interface for much more concise
 and natural programming from C++. The interface deals with automatic
 type-conversion to and from native C data-types, transparent mapping of
@@ -42,12 +42,13 @@ At this moment there are \textbf{two} versions of the C++ interface.
 	  does not support character encoding issues, which implies
 	  \ctype{char*} can only be used to exchange text in ISO-Latin-1
 	  encoding.  We hope to deprecate this interface soon.
-    \item Version 2 is implemented by \file{SWI-cpp2.h} and described
+    \item Version 2 is implemented by \file{SWI-cpp2.h} and \file{SWI-cpp2.cpp}
+          and described
           in \chapref{cpp2}.  This is a much more mature C++ interface
 	  has been designed and implemented by Peter Ludemann.  We plan
 	  to make this the preferred interface soon.  There are still
-	  several issues that need to be resolved before this can
-	  happen, notably related to handling text encoding.
+	  several issues that need to be fully resolved and implemented
+          before this can happen, mostly related to handling text encoding.
 \end{itemize}
 
 \end{abstract}

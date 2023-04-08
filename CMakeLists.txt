@@ -3,12 +3,13 @@ project(swipl-cpp)
 
 include("../cmake/PrologPackage.cmake")
 
-set(CMAKE_CXX_STANDARD 17) # TODO: is this needed?
+set(CMAKE_CXX_STANDARD 17) # Some users of this require C++-17
+set(CMAKE_C_STANDARD 11) # swipl requires C-11
 
 configure_file(config.h.cmake config.h)
 
 install_src(pkg_cpp_headers
-	    FILES SWI-cpp.h SWI-cpp2.h DESTINATION
+	    FILES SWI-cpp.h SWI-cpp2.h SWI-cpp2.cpp SWI-cpp2-plx.h DESTINATION
 	    ${SWIPL_INSTALL_INCLUDE})
 
 swipl_examples(test_cpp.cpp test_ffi.c likes.cpp likes.pl README.md)
@@ -35,5 +36,5 @@ swipl_plugin(
     TEST_ONLY
     MODULE test_cpp
     C_LIBS ${SOCKET_LIBRARIES}
-    C_SOURCES test_cpp.cpp)
+    C_SOURCES test_cpp.cpp SWI-cpp2.cpp)
 endif()

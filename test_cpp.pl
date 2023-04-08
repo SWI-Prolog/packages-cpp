@@ -53,36 +53,54 @@ test_cpp :-
     run_tests([ cpp
 	      ]).
 
+% Some of the tests can result in crashes if there's a bug, so the
+% `output(on_failure)` option results in nothing being written.
+% If so, uncomment the following line
+% :- set_test_options([output(always)]).
+
 :- begin_tests(cpp).
 
-test(hello, Out == "Hello world\nHello world\nHello world\nHello world\nHello world\n") :-
-    hello(world, Out).
+test(hello, Out == "hello hello hello") :-
+    % hello :- write('hello hello hello')
+    with_output_to(string(Out), hello).
 
+test(hello, Out == "Hello WORLD\nHello WORLD\nHello WORLD\nHello WORLD\nHello WORLD\n") :-
+    hello("WORLD", Out).
+test(hello, error(representation_error(encoding))) :-
+    hello("世界", _Out).
+
+% The following might give a different result, depending on locale:
 test(hello2, Out == "Hello2 world2\nHello2 world2\nHello2 world2\nHello2 world2\nHello2 world2\n") :-
     hello2(world2, Out).
 
 test(hello3, Out == "Hello3 世界弐\n") :-
     hello3(世界弐, Out).
 
-test(hello_call, Out == "hello(foo)\n") :-
-    with_output_to(string(Out), hello_call(writeln(hello(foo)))).
-test(hello_call, Out == "hello(世界四)\n") :-
-    with_output_to(string(Out), hello_call(writeln(hello(世界四)))).
-test(hello_call, error(existence_error(procedure,writeln_wrong/1))) :-
-    hello_call(writeln_wrong(hello(世界四))).
-test(hello_call, fail) :-
-    hello_call(atom(hello(foo))).
+test(call_cpp, Out == "hello(foo)\n") :-
+    with_output_to(string(Out), call_cpp(writeln(hello(foo)))).
+test(call_cpp, Out == "hello(世界四)\n") :-
+    with_output_to(string(Out), call_cpp(writeln(hello(世界四)))).
+test(call_cpp, error(existence_error(procedure,unknown_pred/1))) :-
+    call_cpp(unknown_pred(hello(世界四))).
+test(call_cpp, fail) :-
+    call_cpp(atom(hello(foo))).
 
-test(hello_query, Out == "hello(世界四)\n") :-
-    with_output_to(string(Out), hello_query(writeln, hello(世界四))).
-test(hello_query, error(existence_error(procedure,writeln_wrong/1))) :-
-    hello_query(writeln_wrong, hello(世界四)).
-test(hello_query, fail) :-
-    hello_query(atom, hello(foo)).
+test(call_cpp, Ex == "no exception") :-
+    call_cpp_ex(writeln(hello(世界四)), Ex).
+test(call_cpp) :-
+    call_cpp_ex(unknown_pred(hello(世界四)), Ex),
+    assertion(subsumes_term(error(existence_error(procedure, unknown_pred/1), _), Ex)).
+
+test(call_cpp, Out == "hello(世界四)\n") :-
+    with_output_to(string(Out), call_cpp(writeln, hello(世界四))).
+test(call_cpp, error(existence_error(procedure,unknown_pred/1))) :-
+    call_cpp(unknown_pred, hello(世界四)).
+test(call_cpp, fail) :-
+    call_cpp(atom, hello(foo)).
 
 test(as_string, S == "foo") :-
     atom_to_string(foo, S).
-test(as_string, S = "foo(bar)") :-
+test(as_string, S == "foo(bar)") :-
     term_to_string(foo(bar), S).
 
 % Note: atom_to_string/2 and term_to_string/2 translate the data
@@ -91,7 +109,7 @@ test(as_string, S = "foo(bar)") :-
 % of the UTF8 data.
 test(as_string, S == "ä¸\u0096ç\u0095\u008Cå\u009B\u009B") :-
     atom_to_string(世界四, S).
-test(as_string, S = "hello(ä¸\u0096ç\u0095\u008Cå\u009B\u009B)") :-
+test(as_string, S == "hello(ä¸\u0096ç\u0095\u008Cå\u009B\u009B)") :-
     term_to_string(hello(世界四), S).
 
 test(add_3, Result == 666) :-
@@ -101,11 +119,11 @@ test(add_3, Result == 123) :-
 test(add_3_err, error(type_error(integer,0.1))) :-
     add(666, 0.1, _).
 
-test(add_num_3_a, Result == 666) :-
+test(add_num_3, Result == 666) :-
     add_num(555, 111, Result).
-test(add_num_3_b, Result == 666.6) :-
+test(add_num_3, Result == 666.6) :-
     add_num(555.2, 111.4, Result).
-test(add_num_3_c, error(type_error(float,"abc"))) :-
+test(add_num_3, error(type_error(float,"abc"))) :-
     add_num(123, "abc", _Result).
 
 testing:p(1).  % For average/3 test
@@ -115,9 +133,6 @@ testing:p(20).
 test(average_3, Average =:= Expected) :-
     average(X, testing:p(X), Average),
     Expected is (1+10+20)/3 .
-
-test(hello_0, Out == "hello world\n") :-
-    with_output_to(string(Out), hello).
 
 call_cut_test :-
     setup_call_cleanup(true,
@@ -129,80 +144,90 @@ test(call_cut, error(existence_error(procedure,call_cut_test/0))) :-
     % See discussion: https://github.com/SWI-Prolog/packages-cpp/pull/27
     call_cut("call_cut_test").
 
-test(term_1, Term = hello(world)) :-
+test(term_1, Term == hello(world)) :-
     term(Term).
 
-test(term_2a, Result == 'hello world') :-
+test(term_2, Result == 'hello world') :-
     term(atom, Result).
-test(term_2b, Result == "hello world") :-
+test(term_2, Result == "hello world") :-
     term(string, Result).
-test(term_2c, Result = [104,101,108,108,111,32,119,111,114,108,100]) :-
+test(term_2, Result == [104,101,108,108,111,32,119,111,114,108,100]) :-
     term(code_list, Result).
-test(term_2d, Result = [h,e,l,l,o,' ',w,o,r,l,d]) :-
+test(term_2, Result == [h,e,l,l,o,' ',w,o,r,l,d]) :-
     term(char_list, Result).
-test(term_2e, Result = hello(world)) :-
+test(term_1, Result == hello(world)) :-
     term(term, Result).
-test(term_2f, error(domain_error(type,foo))) :-
+test(term_1, error(domain_error(type,foo))) :-
     term(foo, _Result).
 
-test(can_unify_2a, [true(X\==Y)]) :-
+test(can_unify_2, [true(X\==Y)]) :-
     can_unify(f(X), f(Y)).
-test(can_unify_2b) :-
+test(can_unify_2) :-
     can_unify(a(X), a(1)),
     assertion(var(X)).
 
 % Note: unify_error has additional tests for eq1/2
-test(eq1_2a, X == a) :-
+test(eq1_2, X == a) :-
     eq1(foo(X), foo(a)).
-test(eq1_2b, fail) :-
+test(eq1_2, fail) :-
     eq1(foo(_X), bar(a)).
 
-test(make_integer_2a, X == 123) :-
+test(make_integer_2, X == 123) :-
     make_uint64(123, X).
-test(make_integer_2b) :-
+test(make_integer) :-
     X = 666,
     Y = 666,
     make_uint64(X, 666),
     make_uint64(666, 666),
     make_uint64(X, Y).
-test(make_integer_2c, fail) :-
+test(make_integer_2, fail) :-
     make_uint64(123, 124).
 
 :- if(current_prolog_flag(bounded,false)).
-test(make_integer_2d, error(representation_error(uint64_t))) :-
+test(make_uint64_2, error(representation_error(uint64_t))) :-
     Val is 0xffffffffffffffff + 999, % uses extended integers
     make_uint64(Val, _Y).
 :- endif.
 
-test(make_integer_2e, error(domain_error(not_less_than_zero,-1))) :-
+test(make_uint64_2, error(domain_error(not_less_than_zero,-1))) :-
     make_uint64(-1, _Y).
 
-test(make_integer_2a, X == 123) :-
+test(make_int64_2, X == 123) :-
     make_int64(123, X).
-test(make_integer_2b) :-
+test(make_int64_2) :-
     X = 666,
     Y = 666,
     make_int64(X, 666),
     make_int64(666, 666),
     make_int64(X, Y).
-test(make_integer_2c, fail) :-
+test(make_int64_2, fail) :-
     make_int64(123, 124).
+test(make_int64_2, error(type_error(integer,abc))) :-
+    make_int64(abc, _Y).
 
 :- if(current_prolog_flag(bounded,false)).
-test(make_integer_2d, error(representation_error(int64_t))) :-
+test(make_int64_2, error(representation_error(int64_t))) :-
     Val is 0xffffffffffffffff + 999, % uses extended integers
     make_int64(Val, _Y).
 :- endif.
 
-test(make_integer_2e, Y == -1) :-
+test(make_int64_2, Y == -1) :-
     make_int64(-1, Y).
 
-test(hostname_1, [Host == Host2]) :-
+test(hostname, [Host == Host2]) :-
     hostname(Host),
     hostname2(Host2).
 
-test(cappend, Result = [a,b,c,d,e]) :-
+test(cappend, Result == [a,b,c,d,e]) :-
     cappend([a,b,c], [d,e], Result).
+test(cappend) :-
+    cappend([a,b,c], [d,e], [a,b,c,d,e]).
+test(cappend, fail) :-
+    cappend([a,b,c], [d,e], [a,b,c,d]).
+test(cappend, fail) :-
+    cappend([a,b,c], [d,e], [a,b,c,d,e,f]).
+test(cappend, fail) :-
+    cappend([a,b,c], [d,e], [a,b,c,d,e|f]).
 
 test(cpp_call, Out == "abc\n") :-
     with_output_to(string(Out),
@@ -212,8 +237,7 @@ cpp_call(Goal, Flags) :-
     query_flags(Flags, CombinedFlag),
     cpp_call_(Goal, CombinedFlag, false).
 
-
-test(square_roots_2a, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
+test(square_roots_2, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
     square_roots(5, Result).
 
 :- meta_predicate with_small_stacks(+, 0).
@@ -229,13 +253,21 @@ with_small_stacks(Free, Goal) :-
 	Goal,
 	set_prolog_flag(stack_limit, Old)).
 
-test(square_roots_2b, error(resource_error(stack))) :-
+test(square_roots_2, error(resource_error(stack))) :-
     with_small_stacks(5 000 000, % 400 000 seems to be about the smallest allowed value
 		      square_roots(1000000000, _)).
 
 test(malloc) :-
     malloc_new(1000, Result), % smoke test
     free_delete(Result).
+
+test(malloc) :-
+    malloc_malloc(1000, Result), % smoke test
+    free_malloc(Result).
+
+test(malloc) :-
+    malloc_PL_malloc(1000, Result), % smoke test
+    free_PL_malloc(Result).
 
 :- if(\+ current_prolog_flag(asan, true)).
 too_big_alloc_request(Request) :-
@@ -264,7 +296,7 @@ too_many_bits_alloc_request(Request) :-
 
 test(malloc, error(resource_error(memory))) :-
     too_big_alloc_request(Request),
-    malloc_new(Request, Result).
+    malloc_new(Request, _Result).
 
 :- if(current_prolog_flag(bounded,false)).
 
@@ -274,8 +306,9 @@ test(malloc) :-
 	     free_delete(Result)
 	   ),
 	   error(E,_), true),
-    assertion(memberchk(E, [representation_error(uint64_t),
+    assertion(memberchk(E, [representation_error(_), % representation_error(uint64_t)
 			    type_error(integer,_)])).
+
 
 :- endif.
 
@@ -291,7 +324,7 @@ test(new_chars_2, error(resource_error(memory))) :-
 
 :- if(current_prolog_flag(bounded,false)).
 
-test(new_chars_3) :-
+test(new_chars_2) :-
     too_many_bits_alloc_request(Request),
     catch( ( new_chars(Request, Result),
 	     delete_chars(Result)
@@ -303,20 +336,19 @@ test(new_chars_3) :-
 :- endif.
 :- endif.
 
-test(new_chars_1) :-
+test(new_chars_2) :-
     new_chars(1000, Result), % smoke test
     delete_chars(Result).
 
-test(name_arity_1, Out == "name = foo, arity = 2\n") :-
+test(name_arity_2, Out == "name = foo, arity = 2\n") :-
     name_arity(foo(bar,zot), Out).
 
-test(name_arity_3) :-
+test(name_arity_2) :-
     name_arity(foo(bar,zot), Name, Arity),
     assertion(Name == foo),
     assertion(Arity == 2).
 
 test(list_modules_0) :-
-    % TODO: this outputs to cout ... make a version that checks the output?
     list_modules(Text),
     split_string(Text, "\n", "", Strings),
     forall(( member(S, Strings), S \== ""),
@@ -328,28 +360,79 @@ test(my_object, Contents == "foo-bar") :-
     my_object_contents(MyObject, Contents),
     free_my_object(MyObject).
 
-test(make_functor_3a, F == foo(x)) :-
+test(make_functor_3, F == foo(x)) :-
     make_functor(foo, x, F).
-test(make_functor_3b, error(type_error(atom,123))) :-
+test(make_functor_3, error(type_error(atom,123))) :-
     make_functor(123, x, _).
-test(make_functor_3c) :-
+test(make_functor_3) :-
     make_functor(bar, 123, bar(123)).
-test(make_functor_3d, fail) :-
+test(make_functor_3, fail) :-
     make_functor(bar, 123, bar(666)).
-test(make_functor_3e, fail) :-
+test(make_functor_3, fail) :-
     make_functor(bar, 123, qqsv(123)).
-test(make_functor_3f, Z==6.66) :-
+test(make_functor_3, Z==6.66) :-
     make_functor(bbb, Z, F),
     F = bbb(6.66).
+
+test(cpp_arg, A == bar) :-
+    cpp_arg(1, foo(bar,zot), A).
+test(cpp_arg, A == zot) :-
+    cpp_arg(2, foo(bar,zot), A).
+test(cpp_arg, error(domain_error(arity,3))) :-
+    cpp_arg(3, foo(bar,zot), _A).
+test(cpp_arg, error(domain_error(not_less_than_zero,0))) :-
+    cpp_arg(0, foo(bar,zot), _A).
+test(cpp_arg, error(domain_error(not_less_than_zero,-2))) :-
+    cpp_arg(-2, foo(bar,zot), _A).
+test(cpp_arg, error(type_error(compound,foo))) :-
+    cpp_arg(1, foo, _A).
 
 % The following are for verifying some documentation details, and for
 % ensuring that various mechanisms for reporting failure and
 % exceptions behave as expected.
 
+test(c_PL_unify_nil, X == []) :-
+    c_PL_unify_nil(X).
+test(c_PL_unify_nil) :-
+    c_PL_unify_nil([]).
+test(c_PL_unify_nil, fail) :-
+    c_PL_unify_nil(abc).
+
 test(c_PL_unify_nil_ex, X == []) :-
     c_PL_unify_nil_ex(X).
 test(c_PL_unify_nil_ex) :-
     c_PL_unify_nil_ex([]).
+test(c_PL_unify_nil_ex, error(type_error(list,abc))) :-
+    c_PL_unify_nil_ex(abc).
+
+test(check_c_PL_unify_nil, X == []) :-
+    check_c_PL_unify_nil(X).
+test(check_c_PL_unify_nil) :-
+    check_c_PL_unify_nil([]).
+% The following error is subject to change:
+test(check_c_PL_unify_nil, error(unknown_error('Non-zero return code without exception'))) :-
+    check_c_PL_unify_nil(abc).
+
+test(check_c_PL_unify_nil_ex, X == []) :-
+    check_c_PL_unify_nil_ex(X).
+test(check_c_PL_unify_nil_ex) :-
+    check_c_PL_unify_nil_ex([]).
+test(check_c_PL_unify_nil_ex, error(type_error(list,abc))) :-
+    check_c_PL_unify_nil_ex(abc).
+
+test(cpp_unify_nil, X == []) :-
+    cpp_unify_nil(X).
+test(cpp_unify_nil) :-
+    cpp_unify_nil([]).
+test(cpp_unify_nil, fail) :-
+    cpp_unify_nil(abc).
+
+test(cpp_unify_nil_ex, X == []) :-
+    cpp_unify_nil_ex(X).
+test(cpp_unify_nil_ex) :-
+    cpp_unify_nil_ex([]).
+test(cpp_unify_nil_ex, error(type_error(list,abc))) :-
+    cpp_unify_nil_ex(abc).
 
 % The following are for verifying that an exception in
 % PL_occurs_term() is handled properly - exceptions such as
@@ -421,30 +504,40 @@ test(unify_error, [ setup(( prolog_flag(occurs_check, OCF),
 
 % Tests from test_ffi.pl, for functions translated from ffi4pl.c:
 
-test(range_cpp1, all(X == [1,2])) :-
+test(range_cpp, all(X == [1,2])) :-
     range_cpp(1, 3, X).
-test(range_cpp2, all(X == [-2,-1,0,1,2])) :-
+test(range_cpp, all(X == [-2,-1,0,1,2])) :-
     range_cpp(-2, 3, X).
-test(range_cpp3a, all(X == [0])) :-
+test(range_cpp, all(X == [0])) :-
     range_cpp(0, 1, X).
-test(range_cpp3b, all(X == [10])) :-
+test(range_cpp, all(X == [10])) :-
     range_cpp(10, 11, X).
-test(range_cpp3c, all(X == [-2])) :-
+test(range_cpp, all(X == [-2])) :-
     range_cpp(-2, -1, X).
-test(range_cpp4a, fail) :-
+test(range_cpp, fail) :-
     range_cpp(1, 1, _X).
-test(range_cpp4a, fail) :-
+test(range_cpp, fail) :-
     range_cpp(0, 0, _X).
-test(range_cpp4a, fail) :-
+test(range_cpp, fail) :-
     range_cpp(-1, -1, _X).
-test(range_cpp4d, fail) :-
+test(range_cpp, fail) :-
     range_cpp(1, 2, 2).
-test(range_cpp5, X == 1) :- % Will produce warning if non-deterministic
+test(range_cpp, X == 1) :- % Will produce warning if non-deterministic
     range_cpp(1, 2, X).
-test(range_cpp6b, error(type_error(integer,a))) :-
+test(range_cpp, error(type_error(integer,a))) :-
     range_cpp(a, 10, _).
-test(range_cpp6b, error(type_error(integer,foo))) :-
+test(range_cpp, error(type_error(integer,foo))) :-
     range_cpp(1, foo, _).
+
+% TODO: not finished -- use nb_set and friends to preserve
+%       first 2 results
+range_2(From, To, Result) :-
+    (   range_cpp(From, To, _),
+        fail
+    *-> true
+    ;   range_cpp(From, To, Result)
+    ).
+
 
 % This is test wchar_1 in test_ffi.pl:
 test(wchar_1, all(Result == ["//0", "/ /1",
@@ -464,9 +557,12 @@ test(wchar_1, all(Result == ["//0", "/ /1",
 
 % TODO: decouple this test from message hooks
 %       ('$messages':message_to_string/2 or print_message/'$write_on_string'/2):
-test(type_error_string, S == "Type error: `foofoo' expected, found `'foo-bar'' (an atom)") :-
-    type_error_string('foo-bar', S, T),
+test(type_error_string) :-
+    type_error_string('foo-bar', _S, T),
     assertion(unifiable(T, error(type_error(foofoo,'foo-bar'),A), [A=B])),
+    % TODO: when PlException::string_term() is revived (using '$messages':message_to_string/2),
+    %       add the following assertion:
+    % assertion(S == "Type error: `foofoo' expected, found `'foo-bar'' (an atom)"])
     assertion(var(A)),
     assertion(var(B)),
     assertion(A\==B).
@@ -474,6 +570,15 @@ test(type_error_string, S == "Type error: `foofoo' expected, found `'foo-bar'' (
 test(int_info) :-
     findall(Name:Info, int_info(Name, Info), Infos),
     assertion(memberchk(uint32_t:int_info(uint32_t,4,0,4294967295), Infos)).
+test(int_info, [nondet, Name:Info == uint32_t:int_info(uint32_t,4,0,4294967295)]) :-
+    Info = int_info(_,_,0,_),
+    int_info(Name, Info),
+    Info = int_info(uint32_t,_,_,_).
+test(int_info) :-
+    Info = int_info(_,_,0,_),
+    findall(Name:Info, int_info(Name, Info), Infos),
+    assertion(memberchk(uint16_t:int_info(uint16_t,2,0,65535), Infos)).
+
 % int_info_cut test checks that PL_PRUNED works as expected:
 test(int_info_cut, Name:Info == bool:int_info(bool, 1, 0, 1)) :-
     int_info(Name, Info), !.
@@ -495,8 +600,7 @@ test(cvt_i_bool, error(type_error(bool,'FALSE')))  :- cvt_i_bool('FALSE', _R).
 test(cvt_i_bool, error(type_error(bool,0.0)))      :- cvt_i_bool(0.0, _R).
 test(cvt_i_bool, error(type_error(bool,"false")))  :- cvt_i_bool("false", _R).
 
-% TODO: the following sometimes causes a crash:
-test(scan_options, [R = options(1, 5, foo(bar), _, "")]) :- % Note use of (=)/2 because of uninstantiated variable
+test(scan_options, [R =@= options(1, 5, foo(bar), _, "")]) :- % Note use of (=@=)/2 because of uninstantiated variable
     cpp_options([quoted(true), length(5), callback(foo(bar))], false, R).
 test(scan_options, [R == options(1, 5, foo(bar), qqsv, "DESCR")]) :-
     cpp_options([token(qqsv), descr("DESCR"), quoted(true), length(5), callback(foo(bar))], false, R).
@@ -519,8 +623,8 @@ test(scan_options, [error(type_error(option,123))]) :- % TODO: is this intended 
 test(scan_options, [error(domain_error(cpp_options,unknown_option:blah))]) :-
     cpp_options(options{token:qqsv, descr:"DESCR", quoted:true, length:5, callback:foo(bar), unknown_option:blah}, true, _).
 
-test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_ffi/1,_Msg))) :-
-    throw_domain_ffi(qqsv("ABC")).
+test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_cpp0/1,_Msg))) :-
+    throw_domain_cpp0(qqsv("ABC")).
 
 test(error_term, [error(domain_error(footype,qqsv("ABC")),_)]) :-
     throw_domain_cpp1(qqsv("ABC")).
@@ -534,6 +638,74 @@ test(error_term, error(domain_error(footype,qqsv("ABC")),context(throw_domain_cp
 test(error_term, [error(domain_error(footype,qqsv("ABC")),_)]) :-
     throw_domain_cpp4(qqsv("ABC")).
 
+test(throw, error(uninstantiation_error(abc),_)) :-
+    throw_uninstantiation_error_cpp(abc).
+
+test(throw, error(representation_error(some_resource))) :-
+    throw_representation_error_cpp(some_resource).
+
+test(throw, error(type_error(int,"abc"))) :-
+    throw_type_error_cpp(int, "abc").
+
+test(throw, error(domain_error(positive, -5))) :-
+    throw_domain_error_cpp(positive, -5).
+
+test(throw, error(existence_error(something_something, foo:bar/2))) :-
+    throw_existence_error_cpp(something_something, foo:bar/2).
+
+test(throw, error(permission_error(operation, type, the(culprit)))) :-
+    throw_permission_error_cpp(operation, type, the(culprit)).
+
+test(throw, error(resource_error('NO_RESOURCE'))) :-
+    throw_resource_error_cpp('NO_RESOURCE').
+
+test(compare) :-
+    eq_int64(1, 1).
+test(compare, fail) :-
+    eq_int64(1, 2).
+test(compare, error(type_error(integer,a))) :-
+    eq_int64(1, a).
+test(compare, error(type_error(integer,b))) :-
+    eq_int64(b, 1).
+test(compare) :-
+    lt_int64(1, 2).
+test(compare, fail) :-
+    lt_int64(2, 1).
+test(compare, error(type_error(integer,a))) :-
+    lt_int64(1, a).
+test(compare, error(type_error(integer,b))) :-
+    lt_int64(b, 1).
+
+test(get_atom, A == abc) :-
+    get_atom_ex(abc, A).
+test(get_atom) :-
+    get_atom_ex(abc, abc).
+test(get_atom, fail) :-
+    get_atom_ex(abc, abcd).
+test(get_atom, error(type_error(atom,"abc"))) :-
+    get_atom_ex("abc", _A).
+test(get_atom, error(type_error(atom,123))) :-
+    get_atom_ex(123, _A).
+test(get_atom, error(type_error(atom,foo(bar)))) :-
+    get_atom_ex(foo(bar), _A).
+
+% TODO:
+% test this (https://swi-prolog.discourse.group/t/cpp2-exceptions/6040/61):
+%
+% Now call this from C(++). The first PL_next_solution() says TRUE,
+% but the cleanup is not executed. Now close the query. That runs the
+% cleanup handler and should raise error. If the goal in the
+% setup_call_cleanup/3 completed (fail, exception, deterministic
+% true), the cleanup handler has done its work before control gets
+% back to Prolog and thus PL_next_solution() already generates the
+% exception.
+
+test_setup_call_cleanup(X) :-
+    setup_call_cleanup(
+        true,
+        between(1, 5, X),
+        throw(error)).
+
 :- end_tests(cpp).
 
 w_atom_cpp(Atom, String) :-
@@ -544,16 +716,35 @@ w_atom_cpp(Atom, String) :-
 %   Flags for  PL_open_query().  Check  with SWI-Prolog.h.   Same code
 %   appears   in  test_ffi.pl.    This  is   duplicated  to   simplify
 %   installation of these tests in the binary version.
+%
+%   This code is mainly for debugging.
 
-% query_flag(debug,		I) => I =0x0001.
-% query_flag(deterministic,	I) => I =0x0100.
-query_flag(normal,		I) => I =0x0002.
-query_flag(nodebug,		I) => I =0x0004.
-query_flag(catch_exception,	I) => I =0x0008.
-query_flag(pass_exception,	I) => I =0x0010.
-query_flag(allow_yield,		I) => I =0x0020.
-query_flag(ext_status,		I) => I =0x0040.
+query_flag(debug,		I) => I =  0x0001.
+query_flag(normal,		I) => I =  0x0002.
+query_flag(nodebug,		I) => I =  0x0004.
+query_flag(catch_exception,	I) => I =  0x0008.
+query_flag(pass_exception,	I) => I =  0x0010.
+query_flag(allow_yield,		I) => I =  0x0020.
+query_flag(ext_status,		I) => I =  0x0040.
+query_flag(deterministic,	I) => I =  0x0100.
+% and pseudo-flags (see XX_Q_* flags in test_ffi.c):
+query_flag(clear_return_true,   I) => I = 0x01000.
+query_flag(close_query,         I) => I = 0x02000.
+query_flag(exc_term,            I) => I = 0x04000.
+
+% This should give the same result as PlQuery::verify()
+check_query_flag(Flags) :-
+    query_flag(normal, F1),
+    query_flag(catch_exception, F2),
+    query_flag(pass_exception, F3),
+    Mask is F1 \/ F2 \/ F3,
+    Bits is popcount(Flags /\ Mask),
+    (   Bits =< 1
+    ->  true
+    ;   domain_error(query_flags, Flags)
+    ).
 
 query_flags(Flags, CombinedFlag) :-
     maplist(query_flag, Flags, Ints),
-    aggregate_all(sum(I), member(I, Ints), CombinedFlag).
+    aggregate_all(sum(I), member(I, Ints), CombinedFlag),
+    check_query_flag(CombinedFlag).

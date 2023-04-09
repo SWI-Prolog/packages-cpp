@@ -2547,3 +2547,1791 @@ little extra resources in terms of time and memory.
 Especially the smooth integration between C++ and Prolog exceptions
 reduce the coding effort for type checking and reporting in foreign
 predicates.
+
+
+The utility program \program{swipl-ld} (Win32: swipl-ld.exe) works with
+both C and C++ programs. See
+\href{https://www.swi-prolog.org/pldoc/man?section=plld}{Linking embedded applications using swipl-ld}
+for more details.
+
+Your C++ compiler should support at least C++-17.
+
+To avoid incompatibilities amongst the various C++ compilers' ABIs,
+the object file from compiling \file{SWI-cpp2.cpp} is not included
+in the shared object \file{libswipl}; instead, it must be compiled
+along with any foreign predicate files. You can do this in three ways:
+\begin{itemize}
+\item
+  Compile \file{SWI-cpp2.cpp} separately.
+\item
+  Add \code{#include SWI-cpp2.cpp} to one of the foreign predicate files.
+\item
+  Wherever you have \code{#include SWI-cpp2.h}, add
+  \begin{code}
+      #define _SWI_CPP2_CPP_inline inline
+      #include <SWI-cpp2.cpp>
+  \end{code}
+  This will cause the compiler to attempt to inline all the functions
+  and methods, even those that are rarely used, resulting in some
+  code bloat.
+\end{itemize}
+
+
+\section{Examples (version 2)}
+\label{sec:cpp2-examples}
+
+Before going into a detailed description of the C++ classes we present
+a few examples illustrating the `feel' of the interface.
+
+
+\subsection{Hello(World) (version 2)}
+\label{sec:cpp2-hello-world}
+
+This simple example shows the basic definition of the predicate hello/1
+and how a Prolog argument is converted to C-data:
+
+\begin{code}
+PREDICATE(hello, 1)
+{ cout << "Hello " << A1.as_string() << endl;
+
+  return true;
+}
+\end{code}
+
+The arguments to \cfuncref{PREDICATE}{} are the name and arity of the predicate.
+The macros A<n> provide access to the predicate arguments by position
+and are of the type \ctype{PlTerm}. The C or C++ string for a \ctype{PlTerm}
+can be extracted using \cfuncref{as_string}{}, or \cfuncref{as_wstring}{} methods;\footnote{The C-string
+values can be extracted from \ctype{std::string} by using \cfuncref{c_str}{}, but you
+must be careful to not return a pointer to a local/stack value.}
+and similar access methods provide an easy type-conversion
+for most Prolog data-types, using the output of write/1 otherwise:
+
+\begin{code}
+?- hello(world).
+Hello world
+
+Yes
+?- hello(X)
+Hello _G170
+
+X = _G170
+\end{code}
+
+\subsection{Adding numbers (version 2)}
+\label{sec:cpp2-ex-adding-numbers}
+
+This example shows arithmetic using the C++ interface, including
+unification, type-checking, and conversion.  The predicate add/3 adds
+the two first arguments and unifies the last with the result.
+
+\begin{code}
+PREDICATE(add, 3)
+{ return A3.unify_integer(A1.as_long() + A2.as_long());
+}
+\end{code}
+
+You can use your own variable names instead of \exam{A1},
+\exam{A2}, etc.:
+
+\begin{code}
+PREDICATE(add, 3)  // add(+X, +Y, +Result)
+{ PlTerm x(A1);
+  PlTerm y(A2);
+  PlTerm result(A3);
+  return result.unify_integer(x.as_long() + y.as_long());
+}
+\end{code}
+
+The \cfuncref{as_long}{} method for a \ctype{PlTerm} performs a PL_get_long_ex()
+and throws a C++ exception if the Prolog argument is not a Prolog
+integer or float that can be converted without loss to a
+\ctype{long}. The \cfuncref{unify_integer}{} method of \ctype{PlTerm} is defined
+to perform unification and returns \const{true} or \const{false}
+depending on the result.
+
+\begin{code}
+?- add(1, 2, X).
+
+X = 3.
+?- add(a, 2, X).
+[ERROR: Type error: `integer' expected, found `a']
+   Exception: (  7) add(a, 2, _G197) ?
+\end{code}
+
+
+\subsection{Average of solutions (version 2)}
+\label{sec:cpp2-ex-average}
+
+This example is a bit harder. The predicate average/3 is defined to take
+the template \mbox{average(+Var, :Goal, -Average)}, where \arg{Goal}
+binds \arg{Var} and will unify \arg{Average} with average of the
+(integer) results.
+
+\ctype{PlQuery} takes the name of a predicate and the goal-argument
+vector as arguments. From this information it deduces the arity and
+locates the predicate. The method \cfuncref{next_solution}{} yields
+\const{true} if there was a solution and \const{false} otherwise. If
+the goal yields a Prolog exception, it is mapped into a C++ exception.
+A return to Prolog does an implicit "cut" (PL_cut_query()); this
+can also be done explicitly by the \cfuncref{PlQuery::cut}{} method.
+
+\begin{code}
+PREDICATE(average, 3) /* average(+Templ, :Goal, -Average) */
+{ long sum = 0;
+  long n = 0;
+
+  PlQuery q("call", PlTermv(A2));
+  while( q.next_solution() )
+  { sum += A1.as_long();
+    n++;
+  }
+  return A3.unify_float(double(sum) / double(n));
+}
+\end{code}
+
+\begin{code}
+?- [user].
+|: p(1).
+|: p(10).
+|: p(20).
+|:
+% user://1 compiled 0.00 sec, 3 clauses
+true.
+
+?- average(X, p(X), Average).
+Average = 10.333333333333334.
+\end{code}
+
+\section{Rational for changes from version 1 (version 2)}
+\label{sec:cpp2-rationale}
+
+\subsection{Implicit constructors and conversion operators}
+\label{sec:cpp2-rationale-ctors}
+
+The original version of the C++ interface heavily used implicit
+constructors and conversion operators. This allowed, for example:
+\begin{code}
+PREDICATE(hello, 1)
+{ cout << "Hello " << A1.as_string() << endl;
+  return true;
+}
+
+PREDICATE(add, 3)
+{ return A3 = (long)A1 + (long)A2;
+}
+\end{code}
+
+Version 2 is a bit more verbose:
+\begin{code}
+PREDICATE(hello, 1)
+{ cout << "Hello " << A1.as_string() << endl;
+  return true;
+}
+
+PREDICATE(add, 3)
+{ return A3.unify_int(A1.as_long() + A2.as_long());
+}
+\end{code}
+
+There are a few reasons for this:
+\begin{itemize}
+  \item
+    The C-style of casts is deprecated in C++, so the expression
+    \exam{(char *)A1} becomes the more verbose
+    \exam{static_cast<std::string>(A1)}, which is longer than
+    \exam{A1.as_string()}. Also, the string casts don't allow for
+    specifying encoding.
+  \item
+    The implicit constructors and conversion operators allowed
+    directly calling the foreign language interface functions, for example:
+\begin{code}
+PlTerm t;
+Pl_put_atom_chars(t, "someName");
+\end{code}
+    whereas this is now required:
+\begin{code}
+PlTerm t;
+Pl_put_atom_chars(t.as_term_t(), "someName");
+\end{code}
+    However, this is mostly avoided by methods and constructors that
+    wrap the foreign language functions:
+\begin{code}
+PlTerm_atom t("someName");
+\end{code}
+    or
+\begin{code}
+auto t = PlTerm_atom("someName");
+\end{code}
+  \item
+    The implicit constructors and conversion operators, combined with
+    the C++ conversion rules for integers and floats, could sometimes
+    lead to subtle bugs that were difficult to find -- in one case, a
+    typo resulted in terms being unified with floating point values when
+    the code intended them to be atoms. This was mainly because the
+    underlying C types for terms, atoms, etc. are unsigned integers,
+    leading to confusion between numeric values and Prolog terms and
+    atoms.
+\item
+    The overloaded assignment operator for unification changed the
+    usual C++ semantics for assignments from returning a reference
+    to the left-hand-side to returning a ctype{bool}. In addition,
+    the result of unification should always be checked (e.g., an
+    "always succeed" unification could fail due to an out-of-memory
+    error); the \cfuncref{unify_XXX}{} methods return
+    a \ctype{bool} and they can be wrapped inside a \cfuncref{PlCheckFail}{}
+    to raise an exception on unification failure.
+\end{itemize}
+
+Over time, it is expected that some of these restrictions will be
+eased, to allow a more compact coding style that was the intent of the
+original API. However, too much use of overloaded
+methods/constructors, implicit conversions and constructors can result
+in code that's difficult to understand, so a balance needs to be
+struck between compactness of code and understandability.
+
+For backwards compatibility, some of the version 1 interface is still
+available (except for the implicit constructors and operators), but
+marked as "deprecated"; code that depends on the parts that have been
+removed can be easily changed to use the new interface.
+
+\subsection{Strings}
+\label{sec:cpp2-rationale-strings}
+
+The version API often used \ctype{char*} for both setting and setting
+string values. This is not a problem for setting (although encodings
+can be an issue), but can introduce subtle bugs in the lifetimes of
+pointers if the buffer stack isn't used properly. The buffer stack is
+abstracted into \ctype{PlStringBuffers}, but it would be preferable to
+avoid its use altogether. C++, unlike C, has a standard string that
+allows easily keeping a copy rather than dealing with a pointer that
+might become invalid. (Also, C++ strings can contain null characters.)
+
+C++ has default conversion operators from \ctype{char*} to
+\ctype{std::string}, so some of the API support only
+\ctype{std::string}, even though this can cause a small
+inefficiency. If this proves to be a problem, additional overloaded
+functions and methods can be provided in future (note that some
+compilers have optimizations that reduce the overheads of using
+\ctype{std::string}); but for performance-critical code, the C
+functions can still be used.
+
+There still remains the problems of Unicode and encodings.
+\ctype{std::wstring} is one way of dealing with this. And for
+interfaces that use \ctype{std::string}, an encoding can be
+specified.\footnote{As of 2023-04, this had only been partially
+implemented}. Some of the details for this - such as the
+default encoding - may change slightly in the future.
+
+\section{Porting from version 1 to version 2}
+\label{sec:cpp2-porting-1-2}
+
+\file{SWI-cpp2.h} is not complete; it needs `file{SWI-cpp2.cpp} to implement
+some functions. The easiest way of taking care of this is to add
+\exam{#include <SWI-cpp2.cpp>} in your "main" file; alternatively, you can
+create another source file that contains the "include" statement.
+
+The easiest way of porting from \file{SWI-cpp.h} to \file{SWI-cpp2.h}
+is to change the \exam{\#include "SWI-cpp.h"} to \exam{\#include "SWI-cpp2.h"}
+and look at the warning and error messages. Where possible, version 2
+keeps old interfaces with a "deprecated" flag if there is a better way
+of doing things with version 2.
+
+For convenience when calling PL_*() functions, the Plx_*() wrapper
+functions add error checking. Also, most of the PL_*() functions that
+work with \ctype{term_t}, \ctype{atom_t}, etc. have corresponding
+methods in \ctype{PlTerm}, \ctype{PlAtom}, etc.
+
+Here is a list of typical changes:
+\begin{itemize}
+  \item
+    Replace \cfuncref{PlTerm}{} constructor with
+    \cfuncref{PlTerm_var}{} for uninstantiated variables,
+    \cfuncref{PlTerm_atom}{a} for atoms, \cfuncref{PlTerm_term_t}{t}
+    for the raw \ctype{term_t}, \cfuncref{PlTerm_integer}{i},
+    \cfuncref{PlTerm_float}{v}, or \cfuncref{PlTerm_pointer}{p}.
+
+  \item
+    Examine uses of \ctype{char*} or \ctype{wchar_t} and replace them by
+    \ctype{std::string} or \ctype{std::wstring} if appropriate.
+    For example, \exam{cout << "Hello " << A1.as_string().c_str()() << endl}
+    can be replaced by \exam{cout << "Hello " << A1.as_string() << endl}.
+    In general, \ctype{std::string} is safer than \ctype{char*} because
+    the latter can potentially point to freed memory.
+
+  \item
+    Instead of returning \const{false} from a predicate for failure,
+    you can do \exam{throw \cfuncref{PlFail}{}}. This mechanism is also used by
+    \cfuncref{PlCheckFail}{rc}. Note that throwing an exception is
+    significantly slower than returning \const{false}, so
+    performance-critical code should avoid \cfuncref{PlCheckFail}{rc}.
+
+  \item
+    You can use the \cfuncref{PlCheck_PL}{rc} to check the return code
+    from a function in \file{SWI-Prolog} and throw a \ctype{PlFail}
+    exception to short-circuit execution and return failure (\const{false})
+    to Prolog (or throw a \ctype{PlException} if there was a Prolog error.
+
+  \item
+    \exam{PlAtom::handle} has been replaced by \exam{PlAtom::C_}.
+
+  \item
+    \exam{PlTerm::ref} has been replaced by \exam{PlAtom::C_}.
+
+  \item
+    \exam{PlFunctor::functor} has been replaced by \exam{PlAtom::C_}.
+
+  \item
+    The operator \exam{=} for unification has been deprecated,
+    replaced by various \exam{unify_XXX}` methods
+    (\cfuncref{PlTerm::unify_term}{t2},
+    \cfuncref{PlTerm::unify_atom}{a}, etc.).
+
+  \item
+    The various "cast" operators have been deprecated or deleted;
+    you should use the various "getter" methods. For example,
+    \exam{static_cast<char*>(t)} is replaced by \exam{t.as_string().c_str()};
+    \exam{static_cast<int32_t>(t)} is replaced by \exam{t.as_int32_t()}.
+
+  \item
+    It is recommended that you do not use \ctype{int} or
+    \ctype{long} because of problems porting between Unix and Windows
+    platforms; instead, use \ctype{int32_t}, \ctype{int64_t},
+    \ctype{uint32_t}, \ctype{uint64_t}, etc.
+
+\end{itemize}
+
+\section{The class PlFail (version 2)}
+\label{sec:cpp2-plfail}
+
+The \ctype{PlFail} class is used for short-circuiting a function when
+failure or an exception occurs and any errors will be handled in the
+code generated by the \cfuncref{PREDICATE}{} macro. See also
+\secref{cpp2-exceptions-notes}).
+
+For example, this code:
+\begin{code}
+PREDICATE(unify_zero, 1)
+{ if ( !PL_unify_integer(A1.C_, 0) )
+    return false;
+  return true;
+}
+\end{code}
+can instead be written this way:
+\begin{code}
+void
+PREDICATE(unify_zero, 1)
+{ if ( !PL_unify_integer(A1.C_, 0) )
+    throw PlFail();
+  return true;
+}
+\end{code}
+or:
+\begin{code}
+PREDICATE(unify_zero, 1)
+{ PlCheck_PL(PL_unify_integer(t.C_, 0));
+  return true;
+}
+\end{code}
+or:
+\begin{code}
+PREDICATE(unify_zero, 1)
+{ PlCheckFail(A1.unify_integer(0));
+  return true;
+}
+\end{code}
+or:
+\begin{code}
+PREDICATE(unify_zero, 1)
+{ return A1.unify_integer(0);
+}
+\end{code}
+
+Using \exam{throw PlFail()} in performance-critical code can cause a
+signficant slowdown. A simple benchmark showed a 15x to 20x slowdown
+using \exam{throw PlFail()} compared to \exam{return false} (comparing
+the first code sample above with the second and third samples; the
+speed difference seems to have been because in the second sample, the
+compiler did a better job of inlining). However, for most code, this
+difference will be barely noticeable.
+
+There was no significant performance difference between the C++
+version and this C version:
+\begin{code}
+static foreign_t
+unify_zero(term_t a1)
+{ return PL_unify_integer(a1, 0);
+}
+\end{code}
+
+\subsection{\cfuncref{PlCheckFail}{}, \cfuncref{PlCheckEx}{}, and \cfuncref{PlCheck_PL}{} convenience functions}
+\label{sec:cpp2-plcheck}
+
+If one of the C "PL_" functions in \file{SWI-Prolog.h} returns
+failure, this can be either a Prolog-style failure (e.g. from
+PL_unify() or PL_next_solution()) or an error. If the failure is due
+to an error, it's usually best to immediately return to Prolog - and
+this can be done with the \cfuncref{PlCheckEx}{} function, which turns
+a Prolog error into a C++ \ctype{PlException}.  \cfuncref{PlCheck}{}
+calls PlCheckEx() and additionally throws PlFail() if the failure is
+for Prolog failure.
+
+The code for \cfuncref{PlCheck}{} is just
+\begin{code}
+void PlCheck(int rc)
+{ if ( !PlCheckEx(rc) ) throw PlFail(); }
+\end{code}
+
+\cfuncref{PlCheckEx}{} calls PL_exception() to see if there is a
+Prolog exception; if so, the Prolog exception is converted to a
+\ctype{PlException} object, which is then thrown.  For more details on
+the C++ exceptions, see \secref{cpp2-exceptions}.
+
+\section{The class PlTerm (version 2)}
+\label{sec:cpp2-plterm}
+
+As we have seen from the examples, the \ctype{PlTerm} class plays a
+central role in conversion and operating on Prolog data. This section
+provides complete documentation of this class.
+
+\subsection{Constructors (version 2)}
+\label{sec:cpp2-plterm-constructurs}
+
+The constructors are defined as subclasses of \ctype{PlTerm}, with
+a name that reflects the Prolog type of what is being created
+(e.g., \ctype{PlTerm_atom} creates an atom; \ctype{PlTerm_string}
+creates a Prolog string).
+All of the constructors are
+"explicit" because implicit creation of \ctype{PlTerm} objects can lead
+to subtle and difficult to debug errors.
+
+\begin{description}
+    \constructor{PlTerm}{}
+Creates a new initialised "null" term (holding a Prolog variable).
+    \constructor{PlTerm_term_t}{term_t t}
+Converts between the C-interface and the C++ interface by turning the
+term-reference into an instance of \ctype{PlTerm}.  Note that, being a
+lightweight class, this is a no-op at the machine-level!
+    \constructor{PlTerm_atom}{const char *text}
+Creates a term-references holding a Prolog atom representing \arg{text}.
+    \constructor{PlTerm_atom}{const wchar_t *text}
+Creates a term-references holding a Prolog atom representing \arg{text}.
+    \constructor{PlTerm_atom}{const PlAtom \&atom}
+Creates a term-references holding a Prolog atom from an atom-handle.
+    \constructor{PlTerm_int}{long n}
+Creates a term-references holding a Prolog integer representing \arg{n}.
+    \constructor{PlTerm_int}{int64_t n}
+Creates a term-references holding a Prolog integer representing \arg{n} (up to 64 bits signed).
+    \constructor{PlTerm_int}{uint64_t n}
+Creates a term-references holding a Prolog integer representing \arg{n} (up to 64 bits unsigned).
+    \constructor{PlTerm_float}{double f}
+Creates a term-references holding a Prolog float representing \arg{f}.
+    \constructor{PlTerm_pointer}{void *ptr}
+Creates a term-references holding a Prolog pointer.  A pointer is
+represented in Prolog as a mangled integer.  The mangling is designed
+to make most pointers fit into a \jargon{tagged-integer}.  Any valid
+pointer can be represented.  This mechanism can be used to represent
+pointers to C++ objects in Prolog.  Please note that `MyClass' should
+define conversion to and from \ctype{void *}.
+Also note that in general \jargon{blobs} are a better way of doing this
+(see the section on \jargon{blobs} in the Foreign Language Interface
+part of the SWI-Prolog manual).
+
+\begin{code}
+PREDICATE(make_my_object, 1)
+{ auto myobj = new MyClass();
+
+  return A1.unify_pointer(myobj);
+}
+
+PREDICATE(my_object_contents, 2)
+{ auto myobj = static_cast<MyClass*>(A1.pointer());
+  return A2.unify_string(myobj->contents);
+}
+
+PREDICATE(free_my_object, 1)
+{ auto myobj = static_cast<MyClass*>(A1.pointer());
+
+  delete myobj;
+  return true;
+}
+\end{code}
+\end{description}
+
+\subsection{Overview of accessing and changing values (version 2)}
+\label{sec:cpp2-plterm-get-put-unify}
+
+The \file{SWI-Prolog.h} header provides various functions for
+accessing, setting, and unifying terms, atoms and other types.
+Typically, these functions return a \const{0} (\const{false}) or
+\const{1} (\const{true}) value for whether they succeeded or not. For
+failure, there might also be an exception created - this can be tested
+by calling PL_excpetion(0).
+
+There are three major groups of methods:
+\begin{itemize}
+  \item Put (set) a value, corresponding to the PL_put_*() functions.
+  \item Get a value, corresponding to the PL_get_*() and PL_get_*_ex() functions.
+  \item Unify a value, corresponding to the PL_unify_*() and PL_unify_*_ex() functions.
+\end{itemize}
+
+The "put" operations are typically done on an uninstantiated term (see
+the PlTerm_var() constructor). These are expected to succeed, and
+typically raise an exception failure (e.g., resource exception) - for
+details, see the corresponding PL_put_*() functions in
+\href{https://www.swi-prolog.org/pldoc/man?section=foreign-term-construct}{Constructing
+Terms}.
+
+For the "get" and "unify" operations, there are three possible failures:
+\begin{itemize}
+  \item \const{false} return code
+  \item unification failure
+  \item exception (value of unexpected type or out of resources)
+\end{itemize}
+
+Each of these is communicated to Prolog by returning \const{false}
+from the top level; exceptions also set a "global" exception term
+(using PL_raise_exception()). The C++ programmer usually doesn't have
+to worry about this; instead they can \exam{throw PlFail()} for
+failure or \exam{throw PlException()} (or one of \ctype{PlException}'s
+subclasses) and the C++ API will take care of everything.
+
+\subsection{Converting PlTerm to native C and C++ types (version 2)}
+\label{sec:cpp2-plterm-casting}
+
+These are \emph{deprecated} and replaced by the various \exam{as_*()} methods.
+
+\ctype{PlTerm} can be converted to the following types:
+
+\begin{description}
+    \cppcast{PlTerm}{term_t}
+This cast is used for integration with the C-interface primitives.
+    \cppcast{PlTerm}{long}
+Yields a \ctype{long} if the \ctype{PlTerm} is a Prolog integer or
+float that can be converted without loss to a long.  throws a
+\except{type_error} exception otherwise.
+    \cppcast{PlTerm}{int}
+Same as for \ctype{long}, but might represent fewer bits.
+    \cppcast{PlTerm}{double}
+Yields the value as a C double if \ctype{PlTerm} represents a
+Prolog integer or float.
+    \cppcast{PlTerm}{wchar_t *}
+    \nodescription
+    \cppcast{PlTerm}{char *}
+Converts the Prolog argument using PL_get_chars() using the flags
+\const{CVT_ALL|CVT_WRITE|BUF_RING}, which implies Prolog atoms and
+strings are converted to the represented text.  All other data is
+handed to write/1.  If the text is static in Prolog, a direct pointer
+to the string is returned.  Otherwise the text is saved in a ring of
+16 buffers and must be copied to avoid overwriting.
+    \cppcast{PlTerm}{void *}
+Extracts pointer value from a term. The term should have been created
+by PlTerm::PlTerm(void*).
+\end{description}
+
+In addition, the Prolog type (`PL_VARIABLE`, `PL_ATOM`, ... `PL_DICT`)
+can be determined using the type() method. There are also boolean
+methods that check the type:
+\begin{description}
+  \cfunction{int}{type}{} See PL_term_type()
+  \cfunction{bool}{is_variable}{}  See PL_is_variable()
+  \cfunction{bool}{is_ground}{} See PL_is_ground()
+  \cfunction{bool}{is_atom} See PL_is_atom()
+  \cfunction{bool}{is_integer} See PL_is_integer()
+  \cfunction{bool}{is_string} See PL_is_string()
+  \cfunction{bool}{is_float} See PL_is_float()
+  \cfunction{bool}{is_rational} See PL_is_rational()
+  \cfunction{bool}{is_compound} See PL_is_compound()
+  \cfunction{bool}{is_callable} See PL_is_callable()
+  \cfunction{bool}{is_list} See PL_is_list()
+  \cfunction{bool}{is_dict} See PL_is_dict()
+  \cfunction{bool}{is_pair} See PL_is_pair()
+  \cfunction{bool}{is_atomic} See PL_is_atomic()
+  \cfunction{bool}{is_number} See PL_is_number()
+  \cfunction{bool}{is_acyclic} See PL_is_acyclic()
+  \cfunction{bool}{is_functor}{PlFunctor} See PL_is_functor()
+\end{description}
+
+\subsection{Unification (version 2)}
+\label{sec:cpp2-plterm-unification}
+
+See also \secref{cpp2-foreign-frame}.
+
+\begin{description}
+    \cfunction{bool}{PlTerm::unify_term}{PlTerm}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_atom}{PlAtom}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_atom}{string}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_list_codes}{string}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_list_chars}{string}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_integer}{int}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_float}{double}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_string}{string}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_functor}{PlFunctor}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_pointer}{void *}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_nil}{}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_blob}{void *blob, size_t len, PL_blob_t *type}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_chars}{int flags, size_t len, const char *s}
+
+A family of unification methods are defined for the various Prolog types and
+C++ types. Wherever \ctype{string} is shown, you can use:
+\begin{itemize}
+  \item \ctype{char*}
+  \item \ctype{whar_t*}
+  \item \ctype{std::string}
+  \item \ctype{std::wstring}
+\end{itemize}
+
+\end{description}
+
+Here is an example:
+\begin{code}
+PREDICATE(hostname, 1)
+{ char buf[256];
+  if ( gethostname(buf, sizeof buf) == 0 )
+    return A1.unify_atom(buf);
+  return false;
+}
+\end{code}
+An alternative way of writing this would use the \cfuncref{PlCheckFail}{}
+to raise an exception if the unification fails.
+\begin{code}
+PREDICATE(hostname2, 1)
+{ char buf[256];
+  PlCheckFail(gethostname(buf, sizeof buf) == 0);
+  PlCheckFail(A1.unify_atom(buf));
+  return true;
+}
+\end{code}
+
+Of course, in a real program, the failure of
+\cfuncref{gethostname}{buf}{sizeof buf} should create an error term
+than contains information from \const{errno}.
+
+
+\subsection{Comparison (version 2)}
+\label{sec:cpp2-plterm-comparison}
+
+\begin{description}
+    \cfunction{int}{PlTerm::compare}{const PlTerm \&t2}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator ==}{const PlTerm \&t}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator !=}{const PlTerm \&t}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $<$}{const PlTerm \&t}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $>$}{const PlTerm \&t}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $<=$}{const PlTerm \&t}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $>=$}{const PlTerm \&t}
+Compare the instance with \arg{t} and return the result according to
+the Prolog defined \jargon{standard order of terms}.
+    \cfunction{bool}{PlTerm::operator ==}{long num}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator !=}{long num}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $<$}{long num}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $>$}{long num}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $<=$}{long num}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator $>=$}{long num}
+Convert \ctype{PlTerm} to a \ctype{long} and perform standard
+C-comparison between the two long integers. If \ctype{PlTerm} cannot be
+converted a \except{type_error} is raised.
+
+    \cfunction{bool}{PlTerm::operator ==}{const wchar_t *}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator ==}{const char *}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator ==}{std::wstring}
+    \nodescription
+    \cfunction{bool}{PlTerm::operator ==}{std::string}
+Yields \const{true} if the \ctype{PlTerm} is an atom or string
+representing the same text as the argument, \const{false} if the
+conversion was successful, but the strings are not equal and an
+\except{type_error} exception if the conversion failed.
+\end{description}
+
+Below are some typical examples.  See \secref{cpp2-dirplatom} for direct
+manipulation of atoms in their internal representation.
+
+\begin{center}
+\begin{tabularlp}{\tt A1 == PlCompound("a(1)")}
+\hline
+\tt A1 $<$ 0	& Test \arg{A1} to hold a Prolog integer or float
+		  that can be transformed lossless to an integer
+		  less than zero. \\
+\tt A1 $<$ PlTerm(0) &
+		  \arg{A1} is before the term `0' in the `standard
+		  order of terms'. This means that if \arg{A1}
+		  represents an atom, this test yields \const{true}. \\
+\tt A1 == PlCompound("a(1)") &
+		  Test \arg{A1} to represent the term
+		  \exam{a(1)}. \\
+\tt A1 == "now" &
+		  Test \arg{A1} to be an atom or string holding the
+		  text ``now''. \\
+\hline
+\end{tabularlp}
+\end{center}
+
+
+\subsection{Analysing compound terms (version 2)}
+\label{sec:cpp2-plterm-compound}
+
+Compound terms can be viewed as an array of terms with a name and arity
+(length). This view is expressed by overloading the \const{[]} operator.
+
+A \except{type_error} is raised if the argument is not compound and a
+\except{domain_error} if the index is out of range.
+
+In addition, the following functions are defined:
+
+\begin{description}
+    \cfunction{PlTerm}{PlTerm::operator []}{int arg}
+If the \ctype{PlTerm} is a compound term and \arg{arg} is between 1 and
+the arity of the term, return a new \ctype{PlTerm} representing the
+arg-th argument of the term. If \ctype{PlTerm} is not compound, a
+\except{type_error} is raised. Id \arg{arg} is out of range, a
+\except{domain_error} is raised. Please note the counting from 1 which
+is consistent to Prolog's arg/3 predicate, but inconsistent to C's
+normal view on an array. See also class \ctype{PlCompound}. The
+following example tests \arg{x} to represent a term with first-argument
+an atom or string equal to \exam{gnat}.
+
+\begin{code}
+   ...,
+   if ( x[1] == "gnat" )
+     ...
+\end{code}
+
+    \cfunction{const char *}{PlTerm::name}{}
+Return a \ctype{const char *} holding the name of the functor of the
+compound term.  Raises a \except{type_error} if the argument is not
+compound.
+    \cfunction{size_t}{PlTerm::arity}{}
+Returns the arity of the compound term. Raises a \except{type_error} if
+the argument is not compound.
+\end{description}
+
+\subsection{Miscellaneous (version 2)}
+\label{sec:cpp2-plterm-misc}
+
+\begin{description}
+    \cfunction{bool}{is_null}{}
+       \exam{t.is_null()} is the same as \exam{t.C_ == PlTerm::null}
+    \cfunction{bool}{not_null}{}
+       \exam{t.not_null()} is the same as \exam{t.C_ != PlTerm::null}
+    \cfunction{bool}{reset}{}
+       \exam{t.reset()} is the same as \exam{t.C_ = PlTerm::null}
+    \cfunction{bool}{reset}{term_t}
+       \exam{t.reset(x)} is the same as \exam{t.C_ = x}
+    \cfunction{int}{PlTerm::type}{}
+Yields the actual type of the term as PL_term_type(). Return values are
+\const{PL_VARIABLE}, \const{PL_FLOAT}, \const{PL_INTEGER},
+\const{PL_ATOM}, \const{PL_STRING} or \const{PL_TERM}
+\end{description}
+
+To avoid very confusing combinations of constructors and therefore
+possible undesirable effects a number of subclasses of \ctype{PlTerm}
+have been defined that provide constructors for creating special Prolog
+terms.  These subclasses are defined below.
+
+\subsection{The class PlTermString (version 2)}
+\label{sec:cpp2-plstring}
+
+A SWI-Prolog string represents a byte-string on the global stack.  Its
+lifetime is the same as for compound terms and other data living on
+the global stack.  Strings are not only a compound representation of
+text that is garbage-collected, but as they can contain 0-bytes, they
+can be used to contain arbitrary C-data structures. However, it is
+generally preferred to use blobs for storing arbitrary C-data structures
+(see also \exam{PlTerm_pointer(void *ptr)}).
+
+
+\begin{description}
+    \constructor{PlString}{const wchar_t *text}
+    \nodescription
+    \constructor{PlString}{const char *text}
+Create a SWI-Prolog string object from a 0-terminated C-string.  The
+\arg{text} is copied.
+
+    \constructor{PlString}{const wchar_t *text, size_t len}
+    \nodescription
+    \constructor{PlString}{const char *text, size_t len}
+Create a SWI-Prolog string object from a C-string with specified length.
+The \arg{text} may contain 0-characters and is copied.
+\end{description}
+
+\subsection{The class PlCodeList (version 2)}
+\label{sec:cpp2-codelist}
+
+\begin{description}
+    \constructor{PlCodeList}{const wchar_t *text}
+    \nodescription
+    \constructor{PlCodeList}{const char *text}
+Create a Prolog list of ASCII codes from a 0-terminated C-string.
+\end{description}
+
+
+\subsection{The class PlCharList (version 2)}
+\label{sec:cpp2-plcharlist}
+
+Character lists are compliant to Prolog's atom_chars/2 predicate.
+
+\begin{description}
+    \constructor{PlCharList}{const wchar_t *text}
+    \nodescription
+    \constructor{PlCharList}{const char *text}
+Create a Prolog list of one-character atoms from a 0-terminated
+C-string.
+\end{description}
+
+
+\subsection{The class PlCompound (version 2)}
+\label{sec:cpp2-plcompound}
+
+\begin{description}
+    \constructor{PlCompound}{const wchar_t *text}
+    \nodescription
+    \constructor{PlCompound}{const char *text}
+Create a term by parsing (as read/1) the \arg{text}.  If the \arg{text}
+is not valid Prolog syntax, a \except{syntax_error} exception is raised.
+Otherwise a new term-reference holding the parsed text is created.
+
+    \constructor{PlCompound}{const wchar_t *functor, PlTermv args}
+    \nodescription
+    \constructor{PlCompound}{const char *functor, PlTermv args}
+Create a compound term with the given name from the given vector of
+arguments.  See \ctype{PlTermv} for details.  The example below
+creates the Prolog term \exam{hello(world)}.
+
+\begin{code}
+PlCompound("hello", PlTermv("world"))
+\end{code}
+\end{description}
+
+
+\subsection{The class PlTail (version 2)}
+\label{sec:cpp2-pltail}
+
+The class \ctype{PlTail} is both for analysing and constructing lists.
+It is called \ctype{PlTail} as enumeration-steps make the term-reference
+follow the `tail' of the list.
+
+\begin{description}
+    \constructor{PlTail}{PlTerm list}
+A \ctype{PlTail} is created by making a new term-reference pointing to
+the same object.  As \ctype{PlTail} is used to enumerate or build a
+Prolog list, the initial \arg{list} term-reference keeps pointing to
+the head of the list.
+    \cfunction{int}{PlTail::append}{const PlTerm \&element}
+Appends \arg{element} to the list and make the \ctype{PlTail} reference
+point to the new variable tail.  If \arg{A} is a variable, and this
+function is called on it using the argument \exam{"gnat"}, a list of
+the form \exam{[gnat|B]} is created and the \ctype{PlTail} object
+now points to the new variable \arg{B}.
+
+This function returns \const{true} if the unification succeeded and
+\const{false} otherwise.  No exceptions are generated.
+
+The example below translates the \cfuncref{main}{} argument vector to Prolog and
+calls the prolog predicate entry/1 with it.
+
+\begin{code}
+int
+main(int argc, char **argv)
+{ PlEngine e(argv[0]);
+  PlTermv av(1);
+  PlTail l(av[0]);
+
+  for(int i=0; i<argc; i++)
+    PlCheckFail(l.append(argv[i]));
+  PlCheckFail(l.close());
+
+  PlQuery q("entry", av);
+  return q.next_solution() ? 0 : 1;
+}
+\end{code}
+    \cfunction{int}{PlTail::close}{}
+Unifies the term with \const{[]} and returns the result of the
+unification.
+    \cfunction{int}{PlTail::next}{PlTerm \&t}
+Bind \arg{t} to the next element of the list \ctype{PlTail} and advance
+\ctype{PlTail}. Returns \const{true} on success and \const{false} if
+\ctype{PlTail} represents the empty list. If \ctype{PlTail} is neither a
+list nor the empty list, a \except{type_error} is thrown. The example
+below prints the elements of a list.
+
+\begin{code}
+PREDICATE(write_list, 1)
+{ PlTail tail(A1);
+  PlTerm e;
+
+  while(tail.next(e))
+    cout << e.as_string() << endl;
+
+  return true;
+}
+\end{code}
+\end{description}
+
+
+\section{The class PlTermv (version 2)}
+\label{sec:cpp2-pltermv}
+
+The class \ctype{PlTermv} represents an array of term-references.  This
+type is used to pass the arguments to a foreignly defined predicate,
+construct compound terms (see \cfuncref{PlTerm::PlTerm}{const char *name,
+PlTermv arguments}) and to create queries (see \ctype{PlQuery}).
+
+The only useful member function is the overloading of \const{[]},
+providing (0-based) access to the elements.  Range checking is performed
+and raises a \except{domain_error} exception.
+
+The constructors for this class are below.
+
+\begin{description}
+    \constructor{PlTermv}{int size}
+Create a new array of term-references, all holding variables.
+    \constructor{PlTermv}{int size, term_t t0}
+Convert a C-interface defined term-array into an instance.
+    \constructor{PlTermv}{PlTerm ...}
+Create a vector from 1 to 5 initialising arguments.  For example:
+
+\begin{code}
+load_file(const char *file)
+{ return PlCall("compile", PlTermv(file));
+}
+\end{code}
+
+If the vector has to contain more than 5 elements, the following
+construction should be used:
+
+\begin{code}
+{ PlTermv av(10);
+
+  av[0] = "hello";
+  ...
+}
+\end{code}
+\end{description}
+
+
+\section{The class PlAtom - Supporting Prolog constants (version 2)}
+\label{sec:cpp2-prolog-constants}
+
+Both for quick comparison as for quick building of lists of atoms, it
+is desirable to provide access to Prolog's atom-table, mapping handles
+to unique string-constants.  If the handles of two atoms are different
+it is guaranteed they represent different text strings.
+
+Suppose we want to test whether a term represents a certain atom, this
+interface presents a large number of alternatives:
+
+\subsection{Direct comparision to char *}
+\label{sec:cpp2-direct-commparison-to-char-star}
+
+Example:
+
+\begin{code}
+PREDICATE(test, 1)
+{ if ( A1 == "read" )
+    ...;
+}
+\end{code}
+
+This writes easily and is the preferred method is performance is not
+critical and only a few comparisons have to be made. It validates
+\arg{A1} to be a term-reference representing text (atom, string, integer
+or float) extracts the represented text and uses strcmp() to match the
+strings.
+
+\subsection{Direct comparision to PlAtom}		\label{sec:cpp2-dirplatom}
+
+Example:
+
+\begin{code}
+static PlAtom ATOM_read("read");
+
+PREDICATE(test, 1)
+{ if ( A1 == ATOM_read )
+    ...;
+}
+\end{code}
+
+This case raises a \except{type_error} if \arg{A1} is not an atom.
+Otherwise it extacts the atom-handle and compares it to the atom-handle
+of the global \ctype{PlAtom} object. This approach is faster and
+provides more strict type-checking.
+
+\subsection{Extraction of the atom and comparison to PlAtom}
+\label{sec:cpp2-extraction-comparison-atoms}
+
+Example:
+
+\begin{code}
+static PlAtom ATOM_read("read");
+
+PREDICATE(test, 1)
+{ PlAtom a1(A1);
+
+  if ( a1 == ATOM_read )
+    ...;
+}
+\end{code}
+
+This approach is basically the same as \secref{cpp2-dirplatom}, but in
+nested if-then-else the extraction of the atom from the term is
+done only once.
+
+\subsection{Extraction of the atom and comparison to char *}
+\label{sec:cpp2-extraction-comparison-char-star}
+
+Example:
+
+\begin{code}
+PREDICATE(test, 1)
+{ PlAtom a1(A1);
+
+  if ( a1 == "read" )
+    ...;
+}
+\end{code}
+
+This approach extracts the atom once and for each test extracts
+the represented string from the atom and compares it.  It avoids
+the need for global atom constructors.
+
+\begin{description}
+    \constructor{PlAtom}{atom_t handle}
+Create from C-interface atom handle (\ctype{atom_t}).  Used internally and for
+integration with the C-interface.
+    \constructor{PlAtom}{const char_t *text}
+    \nodescription
+    \constructor{PlAtom}{const wchar *text}
+    \nodescription
+    \constructor{PlAtom}{const std::string\& text}
+    \nodescription
+    \constructor{PlAtom}{const std::wstring\& text}
+Create an atom from a string.  The \arg{text} is copied if a new atom
+is created. See PL_new_atom(), PL_new_atom_wchars(),
+PL_new_atom_nchars(), PL_new_atom_wchars().
+    \constructor{PlAtom}{const PlTerm \&t}
+If \arg{t} represents an atom, the new instance represents this
+atom.  Otherwise a \except{type_error} is thrown.
+    \cfunction{int}{PlAtom::operator ==}{const wchar_t *text}
+    \nodescription
+    \cfunction{int}{PlAtom::operator ==}{const char *text}
+    \nodescription
+    \cfunction{int}{PlAtom::operator ==}{const std::string\& text}
+    \nodescription
+    \cfunction{int}{PlAtom::operator ==}{const std::wstring\& text}
+Yields \const{true} if the atom represents \arg{text}, \const{false}
+otherwise.  Performs a \cfuncref{strcmp}{} or similar for this.
+    \cfunction{int}{PlAtom::operator ==}{const PlAtom \&a}
+Compares the two atom-handles, returning \const{true} or
+\const{false}. Because atoms are unique, there is no need
+to use strcmp() for this.
+    \cfunction{int}{PlAtom::operator !=}{const wchar_t *text}
+    \nodescription
+    \cfunction{int}{PlAtom::operator !=}{const char *text}
+    \nodescription
+    \cfunction{int}{PlAtom::operator !=}{const std::string\& text}
+    \nodescription
+    \cfunction{int}{PlAtom::operator !=}{const std::wstring\& text}
+    \nodescription
+    \cfunction{int}{PlAtom::operator !=}{const PlAtom \&a}
+The inverse of the \exam{==} operator.
+    \cfunction{bool}{is_valid}{}
+Verifies that the handle is valid. This can be used after calling
+a function that returns an atom handle, to check that a new atom
+was created.
+    \cfunction{void}{reset}{}
+Sets the handle to an invalid valid - a subsequent call to \cfuncref{is_null}{}
+will return \const{true}.
+    \cfunction{const std::string}{as_string}{PlEncoding enc=EncLocale}
+Returns the string representation of the atom.\footnote{If you wish
+to return a \ctype{char*} from a function, you should not do
+\exam{return t.as_string().c_str()} because that will return a pointer
+into the stack (Gnu C++ or Clang options \exam{-Wreturn-stack-address}
+or \exam{-Wreturn-local-addr}) can \emph{sometimes} catch this, as can
+the runtime address sanitizer when run with
+\exam{detect_stack_use_after_return=1}.}
+This does not
+quote or escape any characters that would need to be escaped
+if the atom were to be input to the Prolog parser. The possible values
+for \exam{enc} are:
+  \begin{itemize}
+    \item \exam{EncLatin1} - throws an exception if cannot be represented in ASCII.
+    \item \exam{EncUTF8}
+    \item \exam{EncLocale} - uses the locale to determine the representation.
+  \end{itemize}
+    \cfunction{const std:wstring}{as_wstring}{}
+Returns the string representation of the atom. This does not
+quote or escape any characters that would need to be escaped
+if the atom were to be input to the Prolog parser.
+    \cfunction{void}{register_atom}{}
+See PL_register_atom().
+    \cfunction{void}{unregister_atom}{}
+See PL_unregister_atom().
+    \cfunction{void*}{blob_data}{size_t *len, struct PL_blob_t **type}
+See PL_blob_data().
+\end{description}
+
+\section{Unification and foreign frames (version 2)}
+\label{sec:cpp2-foreign-frame}
+
+As documented with PL_unify(), if a unification call fails and control isn't
+made immediately to Prolog, any changes made by unification must be undone.
+The functions PL_open_foreign_frame(), PL_rewind_foreign_frame(), and
+PL_close_foreign_frame() are encapsulated in the class \ctype{PlFrame},
+whose destructor calls PL_close_foreign_frame(). Using this, the example
+code with PL_unify() can be written:
+\begin{code}
+{ PlFrame frame;
+  ...
+  if ( !t1.unify_term(t2) )
+    frame.rewind();
+  ...
+}
+\end{code}
+Note that \cfuncref{PlTerm::unify_term}{} checks for an exception and
+throws an exception to Prolog; if you with to handle exceptions, you
+must call \exam{PL_unify_term(t1.C_,t2.C_)}.
+
+\section{The class PlRegister (version 2)}
+\label{sec:cpp2-plregister}
+
+This class encapsulates PL_register_foreign().  It is defined as a class
+rather then a function to exploit the C++ \jargon{global constructor}
+feature.  This class provides a constructor to deal with the \cfuncref{PREDICATE}{}
+way of defining foreign predicates as well as constructors to deal with
+more conventional foreign predicate definitions.
+
+\begin{description}
+    \constructor{PlRegister}{const char *module,
+			     const char *name,
+			     int arity,
+			     foreign_t (f)(term_t t0, int a, control_t ctx)}
+Register \arg{f} as a the implementation of the foreign predicate
+<name>/<arity>.  This interface uses the \const{PL_FA_VARARGS} calling
+convention, where the argument list of the predicate is passed using an
+array of \ctype{term_t} objects as returned by PL_new_term_refs().  This
+interface poses no limits on the arity of the predicate and is faster,
+especially for a large number of arguments.
+    \constructor{PlRegister}{const char *module,
+			     const char *name,
+			     foreign_t (*f)(PlTerm a0, \ldots)}
+Registers functions for use with the traditional calling conventional,
+where each positional argument to the predicate is passed as an argument
+to the function \arg{f}. This can be used to define functions as
+predicates similar to what is used in the C-interface:
+
+\begin{code}
+static foreign_t
+pl_hello(PlTerm a1)
+{ ...
+}
+
+PlRegister x_hello_1(NULL, "hello", 1, pl_hello);
+\end{code}
+
+This construct is currently supported upto 3 arguments.
+\end{description}
+
+
+\section{The class PlQuery (version 2)}
+\label{sec:cpp2-plquery}
+
+This class encapsulates the call-backs onto Prolog.
+
+\begin{description}
+    \constructor{PlQuery}{const char *name, const PlTermv \&av}
+Create a query where \arg{name} defines the name of the predicate and
+\arg{av} the argument vector.  The arity is deduced from \arg{av}.  The
+predicate is located in the Prolog module \module{user}.
+    \constructor{PlQuery}{const char *module, const char *name,
+			  const PlTermv \&av}
+Same, but performs the predicate lookup in the indicated module.
+    \cfunction{int}{PlQuery::next_solution}{}
+Provide the next solution to the query.  Yields \const{true} if
+successful and \const{false} if there are no (more) solutions.
+Prolog exceptions are mapped to C++ exceptions.
+    \cfunction{void}{PlQuery::cut()}{}
+Discards the query, but does not delete an of the data created
+by the query. If there is any pending Prolog exception, it is
+mapped to a C++ exception and thrown.
+The call to \cfuncref{PlQuery::cut}{} is done implicitly by \ctype{PlQuery}'s destructor.
+
+Below is an example listing the currently defined Prolog modules
+to the terminal.
+
+\begin{code}
+PREDICATE(list_modules, 0)
+{ PlTermv av(1);
+
+  PlQuery q("current_module", av);
+  while( q.next_solution() )
+    cout << av[0].as_string() << endl;
+
+  return true;
+}
+\end{code}
+\end{description}
+
+In addition to the above, the following functions have been defined.
+
+\begin{description}
+    \cfunction{int}{PlCall}{const char *predicate, const PlTermv \&av}
+Creates a \ctype{PlQuery} from the arguments generates the
+first \cfuncref{next_solution}{} and destroys the query.  Returns the
+result of \cfuncref{next_solution}{} or an exception.
+    \cfunction{int}{PlCall}{const char *module, const char *predicate,
+			    const PlTermv \&av}
+Same, locating the predicate in the named module.
+    \cfunction{int}{PlCall}{const wchar_t *goal}
+    \nodescription
+    \cfunction{int}{PlCall}{const char *goal}
+Translates \arg{goal} into a term and calls this term as the other
+\cfuncref{PlCall}{} variations. Especially suitable for simple goals such as making
+Prolog load a file.
+\end{description}
+
+\subsection{The class PlFrame (version 2)}
+\label{sec:cpp2-plframe}
+
+The class \ctype{PlFrame} provides an interface to discard unused
+term-references as well as rewinding unifications
+(\jargon{data-backtracking}). Reclaiming unused term-references is
+automatically performed after a call to a C++-defined predicate has
+finished and returns control to Prolog. In this scenario \ctype{PlFrame}
+is rarely of any use. This class comes into play if the toplevel program
+is defined in C++ and calls Prolog multiple times.  Setting up arguments
+to a query requires term-references and using \ctype{PlFrame} is the
+only way to reclaim them.
+
+\begin{description}
+    \constructor{PlFrame}{}
+Creating an instance of this class marks all term-references created
+afterwards to be valid only in the scope of this instance.
+    \destructor{PlFrame}
+Reclaims all term-references created after constructing the instance.
+    \cfunction{void}{PlFrame::rewind}{}
+Discards all term-references {\bf and} global-stack data created as well
+as undoing all unifications after the instance was created.
+\end{description}
+
+\index{assert}%
+A typical use for \ctype{PlFrame} is the definition of C++ functions
+that call Prolog and may be called repeatedly from C++.  Consider the
+definition of assertWord(), adding a fact to word/1:
+
+\begin{code}
+void
+assertWord(const char *word)
+{ PlFrame fr;
+  PlTermv av(1);
+
+  av[0] = PlCompound("word", PlTermv(word));
+  PlQuery q("assert", av);
+  PlCheckFail(q.next_solution());
+}
+\end{code}
+
+
+This example shows the most sensible use of \ctype{PlFrame} if it is
+used in the context of a foreign predicate. The predicate's thruth-value
+is the same as for the Prolog unification (=/2), but has no
+side effects. In Prolog one would use double negation to achieve this.
+
+\begin{code}
+PREDICATE(can_unify, 2)
+{ PlFrame fr;
+
+  int rval = (A1=A2);
+  fr.rewind();
+  return rval;
+}
+\end{code}
+
+\cfuncref{PlRewindOnFail}{f} is a convenience function that does a frame rewind if
+unification fails. Here is an example, where \exam{name_to_term}
+contains a map from names to terms (which are made global by using the
+PL_record() function):
+
+\begin{code}
+static const std::map<const std::string, record_t> name_to_term =
+    { {"a", PlTerm(...).record()}, ...};
+
+bool lookup_term(const std::string name, PlTerm result)
+{ const auto it = name_to_term.find(name);
+  if ( it == name_to_term.cend() )
+    return false;
+
+  PlTerm t = PlTerm_recorded(it->second);
+  return PlRewindOnFail([result,t]() -> bool { return result.unify_term(t); });
+}
+\end{code}
+
+\section{The PREDICATE and PREDICATE_NONDET macros (version 2)}
+\label{sec:cpp2-predicate-macro}
+
+The PREDICATE macro is there to make your code look nice, taking care of
+the interface to the C-defined SWI-Prolog kernel as well as mapping
+exceptions.  Using the macro
+
+\begin{code}
+PREDICATE(hello, 1)
+\end{code}
+
+is the same as writing:\footnote{There are a few more details,
+such as catching \exam{std::bad_alloc}.}:
+
+\begin{code}
+static foreign_t pl_hello__1(PlTermv PL_av);
+
+static foreign_t
+_pl_hello__1(term_t t0, int arity, control_t ctx)
+{ (void)arity; (void)ctx;
+  try
+  { return pl_hello__1(PlTermv(1, t0));
+  } catch( PlFail& )
+  { return false;
+  } catch ( PlException& ex )
+  { return ex.plThrow();
+  }
+}
+
+static PlRegister _x_hello__1("hello", 1, _pl_hello__1);
+
+static foreign_t
+pl_hello__1(PlTermv PL_av)
+\end{code}
+
+The first function converts the parameters passed from the Prolog
+kernel to a \ctype{PlTermv} instance and maps exceptions raised in the
+body to simple failure or Prolog exceptions.  The \ctype{PlRegister}
+global constructor registers the predicate.  Finally, the function
+header for the implementation is created.
+
+\subsection{Variations of the PREDICATE macro (version 2)}
+\label{sec:cpp2-predicate-macro-variations}
+
+The \cfuncref{PREDICATE}{} macros have a number of variations that deal with
+special cases.
+
+\begin{description}
+    \cmacro{}{PREDICATE0}{name}
+This is the same as PREDICATE(name, 0).  It avoids a compiler warning
+about that \const{PL_av} is not used.
+
+    \cmacro{}{NAMED_PREDICATE}{plname, cname, arity}
+This version can be used to create predicates whose name is not a valid
+C++ identifier. Here is a ---hypothetical--- example, which unifies the
+second argument with a stringified version of the first. The `cname' is
+used to create a name for the functions. The concrete name does not
+matter, but must be unique. Typically it is a descriptive name using the
+limitations imposed by C++ indentifiers.
+
+    \begin{code}
+    NAMED_PREDICATE("#", hash, 2)
+    { A2 = (wchar_t*)A1;
+    }
+    \end{code}
+
+    \cmacro{}{PREDICATE_NONDET}{name, arity}
+Define a non-deterministic Prolog predicate in C++. See also
+\secref{cpp2-nondet}.
+
+    \cmacro{}{NAMED_PREDICATE_NONDET}{plname, cname, arity}
+Define a non-deterministic Prolog predicate in C++, whose name
+is not a valid C++ identifier. See also \secref{cpp2-nondet}.
+
+\end{description}
+
+\subsection{Non-deterministic predicates (version 2)}
+\label{sec:cpp2-nondet}
+
+Non-deterministic predicates are defined using
+\cfuncref{PREDICATE_NONDET}{plname, cname, arity} or
+\cfuncref{NAMED_PREDICATE_NONDET}{plname, cname, arity}.
+
+A non-deterministic predicate returns a "context", which is passed to a
+a subsequent retry. Typically, this context is allocated on the first
+call to the predicate and freed when the predicate either fails or
+does its last successful return. To simplify this, a template helper class
+\ctype{PlForeignContextPtr<\emph{ContextType}>} provides a "smart
+pointer" that frees the context on normal return or an exception;
+if \cfuncref{PlForeignContextPtr$<$ContextType$>$::keep}{}
+is called, the pointer isn't freed on return or exception.
+
+The skeleton for a typical non-deterministic predicate is:
+
+\begin{code}
+struct PredContext { ... }; // The "context" for retries
+
+PREDICATE_NONDET(pred, <arity>)
+{ PlForeignContextPtr<PredContext> ctxt(handle);
+  switch( PL_foreign_control(handle) )
+  { case PL_FIRST_CALL:
+      ctxt.set(new PredContext(...));
+      ...
+      break;
+    case PL_REDO:
+      break;
+    case PL_PRUNED:
+      return true;
+  }
+
+  if ( ... )
+    return false; // Failure (and no more solutions)
+    // or throw PlFail();
+
+  if ( ... )
+    return true;  // Success (and no more solutions)
+
+  ...
+
+  ctxt.keep();
+  PL_retry_address(ctxt.get()); // Succeed with a choice point
+}
+\end{code}
+
+
+\subsection{Controlling the Prolog destination module (version 2)}
+\label{sec:cpp2-module}
+
+With no special precautions, the predicates are defined into the
+module from which load_foreign_library/1 was called, or in the module
+\const{user} if there is no Prolog context from which to deduce the
+module such as while linking the extension statically with the Prolog
+kernel.
+
+Alternatively, {\em before} loading the SWI-Prolog include file, the
+macro PROLOG_MODULE may be defined to a string containing the name of
+the destination module. A module name may only contain alpha-numerical
+characters (letters, digits, _).  See the example below:
+
+\begin{code}
+#define PROLOG_MODULE "math"
+#include <SWI-Prolog.h>
+#include <math.h>
+
+PREDICATE(pi, 1)
+{ A1 = M_PI;
+}
+\end{code}
+
+\begin{code}
+?- math:pi(X).
+
+X = 3.14159
+\end{code}
+
+
+\section{Exceptions (version 2)}
+\label{sec:cpp2-exceptions}
+
+Prolog exceptions are mapped to C++ exceptions using the subclass
+\ctype{PlException} of \ctype{PlTerm} to represent the Prolog exception
+term. All type-conversion functions of the interface raise
+Prolog-compliant exceptions, providing decent error-handling support at
+no extra work for the programmer.
+
+For some commonly used exceptions, subclasses of \ctype{PlException}
+have been created to exploit both their constructors for easy creation
+of these exceptions as well as selective trapping in C++.  Currently,
+these are \ctype{PlTypeEror} and \ctype{PlDomainError},
+\ctype{PlTermvDomainError}, \ctype{PlInstantiationError},
+\ctype{PlExistenceError}, \ctype{PermissionError}, \ctype{PlResourceError},
+and \ctype{PlException_qid}.
+
+To throw an exception, create an instance of \ctype{PlException} and
+use \exam{throw}. This is intercepted by the PREDICATE macro and
+turned into a Prolog exception. See \secref{cpp2-exceptions-notes}.
+
+\begin{code}
+  char *data = "users";
+
+  throw PlException(PlCompound("no_database", PlTerm(data)));
+\end{code}
+
+\subsection{The class PlException (version 2)}
+\label{sec:cpp2-plexception}
+
+This subclass of \ctype{PlTerm} is used to represent exceptions.
+Currently defined methods are:
+
+\begin{description}
+    \constructor{PlException}{const PlTerm \&t}
+Create an exception from a general Prolog term.  This provides the
+interface for throwing any Prolog terms as an exception.
+    \cfunction{std::string}{as_string}{}
+The exception is translated into a message as produced by
+print_message/2.  The character data is stored in a ring.  Example:
+
+\begin{code}
+  ...;
+  try
+  { PlCall("consult(load)");
+  } catch ( PlException& ex )
+  { cerr << ex.as_string() << endl;
+  }
+\end{code}
+    \cfunction{int}{plThrow}{}
+Used in the \cfuncref{PREDICATE}{} wrapper to pass the exception to Prolog.  See
+PL_raise_exeption().
+
+\end{description}
+
+
+
+\subsection{The class PlTypeError (version 2)}
+\label{sec:cpp2-pl-type-error}
+
+A \jargon{type error} expresses that a term does not satisfy the
+expected basic Prolog type.
+
+\begin{description}
+    \constructor{PlTypeError}{const char *expected, const PlTerm \&actual}
+Creates an ISO standard Prolog error term expressing the
+\arg{expected} type and \arg{actual} term that does not satisfy this
+type.
+\end{description}
+
+
+\subsection{The class PlDomainError (version 2)}
+\label{sec:cpp2-pl-domain-error}
+
+A \jargon{domain error} expresses that a term satisfies the basic
+Prolog type expected, but is unacceptable to the restricted domain
+expected by some operation.  For example, the standard Prolog open/3
+call expect an \const{io_mode} (read, write, append, ...). If an integer
+is provided, this is a \jargon{type error}, if an atom other than one
+of the defined io-modes is provided it is a \jargon{domain error}.
+
+\begin{description}
+    \constructor{PlDomainError}{const char *expected, const PlTerm \&actual}
+Creates an ISO standard Prolog error term expressing a the
+\arg{expected} domain and the \arg{actual} term found.
+\end{description}
+
+
+\section{Embedded applications (version 2)}
+\label{sec:cpp2-embedding}
+
+Most of the above assumes Prolog is `in charge' of the application and
+C++ is used to add functionality to Prolog, either for accessing
+external resources or for performance reasons.  In some applications,
+there is a \jargon{main-program} and we want to use Prolog as a
+\jargon{logic server}.  For these applications, the class
+\ctype{PlEngine} has been defined.
+
+Only a single instance of this class can exist in a process.  When used
+in a multi-threading application, only one thread at a time may have
+a running query on this engine.  Applications should ensure this using
+proper locking techniques.%
+    \footnote{For Unix, there is a multi-threaded version of SWI-Prolog.
+	      In this version each thread can create and destroy a
+	      thread-engine. There is currently no C++ interface defined
+	      to access this functionality, though ---of course--- you
+	      can use the C-functions.}
+
+\begin{description}
+    \constructor{PlEngine}{int argc, char **argv}
+Initialises the Prolog engine.  The application should make sure to
+pass \exam{argv[0]} from its main function, which is needed in the
+Unix version to find the running executable.  See PL_initialise()
+for details.
+    \constructor{PlEngine}{char *argv0}
+Simple constructure using the main constructor with the specified
+argument for \exam{argv[0]}.
+    \destructor{PlEngine}
+Calls PL_cleanup() to destroy all data created by the Prolog engine.
+\end{description}
+
+\Secref{pltail} has a simple example using this class.
+
+
+\section{Considerations (version 2)}
+\label{sec:cpp2-considerations}
+
+\subsection{The C++ versus the C interface (version 2)}
+\label{sec:cpp2-vs-c}
+
+Not all functionality of the C-interface is provided, but as
+\ctype{PlTerm} and \ctype{term_t} are essentially the same thing with
+type-conversion between the two (using the \exam{C_} field), this interface
+can be freely mixed with the functions defined for plain C.
+For checking return codes from C functions, it is recommended to
+use \cfuncref{PlCheckFail}{} or \cfuncref{PlCheck_PL}{}.
+
+Using this interface rather than the plain C-interface requires a little
+more resources. More term-references are wasted (but reclaimed on return
+to Prolog or using \ctype{PlFrame}). Use of some intermediate types
+(\ctype{functor_t} etc.) is not supported in the current interface,
+causing more hash-table lookups. This could be fixed, at the price of
+slighly complicating the interface.
+
+Global terms and atoms need to be handled slightly differently in C++
+than in C - see \secref{cpp2-global}
+
+\subsection{Notes on exceptions}
+\label{sec:cpp2-exceptions-notes}
+
+Exceptions are normal Prolog terms that are handled specially by the
+PREDICATE macro when they are used by a C++ \exam{throw}, and
+converted into Prolog exceptions.  The exception term may not be
+unbound; that is, throw(_) must raise an error. The C++ code and
+underlying C code do not explicitly check for the term being a
+variable, and behaviour of raising an exception that is an unbound
+term is undefined, including the possibility of causing a crash or
+corrupting data.
+
+The Prolog exception term error(Formal, _) is special.  If the 2nd
+argument of error/2 is undefined, and the term is thrown, the system
+finds the catcher (if any), and calls the hooks in
+library(prolog_stack) to add the context and stack trace information
+when appropriate.  That is, \exam{throw PlDomainError(Domain,Culprit)}
+ends up doing the same thing as calling
+\exam{PL_domain_error(Domain,Culprit)} which internally calls
+PL_raise_exception() and returns control back to Prolog.
+
+The VM handling of calling to C finds the \const{FALSE} return code,
+checks for the pending exception and propagates the exception into the
+Prolog environment.  As the term references (\ctype{term_t}) used to
+create the exception are lost while returning from the foreign
+function we need some way to protect them.  That is done using a
+global \ctype{term_t} handle that is allocated at the epoch of Prolog.
+PL_raise_exception() sets this to the term using PL_put_term().
+PL_exception(0) returns the global exception \ctype{term_t} if it is
+bound and 0 otherwise.
+
+Special care needs to be taken with data backtracking using
+PL_discard_foreign_frame() or PL_close_query() because that will
+invalidate the exception term.  So, between raising the exception and
+returning control back to Prolog we must make sure not to do anything
+that invalidates the exception term.  If you suspect something like
+that to happen, use the debugger with a breakpoint on
+\cfuncref{__do_undo__LD}{} defined in \file{pl-wam.c}.
+
+In order to always preserve Prolog exceptions and return as quickly as
+possible to Prolog on an exception, some of the C++ classes can throw
+an exception in their destructor. This is theoretically a dangerous
+thing to do, and can lead to a crash or program termination if the
+destructor is envoked as part of handling another exception.
+
+\subsection{Global terms, atoms, and functors}
+\label{sec:cpp2-global}
+
+Sometimes it is convenient to put constant terms and atoms as global
+variables in a file (with a \exam{static} qualifier), so that they are
+only created (and looked up) cone. This is fine for atoms and
+functors, which can be created by something like this:
+\begin{code}
+static PlAtom ATOM_foo("foo");
+static PlFunctor FUNCTOR_ff_2("ff", 2);
+\end{code}
+
+C++ makes no guarantees about the order of creating global variables
+across "translation units" (that is, individual C++ files), but the
+Prolog runtime ensures that the necessary initialization has been done
+to allow \ctype{PlAtom} and \ctype{PlFunctor} objects to be created.
+However, to be safe, it is best to put such global variables
+\emph{inside} functions - C++ will initialize them on their firstuse.
+
+Global Terms need a bit of care. For one thing, terms are ephemeral,
+so it is wrong to have a \ctype{PlTerm} static variable - instead, a
+\ctype{PlRecord} must be used, which will provide a fresh copy of the
+term using PlRecord::term(). There is no guarantee that the Prolog
+runtime has initialized everything needed for creating entries in the
+recorded database (see
+\href{https://www.swi-prolog.org/pldoc/man?section=foreign-recorded}{Recorded database}).
+Therefore, global recorded terms must be wrapped inside a function.
+C++ will call the constructor upon first use. For example:
+\begin{code}
+static PlTerm
+term_foo_bar()
+{ static PlRecord r(PlCompound("foo", PlTermv(PlTerm_atom("bar"))).record());
+  return r.term();
+}
+\end{code}
+
+\subsection{Static linking and embedding (version 2)}
+\label{sec:cpp2-linking}
+
+The mechanisms outlined in this document can be used for static linking
+with the SWI-Prolog kernel using \manref{swipl-ld}{1}. In general the
+C++ linker should be used to deal with the C++ runtime libraries and
+global constructors.
+
+\subsection{Status and compiler versions (version 2)}
+\label{sec:cpp2-status}
+
+The current interface can be entirely defined in the \fileext{h} file
+using inlined code.  This approach has a few advantages: as no C++
+code is in the Prolog kernel, different C++ compilers with different
+name-mangling schemas can cooperate smoothly. However, inlining
+everything can lead to code bloat, so the larger functions and methods
+have been put into a \fileext{cpp} file that can be either compiled
+separately (by the same compiler as used by the foreign predicate)
+or inlined as if it were part of the \fileext{h} file.
+
+Also, changes to the header file have no consequences to binary
+compatibility with the SWI-Prolog kernel. This makes it possible to
+have different versions of the header file with few compatibility
+consequences.
+
+As of 2023-04, some details remain to be decided, mostly to do
+with encodings. A few methods have a \ctype{PlEncoding} optional
+parameter (e.g., \cfuncref{PlTerm::as_string}{}), but this hasn't yet been
+extended to all methods that take or return a string. Also, the
+details of how the default encoding is set have not yet been decided.
+
+As of 2023-04, the various error convenience classes do not fully
+match what the equivalent C functions do. That is, \exam{throw
+PlInstantiationError(A1)} does not result in the same context and
+traceback information that would happen from
+\exam{Plx_instantiation_error(A1.C_); throw PlFail()}.  See
+\secref{cpp2-exceptions-notes}.
+
+The Plx_*() wrappers may require small adjustments in whether their
+return values require \exam{[[nodiscard]]} or whether their return
+values should be treated as an error.
+
+The implementation of \ctype{PlException} is likely to change somewhat
+in the future. Currently, to ensure that the exception term has a
+sufficient lifetime, it is serialized using PL_record_external(). In
+future, if this proves unnecessary, the term will be stored as-is.
+The API will not change if this implementation detail changes.
+
+
+\section{Conclusions (version 2)}
+\label{sec:cpp2-conclusions}
+
+In this document, we presented a high-level interface to Prolog
+exploiting automatic type-conversion and exception-handling defined in
+C++.
+
+Programming using this interface is much more natural and requires only
+little extra resources in terms of time and memory.
+
+Especially the smooth integration between C++ and Prolog exceptions
+reduce the coding effort for type checking and reporting in foreign
+predicates.

@@ -156,10 +156,10 @@ More specifically:
     strings on the stack than PL_STRINGS_MARK() and PL_STRINGS_RELEASE().
   \item
     Wrapper classes for \ctype{record_t} have been added. The
-    \cypte{PlRecordExternalCopy} class contains the opaque handle,
+    \ctype{PlRecordExternalCopy} class contains the opaque handle,
     as a convenience.
   \item
-    Wrapper class for \ctpye{control_t} has been added and the
+    Wrapper class for \ctype{control_t} has been added and the
     PREDICATE_NONDET() has been modified to use it.
 \end{itemize}
 
@@ -776,9 +776,9 @@ along with any foreign predicate files. You can do this in three ways:
 \item
   Compile \file{SWI-cpp2.cpp} separately.
 \item
-  Add \code{#include SWI-cpp2.cpp} to one of the foreign predicate files.
+  Add \exam{#include SWI-cpp2.cpp} to one of the foreign predicate files.
 \item
-  Wherever you have \code{#include SWI-cpp2.h}, add
+  Wherever you have \exam{#include SWI-cpp2.h}, add
   \begin{code}
       #define _SWI_CPP2_CPP_inline inline
       #include <SWI-cpp2.cpp>

@@ -88,9 +88,9 @@ PREDICATE(hello, 2)
   // This will result in an encoding error if A1 isn't Latin-1
   buffer << "Hello " << A1.as_string() << endl;
   buffer << "Hello " << A1.as_string().c_str() << endl; // Same output as previous line
-  buffer << "Hello " << A1.as_string(EncLatin1).c_str() << endl; // Also same, if it's ASCII
-  buffer << "Hello " << A1.as_string(EncUTF8).c_str() << endl;
-  buffer << "Hello " << A1.as_string(EncLocale).c_str() << endl; // Can vary by locale settings
+  buffer << "Hello " << A1.as_string(PlEncoding::Latin1).c_str() << endl; // Also same, if it's ASCII
+  buffer << "Hello " << A1.as_string(PlEncoding::UTF8).c_str() << endl;
+  buffer << "Hello " << A1.as_string(PlEncoding::Locale).c_str() << endl; // Can vary by locale settings
 
   return A2.unify_string(buffer.str());
 }
@@ -101,9 +101,9 @@ PREDICATE(hello2, 2)
   // The following have the same output as hello/1, if A1 is an atom
   buffer << "Hello2 " << atom_a1.as_string() << endl;
   buffer << "Hello2 " << A1.as_string().c_str() << endl;
-  buffer << "Hello2 " << A1.as_string(EncLatin1).c_str() << endl;
-  buffer << "Hello2 " << A1.as_string(EncUTF8).c_str() << endl;
-  buffer << "Hello2 " << A1.as_string(EncLocale).c_str() << endl;
+  buffer << "Hello2 " << A1.as_string(PlEncoding::Latin1).c_str() << endl;
+  buffer << "Hello2 " << A1.as_string(PlEncoding::UTF8).c_str() << endl;
+  buffer << "Hello2 " << A1.as_string(PlEncoding::Locale).c_str() << endl;
 
   return A2.unify_string(buffer.str());
 }
@@ -224,12 +224,12 @@ PREDICATE(call_cpp_ex, 2)
 
 PREDICATE(atom_to_string, 2)
 { PlAtom a(A1.as_atom());
-  PlCheckFail(A2.unify_string(a.as_string(EncUTF8)));
+  PlCheckFail(A2.unify_string(a.as_string(PlEncoding::UTF8)));
   return true;
 }
 
 PREDICATE(term_to_string, 2)
-{ PlCheckFail(A2.unify_string(A1.as_string(EncUTF8)));
+{ PlCheckFail(A2.unify_string(A1.as_string(PlEncoding::UTF8)));
   return true;
 }
 

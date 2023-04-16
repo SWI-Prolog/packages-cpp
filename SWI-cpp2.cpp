@@ -569,7 +569,7 @@ PlCompound::PlCompound(const std::string& text, PlEncoding enc)
   PlEx<bool>(t != (term_t)0);
 
   // TODO: PL_put_term_from_chars() should take an unsigned int flags
-  PlEx<int>(Plx_put_term_from_chars(t, enc|CVT_EXCEPTION, text.size(), text.data()));
+  PlEx<int>(Plx_put_term_from_chars(t, static_cast<int>(enc)|CVT_EXCEPTION, text.size(), text.data()));
   Plx_put_term(C_, t);
 }
 

@@ -165,7 +165,7 @@ public:
   WrappedC<C_t>& operator =(WrappedC<C_t>&&) = default;
   ~WrappedC<C_t>() = default;
 
-  operator bool() const = delete; // Use not_null() instead
+  operator bool() const = delete; // Use not_null(), is_null() instead
 
   // reset() is common with "smart pointers"; wrapped wrapped atom_t,
   // term_t, etc. aren't "smart" in the same sense, but the objects
@@ -179,13 +179,13 @@ public:
 // TODO: #define SWI_DEFAULT_TEXT_ENCODING EncUTF8
 //       (set outside SWI-cpp2.h, with an appropriate default)
 // For the various "get/put/unify string" methods:
-typedef enum PlEncoding
-{ EncLatin1 = REP_ISO_LATIN_1,
-  EncUTF8   = REP_UTF8,
-  EncLocale = REP_MB
+typedef enum class PlEncoding
+{ Latin1 = REP_ISO_LATIN_1,
+  UTF8   = REP_UTF8,
+  Locale = REP_MB
 } PlEncoding;
-static constexpr PlEncoding ENC_INPUT = EncLatin1; // TODO: EncUTF8?
-static constexpr PlEncoding ENC_OUTPUT = EncLocale;
+static constexpr PlEncoding ENC_INPUT = PlEncoding::Latin1; // TODO: EncUTF8?
+static constexpr PlEncoding ENC_OUTPUT = PlEncoding::Locale;
 
 
 		 /*******************************
@@ -227,10 +227,10 @@ public:
     : WrappedC<atom_t>(Plx_new_atom_nchars(static_cast<size_t>(-1), text))
   { }
   explicit PlAtom(PlEncoding rep, size_t len, const char *s)
-    : WrappedC<atom_t>(Plx_new_atom_mbchars(rep, len, s))
+    : WrappedC<atom_t>(Plx_new_atom_mbchars(static_cast<int>(rep), len, s))
   { }
   explicit PlAtom(PlEncoding rep, std::string& text) // TODO: rep as optional with default ENC_INPUT
-    : WrappedC<atom_t>(Plx_new_atom_mbchars(rep, text.size(), text.data()))
+    : WrappedC<atom_t>(Plx_new_atom_mbchars(static_cast<int>(rep), text.size(), text.data()))
   { }
 
   const std::string mbchars(unsigned int flags) const
@@ -645,7 +645,7 @@ class PlTerm_atom : public PlTerm
 {
 public:
   // TODO: Add encoding for char*, std::string.
-  //       For now, these are safe only with ASCII (EncLatin1):
+  //       For now, these are safe only with ASCII (PlEncoding::Latin1):
   explicit PlTerm_atom(atom_t a)                 { Plx_put_atom(C_, a); }
   explicit PlTerm_atom(const PlAtom& a)          { Plx_put_atom(C_, a.C_); }
   explicit PlTerm_atom(const char *text)         { Plx_put_atom_chars(C_, text); } // TODO: add encoding

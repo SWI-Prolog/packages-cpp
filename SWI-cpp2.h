@@ -158,8 +158,12 @@ public:
 
   explicit WrappedC<C_t>(C_t v)
     : C_(v) { }
+
   WrappedC<C_t>(const WrappedC<C_t>&) = default;
-  // WrappedC<C_t>& operator =(const WrappedC<C_t>&) = default; // deprecated/deleted in PlTerm
+  WrappedC<C_t>(WrappedC<C_t>&&) = default;
+  WrappedC<C_t>& operator =(const WrappedC<C_t>&) = default;
+  WrappedC<C_t>& operator =(WrappedC<C_t>&&) = default;
+  ~WrappedC<C_t>() = default;
 
   operator bool() const = delete; // Use not_null() instead
 
@@ -272,21 +276,21 @@ public:
   }
 
 private:
-  bool eq(const char *s) const // used by deprecated operator==
+  bool eq(const char *s) const // used by deprecated operator ==
   { PlStringBuffers _string_buffers;
     return strcmp(s, Plx_atom_nchars(C_, nullptr)) == 0;
   }
-  bool eq(const wchar_t *s) const // used by deprecated operator==
+  bool eq(const wchar_t *s) const // used by deprecated operator ==
   { PlStringBuffers _string_buffers;
     return wcscmp(s, Plx_atom_wchars(C_, nullptr)) == 0;
   }
-  bool eq(const std::string& s) const // used by deprecated operator==
+  bool eq(const std::string& s) const // used by deprecated operator ==
   { PlStringBuffers _string_buffers;
     size_t len;
     const char* s0 = Plx_atom_nchars(C_, &len);
     return std::string(s0, len) == s;
   }
-  bool eq(const std::wstring& s) const // used by deprecated operator==
+  bool eq(const std::wstring& s) const // used by deprecated operator ==
   { PlStringBuffers _string_buffers;
     size_t len;
     const wchar_t* s0 = Plx_atom_wchars(C_, &len);
@@ -299,6 +303,7 @@ class PlFunctor : public WrappedC<functor_t>
 public:
   explicit PlFunctor(functor_t v)
     : WrappedC<functor_t>(v) { }
+
   // PlFunctor(const char*) is handled by std::string constructor
 
   // TODO: add encoding to string
@@ -318,9 +323,6 @@ public:
 
   explicit PlFunctor(PlAtom name, size_t arity)
     : WrappedC<functor_t>(Plx_new_functor(name.C_, arity)) { }
-
-  bool operator ==(functor_t to) = delete;
-  bool operator ==(PlFunctor& to) = delete;
 
   [[deprecated("use PlPredicate")]] predicate_t pred(module_t m) const {
     predicate_t p = Plx_pred(C_, m);
@@ -343,6 +345,7 @@ public:
   explicit PlModule(PlAtom name)
     : WrappedC<module_t>(Plx_new_module(name.C_))
   { }
+
   PlAtom module_name() const
   { return PlAtom(Plx_module_name(C_));
   }
@@ -362,13 +365,17 @@ protected:
   { }
 
 public:
-  PlTerm(const PlTerm&) = default;
   explicit PlTerm(const PlAtom& a)
     : WrappedC<term_t>(Plx_new_term_ref())
   { Plx_put_atom(C_, a.C_);
   }
 
-  // PlTerm& operator =(const PlTerm&) = delete; // see below
+  // TODO: why do the copy/move constructors get rid of some warning messages
+  //       about deprecated operator = ?
+  PlTerm(const PlTerm&) = default;
+  PlTerm(PlTerm&&) = default;
+
+  // TODO: PlTerm& operator =(const PlTerm&) = delete; // TODO: when the deprecated items below are removed
 
   [[nodiscard]] bool get_atom(PlAtom *A) const { return Plx_get_atom(C_, &A->C_); }
   [[nodiscard]] bool get_bool(int *value) const { return Plx_get_bool(C_, value); }
@@ -742,6 +749,13 @@ public:
     // called for PL_PRUNED
   }
 
+  PlTermv(const PlTermv&) = default;
+  PlTermv(PlTermv&&) = default;
+  PlTermv& operator =(const PlTermv&) = default;
+  PlTermv& operator =(PlTermv&&) = default;
+  ~PlTermv() = default;
+
+
   term_t termv() const
   { // Note that a0_ can be PlTerm::null if size_ == 0
     return a0_;
@@ -819,8 +833,17 @@ public:
     : WrappedC<record_t>(Plx_record(t.C_))
   { }
 
-  PlRecord(const PlRecord& r) = default; // TODO: Plx_duplicate_record()
-  PlRecord& operator =(const PlRecord&) = delete;
+  PlRecord(const PlRecord& r)
+    : WrappedC<record_t>(r.C_) // TODO: use Plx_duplicate_record(r.C_)
+  { }
+  PlRecord& operator =(const PlRecord& r) = delete; // TODO: implement
+  PlRecord& operator =(PlRecord&&) = delete;        // TODO: implement
+
+  PlRecord(PlRecord&& r)
+    : WrappedC<record_t>(r.C_) // TODO: use Plx_duplicate_record(r.C_)
+  { if ( this != &r )
+      r.C_ = null;
+  }
 
   PlTerm term() const
   { PlTerm_var t;
@@ -839,14 +862,14 @@ public:
   }
 
   ~PlRecord()
-  { // erase(); // TODO: - this causes: src/pl-rec.c:1810: freeRecord: Assertion failed: ci.data == addPointer(record, record->size)
-    // Maybe because a copy envokes the destructor, so the copy constructor
-    // and operator = need to do Plx_duplicate_record()
+  { // TODO: erase();
   }
 
 private:
+  // Used by PlRecord::duplicate:
   explicit PlRecord(record_t r)
-    : WrappedC<record_t>(r) { }
+    : WrappedC<record_t>(r)
+  { }
 };
 
 
@@ -858,7 +881,10 @@ public:
   { }
 
   PlRecordExternalCopy(const PlRecordExternalCopy& r) = default;
+  PlRecordExternalCopy(PlRecordExternalCopy&& r) = default;
   PlRecordExternalCopy& operator =(const PlRecord&) = delete;
+  PlRecordExternalCopy& operator =(PlRecordExternalCopy&&) = default;
+  ~PlRecordExternalCopy() = default;
 
   PlTerm term() const
   { PlTerm_var t;
@@ -894,7 +920,6 @@ private:
 };
 
 
-
 		 /*******************************
 		 *	      EXCEPTIONS	*
 		 *******************************/
@@ -919,15 +944,14 @@ public:
   explicit PlException(const PlAtom& a)
     : term_rec_(PlTerm_atom(a)) { }
 
+  PlException(const PlException&) = default;
+  PlException(PlException&&) = default;
+  PlException& operator =(const PlException&) = delete; // TODO: implement
+  PlException& operator =(PlException&&) = delete;      // TODO: implement
+
   virtual bool is_null()
   { return term().is_null();
   }
-
-  // TODO: the copy constructor is used by throw
-  PlException(const PlException& ex) = default;
-
-  PlException& operator =(const PlException&) = delete;
-
   virtual bool not_null()
   { return term().not_null();
   }
@@ -984,7 +1008,7 @@ protected:
     }
   }
 
-  PlRecordExternalCopy term_rec_; // TODO: use PlRecord
+  PlRecord term_rec_;
   std::string what_str_; // keeps copy of what() so that c_str() works
 
   // PlTerm string_term() const; // TODO: revive this
@@ -1107,6 +1131,12 @@ public:
 	     foreign_t (f)(term_t t0, int a, control_t ctx), short flags)
   { PlEx<bool>(PL_register_foreign_in_module(module, name, arity, reinterpret_cast<pl_function_t>(f), flags));
   }
+
+  PlRegister(const PlRegister&) = delete;
+  PlRegister(PlRegister&&) = delete;
+  PlRegister& operator =(const PlRegister&) = delete;
+  PlRegister& operator =(PlRegister&&) = delete;
+  ~PlRegister() = default;
 };
 
 
@@ -1277,6 +1307,12 @@ public:
     Plx_winitialise(1, w_av);
   }
 
+  // TODO: figure out copy/move semantics and implement
+  PlEngine(const PlEngine&) = delete;
+  PlEngine(PlEngine&&) = delete;
+  PlEngine& operator =(const PlEngine&) = delete;
+  PlEngine& operator =(PlEngine&&) = delete;
+
   void cleanup(int status_and_flags = 0) {
     Plx_cleanup(status_and_flags);
   }
@@ -1309,6 +1345,11 @@ public:
     : stream_(nullptr)
   { Plx_get_stream(stream.C_, &stream_, flags);
   }
+
+  PlStream(const PlStream&) = default;
+  PlStream(PlStream&&) = default;
+  PlStream& operator =(const PlStream&) = default;
+  PlStream& operator =(PlStream&&) = default;
 
   ~PlStream()
   { if (stream_ != nullptr)
@@ -1446,10 +1487,15 @@ public:
 template <typename ContextType> class PlForeignContextPtr
 {
 public:
-  explicit PlForeignContextPtr(PlControl handle)
+  explicit PlForeignContextPtr<ContextType>(PlControl handle)
     : ptr_(static_cast<ContextType *>(handle.foreign_context_address())),
       deferred_free_(true)
   { }
+
+  PlForeignContextPtr<ContextType>(const PlForeignContextPtr<ContextType>&) = delete;
+  PlForeignContextPtr<ContextType>(PlForeignContextPtr<ContextType>&&) = delete;
+  PlForeignContextPtr<ContextType>& operator =(const PlForeignContextPtr<ContextType>&) = delete;
+  PlForeignContextPtr<ContextType>& operator =(PlForeignContextPtr<ContextType>&&) = delete;
 
   ContextType& operator*()  const { return *ptr_; }
   ContextType* operator->() const { return ptr_; }
@@ -1471,4 +1517,3 @@ private:
 };
 
 #endif /*_SWI_CPP2_H*/
-

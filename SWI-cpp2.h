@@ -104,7 +104,7 @@ class PlFail : public std::exception
 public:
   explicit PlFail() {}
 
-  virtual const char* what() const throw() // override
+  virtual const char* what() const throw() override
   { return "PlFail";
   }
 };
@@ -117,7 +117,7 @@ class PlExceptionFail : public std::exception
 public:
   explicit PlExceptionFail() {}
 
-  virtual const char* what() const throw() // override
+  virtual const char* what() const throw() override
   { return "PlExceptionFail";
   }
 };
@@ -159,13 +159,15 @@ public:
   explicit WrappedC<C_t>(C_t v)
     : C_(v) { }
 
-  WrappedC<C_t>(const WrappedC<C_t>&) = default;
-  WrappedC<C_t>(WrappedC<C_t>&&) = default;
+  WrappedC<C_t>(            const WrappedC<C_t>&) = default;
   WrappedC<C_t>& operator =(const WrappedC<C_t>&) = default;
+  WrappedC<C_t>(            WrappedC<C_t>&&) = default;
   WrappedC<C_t>& operator =(WrappedC<C_t>&&) = default;
-  ~WrappedC<C_t>() = default;
+  ~WrappedC<C_t>() { }
 
   operator bool() const = delete; // Use not_null(), is_null() instead
+  bool operator ==(const WrappedC<C_t>& o) const { return C_ == o.C_; }
+  bool operator !=(const WrappedC<C_t>& o) const { return C_ != o.C_; }
 
   // reset() is common with "smart pointers"; wrapped wrapped atom_t,
   // term_t, etc. aren't "smart" in the same sense, but the objects
@@ -246,20 +248,17 @@ public:
   }
   const std::wstring as_wstring() const;
 
+  // TODO: operator == should be `override`
+  bool operator ==(const PlAtom& to) const /*override*/ { return C_ == to.C_; }
+  bool operator !=(const PlAtom& to) const /*override*/ { return C_ != to.C_; }
   [[deprecated("use as_string() or ==PlAtom")]] bool operator ==(const char *s) const { return eq(s); }
   bool operator ==(const wchar_t *s) const { return eq(s); }
   [[deprecated("use as_string() or ==PlAtom")]] bool operator ==(const std::string& s) const { return eq(s); }
   bool operator ==(const std::wstring& s) const { return eq(s); }
-  bool operator ==(const PlAtom &a) const
-  { return C_ == a.C_;
-  }
-  [[deprecated("use PlAtom instead of atomt_t")]] bool operator ==(atom_t to) const
-  { return C_ == to;
-  }
+  [[deprecated("use PlAtom instead of atomt_t")]] bool operator ==(atom_t to) const { return C_ == to; }
 
   [[deprecated("use as_string() or !=PlAtom")]] bool operator !=(const char *s) const { return !eq(s); }
   bool operator !=(const wchar_t *s) const { return !eq(s); }
-  bool operator !=(const PlAtom &a) const { return !(*this == a); }
   [[deprecated("use PlAtom instead of atom_t")]] bool operator !=(atom_t to) const { return C_ != to; }
 
   void register_ref() const
@@ -594,20 +593,21 @@ public:
 
 					/* Comparison standard order terms */
   [[nodiscard]] int compare(const PlTerm& t2) const { return Plx_compare(C_, t2.C_); }
-  bool operator == (const PlTerm& t2) const { return compare(t2) == 0; }
-  bool operator != (const PlTerm& t2) const { return compare(t2) != 0; }
-  bool operator <  (const PlTerm& t2) const { return compare(t2) <  0; }
-  bool operator >  (const PlTerm& t2) const { return compare(t2) >  0; }
-  bool operator <= (const PlTerm& t2) const { return compare(t2) <= 0; }
-  bool operator >= (const PlTerm& t2) const { return compare(t2) >= 0; }
+  // TODO: operator == should be `override`
+  bool operator ==(const PlTerm& t2) const /*override*/ { return compare(t2) == 0; }
+  bool operator !=(const PlTerm& t2) const /*override*/ { return compare(t2) != 0; }
+  bool operator < (const PlTerm& t2) const { return compare(t2) <  0; }
+  bool operator > (const PlTerm& t2) const { return compare(t2) >  0; }
+  bool operator <=(const PlTerm& t2) const { return compare(t2) <= 0; }
+  bool operator >=(const PlTerm& t2) const { return compare(t2) >= 0; }
 					/* comparison (long) */
   /* TODO: uint64_t; but that requires adding a lot of overloaded methods */
-  bool operator == (int64_t v) const;
-  bool operator != (int64_t v) const;
-  bool operator <  (int64_t v) const;
-  bool operator >  (int64_t v) const;
-  bool operator <= (int64_t v) const;
-  bool operator >= (int64_t v) const;
+  bool operator ==(int64_t v) const;
+  bool operator !=(int64_t v) const;
+  bool operator < (int64_t v) const;
+  bool operator > (int64_t v) const;
+  bool operator <=(int64_t v) const;
+  bool operator >=(int64_t v) const;
 
 					/* comparison (atom, string) */
   [[deprecated("use as_string()")]] bool operator ==(const char *s) const { return eq(s); }
@@ -950,18 +950,20 @@ public:
   PlException& operator =(PlException&&) = delete;      // TODO: implement
 
   virtual bool is_null()
-  { return term().is_null();
+  { return term_rec_.is_null() || term().is_null();
   }
   virtual bool not_null()
-  { return term().not_null();
+  { return term_rec_.not_null() && term().not_null();
   }
 
   void erase()
-  { term_rec_.erase();
+  { if ( term_rec_.not_null() )
+      term_rec_.erase();
+    term_rec_.set_null();
   }
 
   virtual ~PlException()
-  { // TODO: term_rec_.erase(); -- but see plThrow()
+  { // TODO: erase(); -- currently this causes an assertion error in copyRecordToGlobal()
   }
 
   virtual const char* what() const throw() override
@@ -988,7 +990,7 @@ public:
   // of Plx_raise_exception(), which is always `false`, as a foreign_t.
   virtual foreign_t plThrow()
   { foreign_t rc = static_cast<foreign_t>(Plx_raise_exception(term().C_));
-    term_rec_.erase();
+    erase(); // TODO: move this to destructor
     return rc;
   }
 

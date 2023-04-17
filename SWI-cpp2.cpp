@@ -115,7 +115,7 @@ PlTerm::get_nchars(unsigned int flags) const
   size_t len;
   if ( ! (flags&BUF_MALLOC) )
     flags |= BUF_STACK;
-  PlEx<int>(Plx_get_nchars(C_, &len, &s, flags|CVT_EXCEPTION));
+  PlEx<int>(get_nchars(&len, &s, flags|CVT_EXCEPTION));
   if ( flags&BUF_MALLOC )
     { std::string result(s, len);
       Plx_free(s);
@@ -261,44 +261,44 @@ PlTerm::as_wstring() const
   size_t len;
   PlStringBuffers _string_buffers;
   // TODO: split out get_wchars(), similar to get_nchars()
-  PlEx<int>(Plx_get_wchars(C_, &len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION));
+  PlEx<int>(get_wchars(&len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION));
   return std::wstring(s, len);
 }
 
 _SWI_CPP2_CPP_inline
 void
 PlTerm::as_nil() const
-{ Plx_get_nil_ex(C_);
+{ get_nil_ex();
 }
 
 _SWI_CPP2_CPP_inline
 double
 PlTerm::as_float() const
 { double v;
-  Plx_get_float_ex(C_, &v);
+  get_float_ex(&v);
   return v;
 }
 
 _SWI_CPP2_CPP_inline
 PlAtom
 PlTerm::as_atom() const
-{ atom_t v;
-  Plx_get_atom_ex(C_, &v);
-  return PlAtom(v);
+{ PlAtom v(PlAtom::null);
+  get_atom_ex(&v);
+  return v;
 }
 
 _SWI_CPP2_CPP_inline
 bool
 PlTerm::eq_if_atom(PlAtom a) const
-{ atom_t v;
-  return Plx_get_atom(C_, &v) && v == a.C_;
+{ PlAtom v(PlAtom::null);
+  return get_atom(&v) && v == a;
 }
 
 _SWI_CPP2_CPP_inline
 void *
 PlTerm::as_pointer() const
 { void *ptr;
-  Plx_get_pointer_ex(C_, &ptr);
+  get_pointer_ex(&ptr);
   return ptr;
 }
 
@@ -340,7 +340,7 @@ bool PlTerm_tail::next(PlTerm& t)
 { if ( Plx_get_list(C_, t.C_, C_) )
     return true;
 
-  if ( Plx_get_nil(C_) )
+  if ( get_nil() )
     return false;
 
   throw PlTypeError("list", *this);
@@ -409,7 +409,7 @@ PlTerm::operator [](size_t index) const
   if ( Plx_get_arg(index, C_, t.C_) )
     return t;
 
-  if ( !Plx_is_compound(C_) )
+  if ( !is_compound() )
     throw PlTypeError("compound", *this);
 
   /* Construct error term and throw it */
@@ -423,9 +423,9 @@ PlTerm::operator [](size_t index) const
 _SWI_CPP2_CPP_inline
 size_t
 PlTerm::arity() const
-{ atom_t name;
+{ PlAtom name(PlAtom::null);
   size_t arity;
-  if ( Plx_get_name_arity(C_, &name, &arity) )
+  if ( get_name_arity(&name, &arity) )
     return arity;
   throw PlTypeError("compound", *this);
 }
@@ -460,7 +460,7 @@ _SWI_CPP2_CPP_inline
 bool
 PlTerm::operator ==(int64_t v) const
 { int64_t v0;
-  Plx_get_int64_ex(C_, &v0);
+  get_int64_ex(&v0);
   return v0 == v;
 }
 
@@ -468,7 +468,7 @@ _SWI_CPP2_CPP_inline
 bool
 PlTerm::operator !=(int64_t v) const
 { int64_t v0;
-  Plx_get_int64_ex(C_, &v0);
+  get_int64_ex(&v0);
   return v0 != v;
 }
 
@@ -476,7 +476,7 @@ _SWI_CPP2_CPP_inline
 bool
 PlTerm::operator <(int64_t v) const
 { int64_t v0;
-  Plx_get_int64_ex(C_, &v0);
+  get_int64_ex(&v0);
   return  v0 < v;
 }
 
@@ -484,7 +484,7 @@ _SWI_CPP2_CPP_inline
 bool
 PlTerm::operator >(int64_t v) const
 { int64_t v0;
-  Plx_get_int64_ex(C_, &v0);
+  get_int64_ex(&v0);
   return v0 > v;
 }
 
@@ -492,7 +492,7 @@ _SWI_CPP2_CPP_inline
 bool
 PlTerm::operator <=(int64_t v) const
 { int64_t v0;
-  Plx_get_int64_ex(C_, &v0);
+  get_int64_ex(&v0);
   return v0 <= v;
 }
 
@@ -500,7 +500,7 @@ _SWI_CPP2_CPP_inline
 bool
 PlTerm::operator >=(int64_t v) const
 { int64_t v0;
-  Plx_get_int64_ex(C_, &v0);
+  get_int64_ex(&v0);
   return v0 >= v;
 }
 
@@ -511,7 +511,7 @@ bool
 PlTerm::eq(const char *s) const
 { char *s0;
 
-  if ( Plx_get_chars(C_, &s0, CVT_ALL) )
+  if ( get_chars(&s0, CVT_ALL) )
     return strcmp(s0, s) == 0;
 
   throw PlTypeError("text", *this);
@@ -533,7 +533,7 @@ bool
 PlTerm::eq(const std::string& s) const
 { char *s0;
 
-  if ( Plx_get_chars(C_, &s0, CVT_ALL) )
+  if ( get_chars(&s0, CVT_ALL) )
     return s.compare(s0) == 0; // Doesn't handle non-NUL terminated - but it's a deprecated method
 
   throw PlTypeError("text", *this);

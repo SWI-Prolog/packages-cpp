@@ -215,7 +215,6 @@ PREDICATE(call_cpp_ex, 2)
   { PlCheckFail(PlCall(A1, PL_Q_CATCH_EXCEPTION));
   } catch ( PlException& ex )
   { bool rc = A2.unify_term(ex.term());
-    ex.erase();
     Plx_clear_exception();
     return rc;
   }
@@ -376,7 +375,6 @@ PREDICATE(cpp_atom_codes, 2)
       cout << "atom_codes failed" << endl;
     else
       cout << "atom_codes failed: ex: " << ex.as_string() << endl; // Shouldn't happen
-    ex.erase();
   }
   return rc;
 }
@@ -575,8 +573,8 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_integer p_size2(std::numeric_limits<size_t>::max());
   PlTerm_float t_float(1.23);
   PlTerm_pointer t_ptr(&t_var);
-  // There's a better test for PlRecord in int_info/2
-  PlRecord       r_xyz(PlTerm_atom("xyz").record());
+  // There's a better test for PlRecordRaw in int_info/2
+  PlRecordRaw    r_xyz(PlTerm_atom("xyz").record_raw());
   PlTerm         t_rec(r_xyz.term());
   PlTerm_string t_string1("abc");
   PlTerm_string t_string2(L"世界");
@@ -944,9 +942,9 @@ PREDICATE(unify_foo_string_2b, 1)
 		PlTermv(PlTerm_atom(name),               \
 			PlTerm_integer(sizeof (x_type)), \
 			PlTerm_integer(x_min),           \
-			PlTerm_integer(x_max))).record() },
+			PlTerm_integer(x_max))).record_raw() },
 
-typedef std::map<const std::string, PlRecord> IntInfo;
+typedef std::map<const std::string, PlRecordRaw> IntInfo;
 
 // IntInfoCtxt has a pointer to the static IntInfo to get around a
 // memory leak. If int_info_static is at the top level of this file,
@@ -972,7 +970,7 @@ struct IntInfoCtxt
 // lookup of the name in ctx->int_info (see the IntInfoCtxt
 // constructor for how this gets initialized). This finds a recored
 // term, from which a fresh term is concstructed using
-// PlRecord::term(), and the unification is done in the context of
+// PlRecordRaw::term(), and the unification is done in the context of
 // PlRewindOnFail(). This ensures that if the unification fails, any
 // partial bindgins will be removed.
 
@@ -1032,7 +1030,6 @@ PREDICATE(type_error_string, 3)
   std::string msg(e.as_string());
   PlCheckFail(A2.unify_string(msg));
   PlCheckFail(A3.unify_term(e.term()));
-  e.erase();
   return true;
 }
 

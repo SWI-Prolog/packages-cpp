@@ -89,7 +89,7 @@ particularly integer conversions.
 class PlAtom;
 class PlTerm;
 class PlTermv;
-class PlRecord;
+class PlRecordRaw;
 class PlRecordExternalCopy;
 
 
@@ -472,7 +472,7 @@ public:
 
   // TODO: PL_unify_*()?
   // TODO: PL_skip_list()
-                                                                                                  PlRecord record() const;
+  PlRecordRaw record_raw() const;
 
 					/* PlTerm --> C */
   [[deprecated("use as_long()")]]     explicit operator long()     const { return as_long(); }
@@ -826,21 +826,21 @@ public:
 };
 
 
-class PlRecord : public WrappedC<record_t>
+class PlRecordRaw : public WrappedC<record_t>
 {
 public:
-  PlRecord(PlTerm t)
+  PlRecordRaw(PlTerm t)
     : WrappedC<record_t>(Plx_record(t.C_))
   { }
 
-  PlRecord(const PlRecord& r)
-    : WrappedC<record_t>(r.C_) // TODO: use Plx_duplicate_record(r.C_)
+  PlRecordRaw(const PlRecordRaw& r)
+    : WrappedC<record_t>(r) // TODO: r.duplicate();
   { }
-  PlRecord& operator =(const PlRecord& r) = delete; // TODO: implement
-  PlRecord& operator =(PlRecord&&) = delete;        // TODO: implement
+  PlRecordRaw& operator =(const PlRecordRaw& r) = delete; // TODO: implement
+  PlRecordRaw& operator =(PlRecordRaw&&) = delete;        // TODO: implement
 
-  PlRecord(PlRecord&& r)
-    : WrappedC<record_t>(r.C_) // TODO: use Plx_duplicate_record(r.C_)
+  PlRecordRaw(PlRecordRaw&& r)
+    : WrappedC<record_t>(r) // TODO: r.duplicate; r.erase();
   { if ( this != &r )
       r.C_ = null;
   }
@@ -857,17 +857,17 @@ public:
     C_ = null;
   }
 
-  PlRecord duplicate() const
-  { return PlRecord(Plx_duplicate_record(C_));
+  PlRecordRaw duplicate() const
+  { return PlRecordRaw(Plx_duplicate_record(C_));
   }
 
-  ~PlRecord()
+  ~PlRecordRaw()
   { // TODO: erase();
   }
 
 private:
-  // Used by PlRecord::duplicate:
-  explicit PlRecord(record_t r)
+  // Used by PlRecordRaw::duplicate:
+  explicit PlRecordRaw(record_t r)
     : WrappedC<record_t>(r)
   { }
 };
@@ -882,7 +882,7 @@ public:
 
   PlRecordExternalCopy(const PlRecordExternalCopy& r) = default;
   PlRecordExternalCopy(PlRecordExternalCopy&& r) = default;
-  PlRecordExternalCopy& operator =(const PlRecord&) = delete;
+  PlRecordExternalCopy& operator =(const PlRecordExternalCopy&) = delete;
   PlRecordExternalCopy& operator =(PlRecordExternalCopy&&) = default;
   ~PlRecordExternalCopy() = default;
 
@@ -890,16 +890,6 @@ public:
   { PlTerm_var t;
     Plx_recorded_external(C_.data(), t.C_);
     return t;
-  }
-
-  void erase()
-  { // If we're storing the result of Plx_record_external as a char*,
-    // then do the following; if it's as a std::string, no need to do
-    // anything.
-    C_ = "";
-    // if ( C_ )
-    //   Plx_erase_external(const_cast<char*>(C_));
-    // C_ = nullptr;
   }
 
 private:
@@ -944,8 +934,16 @@ public:
   explicit PlException(const PlAtom& a)
     : term_rec_(PlTerm_atom(a)) { }
 
-  PlException(const PlException&) = default;
-  PlException(PlException&&) = default;
+  PlException(const PlException& e)
+    : term_rec_(e.term_rec_.duplicate()),
+      what_str_(e.what_str_)
+  { }
+  PlException(PlException&& e)
+    : term_rec_(e.term_rec_.duplicate()),
+      what_str_(e.what_str_)
+  { e.term_rec_.erase();
+    // Don't need to do anything with e.what_str_
+  }
   PlException& operator =(const PlException&) = delete; // TODO: implement
   PlException& operator =(PlException&&) = delete;      // TODO: implement
 
@@ -956,14 +954,8 @@ public:
   { return term_rec_.not_null() && term().not_null();
   }
 
-  void erase()
-  { if ( term_rec_.not_null() )
-      term_rec_.erase();
-    term_rec_.set_null();
-  }
-
   virtual ~PlException()
-  { // TODO: erase(); -- currently this causes an assertion error in copyRecordToGlobal()
+  { erase();
   }
 
   virtual const char* what() const throw() override
@@ -990,7 +982,6 @@ public:
   // of Plx_raise_exception(), which is always `false`, as a foreign_t.
   virtual foreign_t plThrow()
   { foreign_t rc = static_cast<foreign_t>(Plx_raise_exception(term().C_));
-    erase(); // TODO: move this to destructor
     return rc;
   }
 
@@ -1010,7 +1001,13 @@ protected:
     }
   }
 
-  PlRecord term_rec_;
+  void erase()
+  { if ( term_rec_.not_null() )
+      term_rec_.erase();
+    term_rec_.set_null();
+  }
+
+  PlRecordRaw term_rec_;
   std::string what_str_; // keeps copy of what() so that c_str() works
 
   // PlTerm string_term() const; // TODO: revive this

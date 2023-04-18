@@ -1906,7 +1906,7 @@ See PL_unregister_atom().
 See PL_blob_data().
 \end{description}
 
-\section{Classeds for the recorded database: PlRecord and PlRecordExternalCopy}
+\section{Classes for the recorded database: PlRecordRaw and PlRecordExternalCopy}
 \label{sec:cpp2-plrecord}
 
 The
@@ -1916,37 +1916,35 @@ and \jargon{external records}.
 
 Currently, the interface to \jargon{internal records} requires that
 the programmer explicitly call the dupicate() and erase() methods - in
-future, it is intended that this will be done automatically, so that
-the internal records behave like "smart pointers"; the implementation
-should make this backwards compatible.
+future, it is intended that this will be done automatically by a new
+\ctype{PlRecord} class, so that the internal records behave like
+"smart pointers"; in the meantime, the \ctype{PlRecordRaw} provides a
+trivial wrapper around the various recorded database functions.
 
-The class \ctype{PlRecord} supports the following methods:
+The class \ctype{PlRecordRaw} supports the following methods:
 \begin{description}
    \cfunction{}{PlRecord}{PlTerm} Constructor.
    \cfunction{}{PlRecord}{PlRecord} Copy and move
-   constructors. Currently these do not do any reference counting, but
-   this may change in the future.
-   \cfunction{}{~PlRecord}{} Destructor. Currently this does not call PL_erase()
-   but this may change in the future.
-   \cfunction{PlTerm}{term}{} - creates a term from the record (using PL_recorded()).
-   \cfunction{void}{erase}{} - decrements the reference count of the record and
-   deletes it if the count goes to zero (using PL_erase()). Unlike
-   PL_erase(), it is safe to do this multiple times on the same
-   \ctype{PlRecord} object.
-   \cfunction{PlRecord}{duplicate}{} - increments the reference count of the record.
+   constructors. Currently these do not do any reference counting.
+   The assignment operator is currently not supported.
+   \cfunction{}{~PlRecord}{} Destructor. Currently this does not call PL_erase().
+   \cfunction{PlTerm}{term}{} - creates a term from the record, using PL_recorded().
+   \cfunction{void}{erase}{} - decrements the reference count of the
+   record and deletes it if the count goes to zero, using PL_erase().
+   It is safe to do this multiple times on the same
+   \ctype{PlRecordRaw} object.
+   \cfunction{PlRecord}{duplicate}{} - increments the reference count
+   of the record, using PL_duplicate_record().
 \end{description}
 
 The class \ctype{PlRecordExternalCopy} keeps the \jargon{external record}
-as an uninterpreted string. Currently, this does not act like a
-reference-counted "smart pointer", although the implementation might
-support this in the future. It supports the following methods:
+as an uninterpreted string. It supports the following methods.
 \begin{description}
    \cfunction{}{PlRecordExternalCopy}{} Constructor.
-   \cfunction{}{PlRecordExternalCopy}{PlRecordExternalCopy}
-   Copy and move constructors are currently not supported.
-   \cfunction{PlTerm}{term}{} - creates a term from the record (using PL_recorded()).
-   \cfunction{void}{erase}{} - deletes the copy of external record. It is safe to do this
-   multiple times on the same \ctype{PlRecordExternalCopy}
+   Creates a string using Pl_record_external(), copies it into
+   the object,  then deletes the reference using PL_erase_external().
+   \cfunction{PlTerm}{term}{} - creates a term from the record,
+   using PL_recorded_external()).
 \end{description}
 
 \section{Unification and foreign frames (version 2)}

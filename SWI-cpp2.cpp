@@ -303,9 +303,9 @@ PlTerm::as_pointer() const
 }
 
 _SWI_CPP2_CPP_inline
-PlRecord
-PlTerm::record() const
-{ PlRecord rec(*this);
+PlRecordRaw
+PlTerm::record_raw() const
+{ PlRecordRaw rec(*this);
   return rec;
 }
 

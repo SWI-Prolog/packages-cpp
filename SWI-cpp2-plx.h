@@ -532,7 +532,7 @@ PLX_ASIS(int                     , prolog_debug                    , (const char
 PLX_ASIS(int                     , prolog_nodebug                  , (const char *topic), (topic))
 
 #if defined(_WINDOWS_) || defined(_WINDOWS_H) /* <windows.h> is included */
-PLX_EXCE(LRESULT                 , PL_win_message_proc             , (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam), (hwnd, message, wParam, lParam))
+PLX_EXCE(LRESULT                 , win_message_proc                , (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam), (hwnd, message, wParam, lParam))
 #endif
 
 // (skipped):: int _PL_get_xpce_reference(term_t t, xpceref_t *ref);

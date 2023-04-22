@@ -689,6 +689,11 @@ test(get_atom, error(type_error(atom,123))) :-
 test(get_atom, error(type_error(atom,foo(bar)))) :-
     get_atom_ex(foo(bar), _A).
 
+test(ten,
+     [[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10] ==
+      [one, two, three, 4, 5.0, "six", seven("SEVEN"), [], true, [hd]]]) :-
+    ten(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10).
+
 % TODO:
 % test this (https://swi-prolog.discourse.group/t/cpp2-exceptions/6040/61):
 %

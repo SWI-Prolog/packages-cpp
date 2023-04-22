@@ -161,8 +161,9 @@ public:
 
   WrappedC<C_t>(            const WrappedC<C_t>&) = default;
   WrappedC<C_t>& operator =(const WrappedC<C_t>&) = default;
-  WrappedC<C_t>(            WrappedC<C_t>&&) = default;
-  WrappedC<C_t>& operator =(WrappedC<C_t>&&) = default;
+  // This simple wrapper class doesn't need a move constructor or
+  // move operator=.
+
   ~WrappedC<C_t>() { }
 
   operator bool() const = delete; // Use not_null(), is_null() instead
@@ -369,10 +370,7 @@ public:
   { Plx_put_atom(C_, a.C_);
   }
 
-  // TODO: why do the copy/move constructors get rid of some warning messages
-  //       about deprecated operator = ?
   PlTerm(const PlTerm&) = default;
-  PlTerm(PlTerm&&) = default;
 
   // TODO: PlTerm& operator =(const PlTerm&) = delete; // TODO: when the deprecated items below are removed
 
@@ -750,9 +748,7 @@ public:
   }
 
   PlTermv(const PlTermv&) = default;
-  PlTermv(PlTermv&&) = default;
   PlTermv& operator =(const PlTermv&) = default;
-  PlTermv& operator =(PlTermv&&) = default;
   ~PlTermv() = default;
 
 
@@ -833,16 +829,16 @@ public:
     : WrappedC<record_t>(Plx_record(t.C_))
   { }
 
-  PlRecordRaw(const PlRecordRaw& r)
-    : WrappedC<record_t>(r) // TODO: r.duplicate();
+  explicit PlRecordRaw(record_t r)
+    : WrappedC<record_t>(r)
   { }
-  PlRecordRaw& operator =(const PlRecordRaw& r) = delete; // TODO: implement
-  PlRecordRaw& operator =(PlRecordRaw&&) = delete;        // TODO: implement
 
-  PlRecordRaw(PlRecordRaw&& r)
-    : WrappedC<record_t>(r) // TODO: r.duplicate; r.erase();
-  { if ( this != &r )
-      r.C_ = null;
+  PlRecordRaw(const PlRecordRaw& r)
+    : WrappedC<record_t>(r)
+  { }
+  PlRecordRaw& operator =(const PlRecordRaw& r)
+  { C_ = r.C_;
+    return *this;
   }
 
   PlTerm term() const
@@ -864,12 +860,6 @@ public:
   ~PlRecordRaw()
   { // TODO: erase();
   }
-
-private:
-  // Used by PlRecordRaw::duplicate:
-  explicit PlRecordRaw(record_t r)
-    : WrappedC<record_t>(r)
-  { }
 };
 
 
@@ -881,9 +871,7 @@ public:
   { }
 
   PlRecordExternalCopy(const PlRecordExternalCopy& r) = default;
-  PlRecordExternalCopy(PlRecordExternalCopy&& r) = default;
   PlRecordExternalCopy& operator =(const PlRecordExternalCopy&) = delete;
-  PlRecordExternalCopy& operator =(PlRecordExternalCopy&&) = default;
   ~PlRecordExternalCopy() = default;
 
   PlTerm term() const
@@ -1346,9 +1334,7 @@ public:
   }
 
   PlStream(const PlStream&) = default;
-  PlStream(PlStream&&) = default;
   PlStream& operator =(const PlStream&) = default;
-  PlStream& operator =(PlStream&&) = default;
 
   ~PlStream()
   { if (stream_ != nullptr)

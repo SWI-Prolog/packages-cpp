@@ -1158,3 +1158,22 @@ PREDICATE(throw_permission_error_cpp, 3)
 PREDICATE(throw_resource_error_cpp, 1)
 { throw PlResourceError(A1.as_string().c_str());
 }
+
+PREDICATE(ten, 10)
+{ PlCheckFail(A1.unify_term(PlTerm_atom(PlAtom("one"))));
+  PlCheckFail(A2.unify_atom(PlAtom("two")));
+  PlCheckFail(A3.unify_atom("three"));
+  PlCheckFail(A4.unify_integer(4));
+  PlCheckFail(A5.unify_float(5.0));
+  PlCheckFail(A6.unify_string("six"));
+  PlCheckFail(A7.unify_functor(PlFunctor("seven", 1)));
+  PlCheckFail(A7[1].unify_string("SEVEN")); 
+  PlCheckFail(A8.unify_nil());
+  PlCheckFail(A9.unify_bool(true));
+  PlTerm_var hd;
+  PlTerm_var tl;
+  PlCheckFail(A10.unify_list(hd, tl));
+  PlCheckFail(hd.unify_atom("hd"));
+  PlCheckFail(tl.unify_nil());
+  return true;
+}

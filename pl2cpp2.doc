@@ -1906,7 +1906,7 @@ See PL_unregister_atom().
 See PL_blob_data().
 \end{description}
 
-\section{Classes for the recorded database: PlRecordRaw and PlRecordExternalCopy}
+\section{Classes for the recorded database: PlRecord and PlRecordExternalCopy}
 \label{sec:cpp2-plrecord}
 
 The
@@ -1918,10 +1918,10 @@ Currently, the interface to \jargon{internal records} requires that
 the programmer explicitly call the dupicate() and erase() methods - in
 future, it is intended that this will be done automatically by a new
 \ctype{PlRecord} class, so that the internal records behave like
-"smart pointers"; in the meantime, the \ctype{PlRecordRaw} provides a
+"smart pointers"; in the meantime, the \ctype{PlRecord} provides a
 trivial wrapper around the various recorded database functions.
 
-The class \ctype{PlRecordRaw} supports the following methods:
+The class \ctype{PlRecord} supports the following methods:
 \begin{description}
    \cfunction{}{PlRecord}{PlTerm} Constructor.
    \cfunction{}{PlRecord}{PlRecord} Copy and move
@@ -1932,10 +1932,33 @@ The class \ctype{PlRecordRaw} supports the following methods:
    \cfunction{void}{erase}{} - decrements the reference count of the
    record and deletes it if the count goes to zero, using PL_erase().
    It is safe to do this multiple times on the same
-   \ctype{PlRecordRaw} object.
+   \ctype{PlRecord} object.
    \cfunction{PlRecord}{duplicate}{} - increments the reference count
    of the record, using PL_duplicate_record().
 \end{description}
+
+The class \ctype{PlRecord} provides direct access to the reference
+counting aspects of the recorded term (through the duplicate() and
+erase() methods), but does \emph{not} connect these with C++'s copy
+constructor, assignment operator, or destructor. If the recorded
+term is encapsulated within an object, then the containing object
+can use the duplicate() and erase() methods in its copy and
+move constructors and assignment operators (and the erase() method
+in the destructor).\footnote{The copy constructor and assignment use
+the duplicate() method; the move constructor and assignment use
+the duplicate() method to assign to the destination and the erase()
+method on the source; and the destructor uses erase().}
+
+Alternatively, the \ctype{std::shared_ptr} or \ctype{std::unique_ptr}
+can be used with the supplied \ctype{PlrecordDeleter}, which calls the
+erase() method when the \ctype{shared_ptr} reference count goes to
+zero or when the \ctype{unique_ptr} goes out of scope.
+
+For example:
+\begin{code}
+std::shared_ptr<PlRecord> r(new PlRecord(t.record()), PlRecordDeleter());
+assert(t.unify_term(r->term()));
+\end{code}
 
 The class \ctype{PlRecordExternalCopy} keeps the \jargon{external record}
 as an uninterpreted string. It supports the following methods.
@@ -2573,6 +2596,21 @@ in the future. Currently, to ensure that the exception term has a
 sufficient lifetime, it is serialized using PL_record_external(). In
 future, if this proves unnecessary, the term will be stored as-is.
 The API will not change if this implementation detail changes.
+
+
+\section{Conclusions (version 2)}
+\label{sec:cpp2-conclusions}
+
+In this document, we presented a high-level interface to Prolog
+exploiting automatic type-conversion and exception-handling defined in
+C++.
+
+Programming using this interface is much more natural and requires only
+little extra resources in terms of time and memory.
+
+Especially the smooth integration between C++ and Prolog exceptions
+reduce the coding effort for type checking and reporting in foreign
+predicates.
 
 
 \section{Conclusions (version 2)}

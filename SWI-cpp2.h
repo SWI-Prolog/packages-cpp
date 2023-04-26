@@ -89,7 +89,7 @@ particularly integer conversions.
 class PlAtom;
 class PlTerm;
 class PlTermv;
-class PlRecordRaw;
+class PlRecord;
 class PlRecordExternalCopy;
 
 
@@ -470,7 +470,7 @@ public:
 
   // TODO: PL_unify_*()?
   // TODO: PL_skip_list()
-  PlRecordRaw record_raw() const;
+  PlRecord record() const;
 
 					/* PlTerm --> C */
   [[deprecated("use as_long()")]]     explicit operator long()     const { return as_long(); }
@@ -822,21 +822,21 @@ public:
 };
 
 
-class PlRecordRaw : public WrappedC<record_t>
+class PlRecord : public WrappedC<record_t>
 {
 public:
-  PlRecordRaw(PlTerm t)
+  PlRecord(PlTerm t)
     : WrappedC<record_t>(Plx_record(t.C_))
   { }
 
-  explicit PlRecordRaw(record_t r)
+  explicit PlRecord(record_t r)
     : WrappedC<record_t>(r)
   { }
 
-  PlRecordRaw(const PlRecordRaw& r)
+  PlRecord(const PlRecord& r)
     : WrappedC<record_t>(r)
   { }
-  PlRecordRaw& operator =(const PlRecordRaw& r)
+  PlRecord& operator =(const PlRecord& r)
   { C_ = r.C_;
     return *this;
   }
@@ -853,12 +853,22 @@ public:
     C_ = null;
   }
 
-  PlRecordRaw duplicate() const
-  { return PlRecordRaw(Plx_duplicate_record(C_));
+  PlRecord duplicate() const
+  { return PlRecord(Plx_duplicate_record(C_));
   }
 
-  ~PlRecordRaw()
+  ~PlRecord()
   { // TODO: erase();
+  }
+};
+
+
+class PlRecordDeleter
+{
+public:
+  void operator()(PlRecord *r) const
+  { r->erase();
+    delete r;
   }
 };
 
@@ -995,7 +1005,7 @@ protected:
     term_rec_.set_null();
   }
 
-  PlRecordRaw term_rec_;
+  PlRecord term_rec_;
   std::string what_str_; // keeps copy of what() so that c_str() works
 
   // PlTerm string_term() const; // TODO: revive this

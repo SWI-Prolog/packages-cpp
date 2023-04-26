@@ -58,6 +58,7 @@ how the various predicates can be called from Prolog.
 #define PROLOG_MODULE "user"
 #include <iostream>
 #include <sstream>
+#include <memory>
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
@@ -573,9 +574,17 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_integer p_size2(std::numeric_limits<size_t>::max());
   PlTerm_float t_float(1.23);
   PlTerm_pointer t_ptr(&t_var);
-  // There's a better test for PlRecordRaw in int_info/2
-  PlRecordRaw    r_xyz(PlTerm_atom("xyz").record_raw());
-  PlTerm         t_rec(r_xyz.term());
+
+  // There's a better test for PlRecord in int_info/2
+  PlRecord r_atom1(t_atom1.record());
+  PlCheckFail(t_atom1.unify_term(r_atom1.term()));
+
+  std::shared_ptr<PlRecord> r_atom2_p(new PlRecord(t_atom2.record()), PlRecordDeleter());
+  PlCheckFail(t_atom2.unify_term(r_atom2_p->term()));
+
+  PlTerm t_rec(r_atom2_p->term());
+  PlCheckFail(t_rec.unify_term(t_atom2));
+
   PlTerm_string t_string1("abc");
   PlTerm_string t_string2(L"世界");
   const char codes[] = {81,82,83,0};
@@ -942,9 +951,9 @@ PREDICATE(unify_foo_string_2b, 1)
 		PlTermv(PlTerm_atom(name),               \
 			PlTerm_integer(sizeof (x_type)), \
 			PlTerm_integer(x_min),           \
-			PlTerm_integer(x_max))).record_raw() },
+			PlTerm_integer(x_max))).record() },
 
-typedef std::map<const std::string, PlRecordRaw> IntInfo;
+typedef std::map<const std::string, PlRecord> IntInfo;
 
 // IntInfoCtxt has a pointer to the static IntInfo to get around a
 // memory leak. If int_info_static is at the top level of this file,
@@ -970,7 +979,7 @@ struct IntInfoCtxt
 // lookup of the name in ctx->int_info (see the IntInfoCtxt
 // constructor for how this gets initialized). This finds a recored
 // term, from which a fresh term is concstructed using
-// PlRecordRaw::term(), and the unification is done in the context of
+// PlRecord::term(), and the unification is done in the context of
 // PlRewindOnFail(). This ensures that if the unification fails, any
 // partial bindgins will be removed.
 

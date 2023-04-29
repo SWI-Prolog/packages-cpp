@@ -34,7 +34,7 @@ More specifically:
 \begin{itemize}
   \item \file{SWI-cpp2.cpp} has been added, containing the implementation
      of some functions that are too long to inline. The user must
-     either \exam{#include <SWI-cpp2.cpp>} or compile it separately and
+     either \verb$#include <SWI-cpp2.cpp>$ or compile it separately and
      link it with the other foreign  function code.
   \item
      The constructor \cfuncref{PlTerm}{} is restricted to a few
@@ -375,7 +375,7 @@ The following files are provided:
     \file{SWI-cpp2-plx.h}
     Contains the wrapper functions for the most of the functions in
     \file{SWI-Prolog.h}. This file is not intended to be used by
-    itself, but is \exam{#include}d by \file{SWI-cpp2.h}.
+    itself, but is \exam{\#include}d by \file{SWI-cpp2.h}.
 
 \item
     \file{test_cpp.cpp}, \file{test_cpp.pl}
@@ -776,9 +776,10 @@ along with any foreign predicate files. You can do this in three ways:
 \item
   Compile \file{SWI-cpp2.cpp} separately.
 \item
-  Add \exam{#include SWI-cpp2.cpp} to one of the foreign predicate files.
+  Add \verb$#include SWI-cpp2.cpp$ to one of the foreign predicate
+  files.
 \item
-  Wherever you have \exam{#include SWI-cpp2.h}, add
+  Wherever you have \verb$#include SWI-cpp2.h%$, add
   \begin{code}
       #define _SWI_CPP2_CPP_inline inline
       #include <SWI-cpp2.cpp>
@@ -1040,8 +1041,8 @@ default encoding - may change slightly in the future.
 
 \file{SWI-cpp2.h} is not complete; it needs `file{SWI-cpp2.cpp} to implement
 some functions. The easiest way of taking care of this is to add
-\exam{#include <SWI-cpp2.cpp>} in your "main" file; alternatively, you can
-create another source file that contains the "include" statement.
+\verb$#include <SWI-cpp2.cpp>$ in your "main" file; alternatively, you
+can create another source file that contains the "include" statement.
 
 The easiest way of porting from \file{SWI-cpp.h} to \file{SWI-cpp2.h}
 is to change the \exam{\#include "SWI-cpp.h"} to \exam{\#include "SWI-cpp2.h"}
@@ -2596,21 +2597,6 @@ in the future. Currently, to ensure that the exception term has a
 sufficient lifetime, it is serialized using PL_record_external(). In
 future, if this proves unnecessary, the term will be stored as-is.
 The API will not change if this implementation detail changes.
-
-
-\section{Conclusions (version 2)}
-\label{sec:cpp2-conclusions}
-
-In this document, we presented a high-level interface to Prolog
-exploiting automatic type-conversion and exception-handling defined in
-C++.
-
-Programming using this interface is much more natural and requires only
-little extra resources in terms of time and memory.
-
-Especially the smooth integration between C++ and Prolog exceptions
-reduce the coding effort for type checking and reporting in foreign
-predicates.
 
 
 \section{Conclusions (version 2)}

@@ -890,6 +890,8 @@ public:
     return t;
   }
 
+  const std::string& data() const { return C_; }
+
 private:
   std::string C_;
 

@@ -802,8 +802,7 @@ PREDICATE_NONDET(range_cpp, 3)
   { return true; // Last result: succeed without a choice point
   }
 
-  ctxt.keep();
-  PL_retry_address(ctxt.get()); // Succeed with a choice point
+  PL_retry_address(ctxt.keep()); // Succeed with a choice point
 }
 
 
@@ -1024,8 +1023,7 @@ PREDICATE_NONDET(int_info, 2)
       if ( ctxt->it == ctxt->int_info->cend() )
       { return true; // Last result: no choice point
       }
-      ctxt.keep(); // Need ctxt for REDO
-      PL_retry_address(ctxt.get()); // Succeed with choice point
+      PL_retry_address(ctxt.keep()); // Succeed with choice point
     }
     ctxt->it++;
   }

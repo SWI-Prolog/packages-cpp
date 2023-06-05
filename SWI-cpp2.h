@@ -848,13 +848,13 @@ public:
   }
 
   void erase()
-  { if ( C_ != null )
+  { if ( not_null() )
       Plx_erase(C_);
-    C_ = null;
+    reset();
   }
 
   PlRecord duplicate() const
-  { return PlRecord(Plx_duplicate_record(C_));
+  { return is_null() ? PlRecord(null) : PlRecord(Plx_duplicate_record(C_));
   }
 
   ~PlRecord()

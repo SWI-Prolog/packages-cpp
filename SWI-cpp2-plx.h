@@ -431,7 +431,7 @@ PLX_WRAP(int                     , release_stream_noerror          , (IOSTREAM *
 PLX_WRAP(IOSTREAM *              , open_resource                   , (module_t m, const char *name, const char *rc_class, const char *mode), (m, name, rc_class, mode))
 
 // (skipped):: IOSTREAM **_PL_streams(void);	/* base of streams */
-PLX_EXCE(int                     , write_term                      , (IOSTREAM *s, term_t term, int precedence, int flags), (s, term, precedence, flags))
+PLX_ASIS(int                     , write_term                      , (IOSTREAM *s, term_t term, int precedence, int flags), (s, term, precedence, flags))
 PLX_ASIS(bool                    , ttymode                         , (IOSTREAM *s), (s))
 
 // TODO: PL_put_term_from_chars depends on CVT_EXCEPTION - ? make version that checks this and throws an exception?

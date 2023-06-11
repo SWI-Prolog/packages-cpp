@@ -57,6 +57,7 @@ particularly integer conversions.
 #define _SWI_CPP2_H
 
 #include <SWI-Prolog.h>
+#include <SWI-Stream.h>
 #include <climits>
 #include <cstdint>
 #include <cstring>
@@ -91,6 +92,7 @@ class PlTerm;
 class PlTermv;
 class PlRecord;
 class PlRecordExternalCopy;
+class PlBlob;
 
 
 // PlFail is a pseudo-exception for quick exist on failure, for use by
@@ -248,6 +250,8 @@ public:
   { return mbchars(static_cast<unsigned int>(enc));
   }
   const std::wstring as_wstring() const;
+
+  [[nodiscard]] int write(IOSTREAM *s, int flags) const;
 
   // TODO: operator == should be `override`
   bool operator ==(const PlAtom& to) const /*override*/ { return C_ == to.C_; }
@@ -585,7 +589,11 @@ public:
   [[nodiscard]] bool unify_nil()                         const { return Plx_unify_nil(C_); }
   [[nodiscard]] bool unify_list(PlTerm h, PlTerm t)      const { return Plx_unify_list(C_, h.C_, t.C_); }
   [[nodiscard]] bool unify_bool(bool val)                const { return Plx_unify_bool(C_, val); }
-  [[nodiscard]] bool unify_blob(void *blob, size_t len, PL_blob_t *type) const { return Plx_unify_blob(C_, blob, len, type); }
+
+
+  [[nodiscard]] bool unify_blob(const PlBlob* blob) const;
+  [[nodiscard]] bool unify_blob(const void *blob, size_t len, const PL_blob_t *type) const
+  { return Plx_unify_blob(C_, const_cast<void*>(blob), len, const_cast<PL_blob_t*>(type)); }
 
   // TODO: PL_unify_mpz(), PL_unify_mpq()
 
@@ -620,8 +628,11 @@ public:
   bool operator !=(const std::wstring& s) const { return !eq(s); }
   bool operator !=(const PlAtom& a)       const { return !eq(a); }
 
-  // E.g.: t.write(Serror, 1200, PL_WRT_NEWLINE|PL_WRT_QUOTED);
-  void write(IOSTREAM *s, int precedence, int flags) const { Plx_write_term(s, C_, precedence, flags); }
+  // E.g.: t.write(Serror, 1200, PL_WRT_QUOTED);
+  [[nodiscard]] int write(IOSTREAM *s, int precedence, int flags) const
+  { // TODO: move "&~PL_WRITE_NEWLINE" to PL_write_term() and update foreign.doc
+    return Plx_write_term(s, C_, precedence, flags & ~PL_WRT_NEWLINE);
+  }
 
   void reset_term_refs() { Plx_reset_term_refs(C_); }
 
@@ -651,6 +662,13 @@ public:
   explicit PlTerm_atom(const std::string& text)  { Plx_put_atom_nchars(C_, text.size(), text.data()); } // TODO: add encoding
   explicit PlTerm_atom(const std::wstring& text) { PlEx<int>(Plx_unify_wchars(C_, PL_ATOM, text.size(), text.data())); }
 };
+
+[[nodiscard]]
+inline int
+PlAtom::write(IOSTREAM *s, int flags) const {
+  // TODO: move "&~PL_WRITE_NEWLINE" to PL_write_term() and update foreign.doc
+  return PlTerm_atom(*this).write(s, 1200, flags & ~PL_WRT_NEWLINE);
+}
 
 class PlTerm_var : public PlTerm
 {
@@ -1514,5 +1532,178 @@ private:
   ContextType *ptr_;
   bool deferred_free_;
 };
+
+		 /*******************************
+		 *          BLOBS		*
+		 *******************************/
+
+
+template<typename C_t>
+class PlBlobV
+{
+public:
+  [[nodiscard]]
+  static C_t *
+  cast(PlAtom aref)
+  { size_t len;
+    PL_blob_t *type;
+    auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
+    if ( ref && type == ref->blob_t_ )
+    { assert(len == sizeof *ref);
+      return ref;
+    }
+    return nullptr;
+  }
+
+  [[nodiscard]]
+  static C_t*
+  cast_check(PlAtom aref)
+  { auto ref = cast(aref);
+    assert(ref);
+    return ref;
+  }
+
+  static void acquire(atom_t a)
+  { PlAtom a_(a);
+    auto data = cast_check(a_);
+    data->acquire(a_);
+  }
+
+  [[nodiscard]]
+  static int release(atom_t a)
+  { auto data = cast_check(PlAtom(a));
+    data->release2();
+    delete data;
+    return true;
+  }
+
+  [[nodiscard]]
+  static int compare(atom_t a, atom_t b)
+  { const auto a_data = cast_check(PlAtom(a)); // TODO: cast(...)
+    const auto b_data = cast_check(PlAtom(b));
+    int rc = a_data->compare_fields(b_data);
+    if ( rc == 0 )
+    { return (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
+    }
+    return rc;
+  }
+
+  [[nodiscard]]
+  static int write(IOSTREAM *s, atom_t a, int flags)
+  { const auto data = cast_check(PlAtom(a));
+    return data->write(s, flags);
+  }
+
+  [[nodiscard]]
+  static int save(atom_t a, IOSTREAM *fd)
+  { const auto data = cast_check(PlAtom(a));
+    return data->save(fd);
+  }
+
+  [[nodiscard]]
+  static atom_t load(IOSTREAM *fd)
+  { C_t ref;
+    return ref.load(fd).C_;
+  }
+};
+
+
+#define PL_BLOB_DEFINITION(blob_class, blob_name) \
+{ .magic   = PL_BLOB_MAGIC,		\
+  .flags   = PL_BLOB_NOCOPY,		\
+  .name    = blob_name,			\
+  .release = PlBlobV<blob_class>::release,	\
+  .compare = PlBlobV<blob_class>::compare,	\
+  .write   = PlBlobV<blob_class>::write,	\
+  .acquire = PlBlobV<blob_class>::acquire,	\
+  .save    = PlBlobV<blob_class>::save,		\
+  .load    = PlBlobV<blob_class>::load		\
+}
+
+#define PL_BLOB_SIZE \
+  virtual size_t blob_size_() const override { return sizeof *this; }
+
+class PlBlob
+{
+public:
+  explicit PlBlob(const PL_blob_t* _blob_t)
+    : blob_t_(_blob_t) { }
+  explicit PlBlob() = delete;
+  explicit PlBlob(const PlBlob&) = delete;
+  explicit PlBlob(PlBlob&&) = delete;
+  PlBlob& operator =(const PlBlob&) = delete;
+  virtual ~PlBlob() = default;
+
+  virtual size_t blob_size_() const = 0; // See PL_BLOB_SIZE
+
+  void acquire(PlAtom _symbol) {
+    symbol_ = _symbol;
+    acquire2();
+  }
+
+  virtual void acquire2() { }
+
+  virtual void release2() { }
+
+  bool symbol_not_null() const { return symbol_.not_null(); }
+
+  PlTerm symbol_term() const;
+
+  virtual int compare_fields(const PlBlob *_b) const
+  { return 0;
+  }
+
+  bool write(IOSTREAM *s, int flags) const;
+
+  bool virtual write_fields(IOSTREAM *s, int flags) const
+  { return true; }
+
+  virtual bool save(IOSTREAM *fd) const;
+
+  virtual PlAtom load(IOSTREAM *fd);
+
+  const PL_blob_t* blob_t_ = nullptr;
+
+  // associated symbol (used for error terms)
+  // filed in by acquire():
+  PlAtom symbol_ = PlAtom(PlAtom::null);
+};
+
+
+inline
+bool PlBlob::write(IOSTREAM *s, int flags) const
+{ return Sfprintf(s, "<%s>(%p", blob_t_->name, this) &&
+    write_fields(s, flags) &&
+    // In general, the flags are handled by the calling
+    // Plx_write_term(), so don't check for, e.g., flags&PL_WRT_NEWLINE.
+    Sfprintf(s, ")");
+}
+
+inline
+bool PlBlob::save(IOSTREAM *fd) const
+{ return PL_warning("Cannot save reference to <%s>(%p)", blob_t_->name, this);
+}
+
+inline
+PlAtom PlBlob::load(IOSTREAM *fd)
+{ (void)PL_warning("Cannot load reference to <%s>", blob_t_->name);
+  PL_fatal_error("Cannot load reference to <%s>", blob_t_->name);
+  return PlAtom(PlAtom::null);
+}
+
+inline
+PlTerm PlBlob::symbol_term() const
+{ if ( symbol_not_null() )
+    return PlTerm_atom(symbol_);
+  return PlTerm_var();
+}
+
+inline
+bool PlTerm::unify_blob(const PlBlob* blob) const
+{ return PlTerm::unify_blob(static_cast<const void*>(blob),
+                            blob->blob_size_(), blob->blob_t_);
+}
+
+
 
 #endif /*_SWI_CPP2_H*/

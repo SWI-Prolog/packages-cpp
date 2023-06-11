@@ -1184,3 +1184,102 @@ PREDICATE(ten, 10)
   PlCheckFail(tl.unify_nil());
   return true;
 }
+
+
+struct my_connection
+{ std::string name;
+
+  explicit my_connection() { }
+  explicit my_connection(std::string _name)
+    : name(_name) { }
+
+  ~my_connection() { }
+
+  bool open()
+  { if ( name == "FAIL" )
+      return false;
+    return true;
+  }
+
+  bool close()
+  { if ( name == "FAIL_close" )
+      return false;
+    return true;
+  }
+};
+
+
+struct dbref;
+
+static PL_blob_t my_blob = PL_BLOB_DEFINITION(dbref, "my_blob");
+
+struct dbref : public PlBlob
+{ my_connection *connection = nullptr;
+
+  explicit dbref()
+    : PlBlob(&my_blob)
+  { }
+
+  ~dbref()
+  { if ( connection )
+    { // This is similar to close_my_blob/1, except there's no check
+      // for an error -- there's nothing we can do on an error because
+      // throwing a C++ exception inside of C code will cause a
+      // runtime error.
+      (void)connection->close();
+    }
+  }
+
+  PL_BLOB_SIZE
+
+  int compare_fields(const PlBlob* _b_data) const override
+  { // dynamic_cast is safer than static_cast, but slower (see documentation)
+    // It's used here for testing (the documentation has static_cast)
+    auto b_data = dynamic_cast<const dbref*>(_b_data);
+    assert(b_data);
+    assert(this != b_data); // Prolog should have already done this test.
+    if ( connection && b_data->connection )
+      return connection->name.compare(b_data->connection->name);
+    return connection ? 1 : b_data->connection ? -1 : 0;
+  }
+
+  bool write_fields(IOSTREAM *s, int flags) const override
+  { if ( connection )
+      return Sfprintf(s, ",name=%s", connection->name.c_str());
+    return true;
+  }
+};
+
+// %! create_my_blob(+Name: atom, -MyBlob) is semidet.
+PREDICATE(create_my_blob, 2)
+{ // Allocating the blob uses unique_ptr<dbref> so that it'll be
+  // deleted if an error happens - the auto-deletion is disabled by
+  // ref.release() before returning success.
+
+  auto ref = std::make_unique<dbref>();
+
+  // ... fill in the fields of *ref from A1  ...
+  ref->connection = new my_connection(A1.as_atom().as_string());
+
+  if ( !ref->connection->open() )
+    throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
+  PlCheckFail(A2.unify_blob(ref.get()));
+  (void)ref.release();
+  return true;
+}
+
+// %! close_my_blob(+MyBlob) is det.
+// % Close the connection, silently succeeding if is already
+// % closed; throw an exception if something goes wrong.
+PREDICATE(close_my_blob, 1)
+{ auto ref = PlBlobV<dbref>::cast_check(A1.as_atom());
+  auto c = ref->connection;
+  ref->connection = nullptr;
+  if ( c )
+  { bool rc = c->close();
+    delete c;
+    if ( !rc )
+      throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
+  }
+  return true;
+}

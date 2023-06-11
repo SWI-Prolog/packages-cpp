@@ -682,6 +682,284 @@ them to \ctype{int} but C++ doesn't. In general, this shouldn't
 cause any problems, but care must be used with the various
 getters for integers.
 
+\subsection{Blobs}
+\label{sec:cpp2-blobs}
+
+\emph{Disclaimer:}
+
+The blob API for C++ is not completely general, but is designed to
+make a specific use case easier to write. For other use cases, the
+underlying C API can still be used. The use case is:
+\begin{itemize}
+\item The blob contains the foreign object (e.g., contains a
+      pointer to a database connection).
+\item The blob is created by a predicate that makes the foreign
+      object and stores it (or a pointer to it) within the blob.
+      For example, makes a connection to a database or compiles
+      a regular expression into an internal form.
+\item Optionally, there is a predicate that deletes the foreign object.
+\item The blob will not be subclassed.
+\item The blob is defined as a subclass of \ctype{PlBlob}, which
+      provides a number of fields and methods, of which a few
+      can be overridden in the blob (notably: write_fields(),
+      compare_fields(), and the destructor).
+\item The blob's constructor throws an exception and cleans up
+      any resources if it cannot create the blob.
+\item The foreign object can be deleted when the blob is deleted.
+\item The blob's allocation is controlled by Prolog and its
+      destructor is envoked when the blob is garbage collected.
+end{itemize}
+
+A Prolog blob consists of five parts:
+\begin{itemize}
+\item A \ctype{PL_blob_t} structure that defines the callbacks.
+\item A structure that contains the blob data.
+\item A "create" or "open" predicate that unifies one of its arguments
+      with a newly created blob that contains the foreign object.
+\item (Optionally) a "close" predicate that does the opposite of the
+      "create" or "open" predicate.
+\item Predicates that manipulate the foreign object (e.g., for a
+      file-like object, these could be read, write, seek, etc.).
+\end{itemize}
+
+For the \ctype{PL_blob_t} structure, this API provides a set of
+template functions that allow easily setting up the callbacks, and
+allow defining the corresonding methods int he blob "contents" class.
+The C interface allows defaulting all of the callbacks; however, the
+C++ API for blobs provides suitable callbacks for all of them, so
+usually the programmer will specify all the template callbacks.
+
+For the data, which is subclassed from \ctype{PlBlob}, the programmer
+defines the various fields, a constructor that initializes them, and a
+destructor.  Optionally, methods can be defined for one of more of
+blob \cfuncref{compare_fields}{}, \cfuncref{write_fields}{},
+\cfuncref{save}{}, \cfuncref{load}{}. The \cfuncref{acquire}{} and
+\cfuncref{release}{} callbacks should normally be allowed to default
+to what is defined in \ctype{PlBlob}; and the default
+\cfuncref{write}{} and \cfuncref{compare}{} callbacks call
+\cfuncref{write_fields}{} and \cfuncref{compare_fields}{}.
+
+There is a mismatch between how Prolog does memory management (and
+garbage collection) and how C++ does it. In particular, Prolog assumes
+that cleanup will be done in the \cfuncref{release}{} function
+associated with the blob whereas C++ typically does cleanup in a
+destructor. The blob interface gets around this mismatch by providing
+a default \cfuncref{release}{} function that assumes that the blob was
+created using \const{PL_BLOB_NOCOPY} and manages memory using a
+\ctype{std::unique_ptr}.
+
+The C blob interface has a flag that determines how memory is managed:
+\const{PL_BLOB_NOCOPY}. If this is set, Prolog does not do a call to
+\cfuncref{free}{} when the blob is garbage collected; instead, it
+assumes that the blob's \cfuncref{release}{} function will free the
+memory.
+
+The C++ API for blobs only supports blobs with
+\const{PL_BLOB_NOCOPY}.\footnote{The API can probably also support
+blobs with \const{PL_BLOB_UNIQUE}, but there seems to be little
+point in setting this flag for non-text blobs.}
+
+\subsubsection{How to define a blob using C++}
+\label{sec:cpp2-blobs-howto}
+
+TL;DR: Use PL_BLOB_NOCOPY (or an extra level of indirection) and the
+default \ctype{PlBlob} wrappers; no copy constructor, move
+constructor, or assignment operator; create blob with
+\exam{make_unique}, use \exam{unique_ptr::release}, do \exam{delete}
+in the "release" function. Optionally, define one or more of
+\cfuncref{compare_fields}{}, \cfuncref{write_fields}{},
+\cfuncref{save}{}, \cfuncref{load}{} methods.
+
+Here is minimal sample code for creating a blob that owns a connection
+to a database. It has a single field (\exam{connection}) and
+defines \cfuncref{compare_fields}{} and \cfuncref{write_fields}{}.
+
+\begin{code}
+struct my_data;
+
+static PL_blob_t my_blob =
+{ .magic   = PL_BLOB_MAGIC,
+  .flags   = PL_BLOB_NOCOPY,
+  .name    = "my_blob",
+  .release = blob_release<my_data>,
+  .compare = blob_compare<my_data>,
+  .write   = blob_write<my_data>,
+  .acquire = blob_acquire<my_data>,
+  .save    = blob_save<my_data>,
+  .load    = blob_load<my_data>
+};
+
+struct my_data : public PlBlob<my_blob>
+{ my_connection *connection;
+
+  explicit my_data()
+    : connection(nullptr)
+  { }
+
+  ~my_data()
+  { if ( connection )
+    { // This is similar to close_my_blob/1, except there's no check
+      // for an error -- there's nothing we can do on an error because
+      // throwing a C++ exception inside of C code will cause a
+      // runtime error.
+      (void)connection->close();
+    }
+  }
+
+  int compare_fields(PlAtom b) const override
+  { const auto b_data = cast_blob_check<my_data>(b);
+    if ( connection && b_data->connection )
+      return connection->name.compare(b_data->connection->name);
+    return connection ? 1 : b_data->connection ? -1 : 0;
+  }
+
+  bool write_fields(IOSTREAM *s, int flags) const override
+  { if ( connection )
+      return Sfprintf(s, ",name=%s", connection->name.c_str());
+    return true;
+  }
+};
+
+// %! create_my_blob(+Options, -MyBlob) is semidet.
+PREDICATE(create_my_blob, 2)
+{ auto ref = std::make_unique<my_data>();;
+
+  // ... fill in the fields of *ref from options in A1  ...
+
+  if ( !ref->connection->open() )
+    throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
+  PlCheckFail(A2.unify_blob(ref.get(), sizeof *ref, &my_blob));
+  (void)ref.release();
+  return true;
+}
+
+// %! close_my_blob(+MyBlob) is det.
+// % Close the connection, silently succeeding if is already
+// % closed; throw an exception if something goes wrong.
+PREDICATE(close_my_blob, 1)
+{ auto ref = cast_blob_check<my_data>(A1.as_atom());
+  auto c = ref->connection;
+  ref->connection = nullptr;
+  if ( c )
+  { bool rc = c->close();
+    delete c;
+    if ( !rc )
+      throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
+  }
+  return true;
+}
+\end{code}
+
+Explanation of the \ctype{my_blob} structure:
+\begin{itemize}
+
+\item The \exam{magic}, \exam{flags}, and \exam{name} flags are required.
+
+\item The \exam{release} and \exam{acquire} fields are required. The
+      defaults given will normally suffice (see more on this in the
+      definition of \exam{my_data}).
+
+\item The default \cfuncref{save}{} and \cfuncref{load}{} provide a
+      default implementation that throws an error on an attempt to
+      save the blob (e.g., by using \qsave_program/[1,2]). If they are
+      omitted, the defaults for \cfuncref{save}{} and
+      \cfuncref{load}{} are used, which save the internal form of the
+      blob, which is probably not what you want. If you wish to define
+      your own \cfuncref{save}{} and \cfuncref{load}{}, you must also
+      add \cfuncref{save}{} and \cfuncref{load}{} methods to
+      \ctype{my_data}.
+
+\item The default \cfuncref{compare}{} does a pointer
+      comparison. You can define a \cfuncref{compare_fields}{}; 
+      if it returns 0 (equal), the pointers are compared.
+      If no \cfuncref{compare}{} is specified, the default
+      is a bit-wise comparison.
+
+\item The dfault \cfuncref{write}{} outputs something of the
+      form \exam{<my_blob>(0x1234)}, giving the blob type name
+      and its address. You can define \cfuncref{write_fields}{},
+      to provide additional information - in the example code,
+      the connection name is output (note the leading ",").
+
+\end{itemize}
+
+Explanation of the \ctype{my_data} structure:
+
+\begin{itemize}
+
+\item \ctype{PlBlob<my_blob>} provides default methods plus a few
+      utility methods and functions:
+      \begin{itemize}
+      \item Copy and move constructors are disabled, as is the
+            assignment operator.
+      \item validate() verifies that the blob is valid, assuming that
+            the default \cfuncref{acquire}{} has been called.
+      \item acquire() is used by the default \cfuncref{acquire}{} function;
+            it fills in the \exam{symbol} field.
+      \item symbol_not_null() tests whether \exam{symbol} has been set
+            (this will normally be the case, unless the \cfuncref{acquire}{}
+            function hasn't been called as part of the blob creation
+            process).
+      \item symbol_term() Creates a term the contains the blob, for
+            use in error terms. It is always safe to use this; if
+            the symbol hasn't been set, symbol_term() returns a "var" term.
+      \item compare() calls compare_fields() - if that returns 0
+            (equal), then it returns the result of comparing
+            pointers.
+      \item compare_fields() allows extending the comparison function
+            to include class-specific information.
+      \item write() A default implementation that outputs \exam{<my_blob>(ptr)}.
+            It calls write_fields() to allow adding class-specific information.
+      \item write_fields() allows outputting class-specific information.
+      \item save() Generates an error when attempting to save the blob.
+      \item laod() generates an error when attemptint to laod the blob.
+      \end{itemize}
+
+\item The constructor must initialize fields so that the destructor
+      can determine whether to delete them or not. Typically, this is
+      done by setting pointers to \const{nullptr} or by setting a
+      flag.
+
+\item The destructor is called by \cfuncref{release}{}, assuming you've
+      set \exam{my_blob::release} to \exam{blob_release<my_blob>}.
+
+\end{itemize}
+
+Explanation of create_my_blob/2:
+
+\begin{itemize}
+
+\item \exam{std::make_unique<my_data>()} creates a
+      \ctype{std::unique_ptr<my_data>} that is deleted when it goes
+      out of scope. If an exception occurs between the creation of the
+      blob (as a \ctype{std::unique_ptr<my_data>}) and the call to
+      \cfuncref{unify_blob}{}, the pointer will be freed (and the
+      \ctype{MyBlob} destructor will be called.
+
+\item The exception term contains the blob, using
+      \exam{ref->symbol_term()}.
+
+\item \exam{ref.release()} prevents the pointer from being
+      automatically deleted; it is now "owned" by Prolog and is
+      deleted in the \cfuncref{release}{} function (which is defined
+      in \ctype{PlBlob}).
+
+\end{itemize}
+
+Explanation of close_my_blob/1:
+
+\begin{itemize}
+
+\item This code is similar to the destructor for \ctype{my_data},
+      except it throws an error if something goes wrong during the
+      "close".
+
+\item Other predicates that use the blob access the
+      blob from the arguments the same way, namely
+      \exam{cast_blob_check<my_data>(A1.as_atom())}.
+
+\end{itemize}
+
 \subsection{Limitations of the interface}
 \label{sec:cpp2-limitations}
 

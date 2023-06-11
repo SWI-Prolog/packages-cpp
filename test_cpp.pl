@@ -694,6 +694,17 @@ test(ten,
       [one, two, three, 4, 5.0, "six", seven("SEVEN"), [], true, [hd]]]) :-
     ten(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10).
 
+test(blob) :-
+    create_my_blob(foo, Blob),
+    blob(Blob, my_blob),
+    close_my_blob(Blob).
+test(blob, error(my_blob_error(_),C)) :-
+    create_my_blob('FAIL', _).
+test(blob, error(my_blob_error(Blob))) :-
+    create_my_blob('FAIL_close', Blob),
+    blob(Blob, my_blob),
+    close_my_blob(Blob).
+
 % TODO:
 % test this (https://swi-prolog.discourse.group/t/cpp2-exceptions/6040/61):
 %

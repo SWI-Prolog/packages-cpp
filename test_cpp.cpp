@@ -1184,3 +1184,102 @@ PREDICATE(ten, 10)
   PlCheckFail(tl.unify_nil());
   return true;
 }
+
+
+struct my_connection
+{ std::string name;
+
+  explicit my_connection() { }
+  explicit my_connection(std::string _name)
+    : name(_name) { }
+
+  ~my_connection() { }
+
+  bool open()
+  { if ( name == "FAIL" )
+      return false;
+    return true;
+  }
+
+  bool close()
+  { if ( name == "FAIL_close" )
+      return false;
+    return true;
+  }
+};
+
+
+struct my_data;
+
+static PL_blob_t my_blob =
+{ .magic   = PL_BLOB_MAGIC,
+  .flags   = PL_BLOB_NOCOPY,
+  .name    = "my_blob",
+  .release = blob_release<my_data>,
+  .compare = blob_compare<my_data>,
+  .write   = blob_write<my_data>,
+  .acquire = blob_acquire<my_data>,
+  .save    = blob_save<my_data>,
+  .load    = blob_load<my_data>
+};
+
+struct my_data : public PlBlob<my_blob>
+{ my_connection *connection;
+
+  explicit my_data()
+    : connection(nullptr)
+  { }
+
+  ~my_data()
+  { if ( connection )
+    { // This is similar to close_my_blob/1, except there's no check
+      // for an error -- there's nothing we can do on an error because
+      // throwing a C++ exception inside of C code will cause a
+      // runtime error.
+      (void)connection->close();
+    }
+  }
+
+  int compare_fields(PlAtom b) const override
+  { const auto b_data = cast_blob_check<my_data>(b);
+    if ( connection && b_data->connection )
+      return connection->name.compare(b_data->connection->name);
+    return connection ? 1 : b_data->connection ? -1 : 0;
+  }
+
+  bool write_fields(IOSTREAM *s, int flags) const override
+  { if ( connection )
+      return Sfprintf(s, ",name=%s", connection->name.c_str());
+    return true;
+  }
+};
+
+// %! create_my_blob(+Name: atom, -MyBlob) is semidet.
+PREDICATE(create_my_blob, 2)
+{ auto ref = std::make_unique<my_data>();
+
+  // ... fill in the fields of *ref from A1  ...
+  ref->connection = new my_connection(A1.as_atom().as_string());
+
+  if ( !ref->connection->open() )
+    throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
+  PlCheckFail(A2.unify_blob(ref.get(), sizeof *ref, &my_blob));
+  (void)ref.release();
+  return true;
+}
+
+// %! close_my_blob(+MyBlob) is det.
+// % Close the connection, silently succeeding if is already
+// % closed; throw an exception if something goes wrong.
+PREDICATE(close_my_blob, 1)
+{ auto ref = cast_blob_check<my_data>(A1.as_atom());
+  auto c = ref->connection;
+  ref->connection = nullptr;
+  if ( c )
+  { bool rc = c->close();
+    delete c;
+    if ( !rc )
+      throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
+  }
+  return true;
+}

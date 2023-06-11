@@ -57,6 +57,7 @@ particularly integer conversions.
 #define _SWI_CPP2_H
 
 #include <SWI-Prolog.h>
+#include <SWI-Stream.h>
 #include <climits>
 #include <cstdint>
 #include <cstring>
@@ -1514,5 +1515,145 @@ private:
   ContextType *ptr_;
   bool deferred_free_;
 };
+
+		 /*******************************
+		 *          BLOBS		*
+		 *******************************/
+
+// TODO: these should be in a namespace
+
+
+template<typename C_t> [[nodiscard]]
+static C_t *
+cast_blob(PlAtom aref)
+{ size_t len;
+  PL_blob_t *type;
+  auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
+  if ( ref && type == ref->blob_t_)
+  { assert(len == sizeof *ref);
+    assert(ref->validate());
+    return ref;
+  }
+  return nullptr;
+}
+
+template<typename C_t> [[nodiscard]]
+static C_t*
+cast_blob_check(PlAtom aref)
+{ auto ref = cast_blob<C_t>(aref);
+  assert(ref);
+  return ref;
+}
+
+template<typename C_t>
+void blob_acquire(atom_t a)
+{ PlAtom a_(a);
+  auto data = cast_blob_check<C_t>(a_);
+  data->acquire(a_);
+}
+
+template<typename C_t> [[nodiscard]]
+int blob_release(atom_t a)
+{ auto data = cast_blob_check<C_t>(PlAtom(a));
+  delete data;
+  return true;
+}
+
+template<typename C_t> [[nodiscard]]
+int blob_compare(atom_t a, atom_t b)
+{ const auto a_data = cast_blob_check<C_t>(PlAtom(a));
+  int rc = a_data->compare_fields(PlAtom(b));
+  if ( rc == 0 )
+  { auto b_data = cast_blob_check<C_t>(PlAtom(b));
+    return a_data > b_data ? 1 : a_data < b_data ? -1 : 0;
+  }
+  return rc;
+}
+
+template<typename C_t> [[nodiscard]]
+int blob_write(IOSTREAM *s, atom_t a, int flags)
+{ const auto data = cast_blob_check<C_t>(PlAtom(a));
+  return data->write(s, flags);
+}
+
+template<typename C_t> [[nodiscard]]
+int blob_save(atom_t a, IOSTREAM *fd)
+{ const auto data = cast_blob_check<C_t>(PlAtom(a));
+  return data->save(fd);
+}
+
+template<typename C_t> [[nodiscard]]
+atom_t blob_load(IOSTREAM *fd)
+{ return C_t::load(fd).C_;
+}
+
+template<const PL_blob_t& blob_t>
+class PlBlob
+{
+public:
+  explicit PlBlob()
+    : blob_t_(&blob_t),
+      symbol_(PlAtom(PlAtom::null)) // filled in by acquire()
+  { }
+  explicit PlBlob(const PlBlob&) = delete;
+  explicit PlBlob(PlBlob&&) = delete;
+  PlBlob& operator =(const PlBlob&) = delete;
+  virtual ~PlBlob() = default;
+
+  bool validate() const { return blob_t_ == &blob_t; }
+
+  void acquire(PlAtom _symbol) { symbol_ = _symbol; }
+
+  bool symbol_not_null() const { return symbol_.not_null(); }
+
+  PlTerm symbol_term() const;
+
+  virtual int compare_fields(PlAtom _b) const
+  { return 0;
+  }
+
+  bool write(IOSTREAM *s, int flags) const;
+
+  bool virtual write_fields(IOSTREAM *s, int flags) const
+  { return true; }
+
+  bool save(IOSTREAM *fd) const;
+
+  static PlAtom load(IOSTREAM *fd);
+
+  const PL_blob_t *blob_t_;
+  PlAtom symbol_;		/* associated symbol (used for error terms) */
+};
+
+
+template<const PL_blob_t& blob_t>
+inline bool PlBlob<blob_t>::write(IOSTREAM *s, int flags) const
+{ return Sfprintf(s, "<%s>(%p", blob_t.name, this) &&
+    write_fields(s, flags) &&
+    // TODO: following should write ")\n" if PL_WRT_NEWLINE but there
+    //       appears to be a bug in the top-level code that sets the
+    //       flag:
+    Sfprintf(s, PL_WRT_NEWLINE ? ")" : ")");
+}
+
+template<const PL_blob_t& blob_t>
+inline bool PlBlob<blob_t>::save(IOSTREAM *fd) const
+{ return PL_warning("Cannot save reference to <%s>(%p)", blob_t.name, this);
+}
+
+template<const PL_blob_t& blob_t>
+inline PlAtom PlBlob<blob_t>::load(IOSTREAM *fd)
+{ (void)PL_warning("Cannot load reference to <%s>", blob_t.name);
+  PL_fatal_error("Cannot load reference to <%s>", blob_t.name);
+  return PlAtom(PlAtom::null);
+}
+
+template<const PL_blob_t& blob_t>
+inline  PlTerm PlBlob<blob_t>::symbol_term() const
+{ if ( symbol_not_null() )
+    return PlTerm_atom(symbol_);
+  return PlTerm_var();
+}
+
 
 #endif /*_SWI_CPP2_H*/

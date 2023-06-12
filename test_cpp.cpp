@@ -1240,8 +1240,11 @@ struct my_data : public PlBlob<my_blob>
     }
   }
 
-  int compare_fields(PlAtom b) const override
-  { const auto b_data = cast_blob_check<my_data>(b);
+  int compare_fields(const PlBlob<my_blob>* _b_data) const override
+  { // dynamic_cast is safer than static_cast, but slower (see documentation)
+    auto b_data = dynamic_cast<const my_data*>(_b_data);
+    assert(b_data);
+    assert(this != b_data); // Prolog should have already done this test.
     if ( connection && b_data->connection )
       return connection->name.compare(b_data->connection->name);
     return connection ? 1 : b_data->connection ? -1 : 0;

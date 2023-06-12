@@ -1562,10 +1562,10 @@ int blob_release(atom_t a)
 template<typename C_t> [[nodiscard]]
 int blob_compare(atom_t a, atom_t b)
 { const auto a_data = cast_blob_check<C_t>(PlAtom(a));
-  int rc = a_data->compare_fields(PlAtom(b));
+  const auto b_data = cast_blob_check<C_t>(PlAtom(b));
+  int rc = a_data->compare_fields(b_data);
   if ( rc == 0 )
-  { auto b_data = cast_blob_check<C_t>(PlAtom(b));
-    return a_data > b_data ? 1 : a_data < b_data ? -1 : 0;
+    { return (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
   }
   return rc;
 }
@@ -1608,7 +1608,7 @@ public:
 
   PlTerm symbol_term() const;
 
-  virtual int compare_fields(PlAtom _b) const
+  virtual int compare_fields(const PlBlob<blob_t> *_b) const
   { return 0;
   }
 

@@ -43,6 +43,7 @@
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- autoload(library(aggregate)).
+:- autoload(library(pcre)).
 :- use_module(library(plunit)).
 
 :- encoding(utf8).
@@ -698,12 +699,67 @@ test(blob) :-
     create_my_blob(foo, Blob),
     blob(Blob, my_blob),
     close_my_blob(Blob).
-test(blob, error(my_blob_error(_),C)) :-
+test(blob, error(my_blob_error(_),_)) :-
     create_my_blob('FAIL', _).
 test(blob, error(my_blob_error(Blob))) :-
     create_my_blob('FAIL_close', Blob),
     blob(Blob, my_blob),
     close_my_blob(Blob).
+test(blob, cleanup(close_my_blob(A))) :-
+    create_my_blob('foobar', A),
+    with_output_to(string(Astr), write(current_output, A)),
+    assertion(re_match('^<my_blob>\\(0x[0-9a-f]+,name=foobar\\)$', Astr)).
+
+test(blob_compare, [cleanup((close_my_blob(A),
+                             close_my_blob(B)))]) :-
+    create_my_blob('A', A),
+    create_my_blob('B', B),
+    sort([A,B], Sorted),
+    predsort(compare_portray_form, [A,B], Sorted2),
+    assertion(Sorted == Sorted2).
+test(blob_compare, [setup((garbage_collect_atoms,
+                           current_prolog_flag(gc,GC0),
+                           set_prolog_flag(gc,false))),
+                    cleanup((close_my_blob(A),
+                             close_my_blob(B),
+                             set_prolog_flag(gc,GC0)))]) :-
+    % Create in the opposite order from the previous test,
+    % because the addresses ought to be in ascending order.
+    create_my_blob('B', B),
+    create_my_blob('A', A),
+    % The blobs are repeated here, to verify that the equality check
+    % is done by Prolog and never gets to my_data::compare_fields(),
+    % which has an assertion check.
+    sort([B,A,B,A], Sorted),
+    predsort(compare_portray_form, [B,A,B,A], Sorted2),
+    assertion(Sorted == Sorted2).
+test(blob_compare, [cleanup((close_my_blob(A1),
+                             close_my_blob(A2),
+                             close_my_blob(B)))]) :-
+    create_my_blob('A', A1),
+    create_my_blob('A', A2),
+    create_my_blob('B', B),
+    sort([A2,A1,B], Sorted),
+    predsort(compare_portray_form, [A2,A1,B], Sorted2),
+    assertion(Sorted == Sorted2).
+test(blob_compare, [cleanup((close_my_blob(A1),
+                             close_my_blob(A2),
+                             close_my_blob(B)))
+                   ]) :-
+    % Different ordering of creation, so that address order changes
+    create_my_blob('B', B),
+    create_my_blob('A', A2),
+    create_my_blob('A', A1),
+    sort([A2,A1,B], Sorted),
+    predsort(compare_portray_form, [A2,A1,B], Sorted2),
+    assertion(Sorted == Sorted2).
+
+compare_portray_form(Compare, A, B) :-
+    with_output_to(string(Astr), write(A)),
+    with_output_to(string(Bstr), write(B)),
+    re_replace('^<my_blob>\\(0x([0-9a-f]+),name=(.*)\\)$', "$2,$1", Astr, Astr2),
+    re_replace('^<my_blob>\\(0x([0-9a-f]+),name=(.*)\\)$', "$2,$1", Bstr, Bstr2),
+    compare(Compare, Astr2, Bstr2).
 
 % TODO:
 % test this (https://swi-prolog.discourse.group/t/cpp2-exceptions/6040/61):

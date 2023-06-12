@@ -806,8 +806,8 @@ struct my_data : public PlBlob<my_blob>
     }
   }
 
-  int compare_fields(PlAtom b) const override
-  { const auto b_data = cast_blob_check<my_data>(b);
+  int compare_fields(const PlBlob<my_blob>* _b_data) const override
+  { auto b_data = static_cast<const my_data*>(_b_data); // See note
     if ( connection && b_data->connection )
       return connection->name.compare(b_data->connection->name);
     return connection ? 1 : b_data->connection ? -1 : 0;
@@ -872,8 +872,15 @@ Explanation of the \ctype{my_blob} structure:
 \item The default \cfuncref{compare}{} does a pointer
       comparison. You can define a \cfuncref{compare_fields}{}; 
       if it returns 0 (equal), the pointers are compared.
-      If no \cfuncref{compare}{} is specified, the default
+      If no \cfuncref{compare}{} is specified in the definition
+      of the blob (\ctype{PL_blob_t}), the default
       is a bit-wise comparison.
+      The \compare_fields}{} method receives a pointer to
+      \ctype{PlBob<my_blob>} - it is safe to use
+      \exam{static_cast} to convert this to a pointer to
+      \ctype{my_blob} because Prolog guarantees that the
+      \cfuncref{compare_fields}{} method will only be called
+      if two blobs are of the same type.
 
 \item The dfault \cfuncref{write}{} outputs something of the
       form \exam{<my_blob>(0x1234)}, giving the blob type name

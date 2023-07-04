@@ -774,22 +774,13 @@ Here is minimal sample code for creating a blob that owns a connection
 to a database. It has a single field (\exam{connection}) and
 defines \cfuncref{compare_fields}{} and \cfuncref{write_fields}{}.
 Note that you must add the boilerplate definition for the virtual
-method blob_size_().
+method blob_size_(), using the convenience macro
+\cmacro{}PL_BLOB_DISPLATCH{blob_class,blob_name}.
 
 \begin{code}
 struct my_data;
 
-static PL_blob_t my_blob =
-{ .magic   = PL_BLOB_MAGIC,
-  .flags   = PL_BLOB_NOCOPY,
-  .name    = "my_blob",
-  .release = blob_release<my_data>,
-  .compare = blob_compare<my_data>,
-  .write   = blob_write<my_data>,
-  .acquire = blob_acquire<my_data>,
-  .save    = blob_save<my_data>,
-  .load    = blob_load<my_data>
-};
+static PL_blob_t my_blob = PL_BLOB_DEFINITION(my_data, "my_blob");
 
 struct my_data : public PlBlob<my_blob>
 { my_connection *connection;
@@ -811,7 +802,7 @@ struct my_data : public PlBlob<my_blob>
   virtual size_t blob_size_() const override { return sizeof *this; }
 
   int compare_fields(const PlBlob<my_blob>* _b_data) const override
-  { auto b_data = static_cast<const my_data*>(_b_data); // See note
+  { auto b_data = static_cast<const my_data*>(_b_data); // See note about cast
     if ( connection && b_data->connection )
       return connection->name.compare(b_data->connection->name);
     return connection ? 1 : b_data->connection ? -1 : 0;

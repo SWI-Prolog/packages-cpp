@@ -1605,6 +1605,20 @@ atom_t blob_load(IOSTREAM *fd)
 { return C_t::load(fd).C_;
 }
 
+
+#define PL_BLOB_DEFINITION(blob_class, blob_name) \
+{ .magic   = PL_BLOB_MAGIC,		\
+  .flags   = PL_BLOB_NOCOPY,		\
+  .name    = blob_name,			\
+  .release = blob_release<blob_class>,	\
+  .compare = blob_compare<blob_class>,	\
+  .write   = blob_write<  blob_class>,	\
+  .acquire = blob_acquire<blob_class>,	\
+  .save    = blob_save<   blob_class>,	\
+  .load    = blob_load<   blob_class>	\
+}
+
+
 template<const PL_blob_t& blob_t>
 class PlBlob
 {

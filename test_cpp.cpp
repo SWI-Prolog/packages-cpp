@@ -1211,17 +1211,7 @@ struct my_connection
 
 struct my_data;
 
-static PL_blob_t my_blob =
-{ .magic   = PL_BLOB_MAGIC,
-  .flags   = PL_BLOB_NOCOPY,
-  .name    = "my_blob",
-  .release = blob_release<my_data>,
-  .compare = blob_compare<my_data>,
-  .write   = blob_write<my_data>,
-  .acquire = blob_acquire<my_data>,
-  .save    = blob_save<my_data>,
-  .load    = blob_load<my_data>
-};
+static PL_blob_t my_blob = PL_BLOB_DEFINITION(my_data, "my_blob");
 
 struct my_data : public PlBlob<my_blob>
 { my_connection *connection;
@@ -1244,6 +1234,7 @@ struct my_data : public PlBlob<my_blob>
 
   int compare_fields(const PlBlob<my_blob>* _b_data) const override
   { // dynamic_cast is safer than static_cast, but slower (see documentation)
+    // It's used here for testing (the documentation has static_cast)
     auto b_data = dynamic_cast<const my_data*>(_b_data);
     assert(b_data);
     assert(this != b_data); // Prolog should have already done this test.
@@ -1268,7 +1259,7 @@ PREDICATE(create_my_blob, 2)
 
   if ( !ref->connection->open() )
     throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
-  PlCheckFail(A2.unify_blob(ref.get(), sizeof *ref, &my_blob));
+  PlCheckFail(A2.unify_blob(ref.get()));
   (void)ref.release();
   return true;
 }

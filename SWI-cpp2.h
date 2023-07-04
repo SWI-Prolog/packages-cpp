@@ -631,7 +631,8 @@ public:
 
   // E.g.: t.write(Serror, 1200, PL_WRT_QUOTED);
   [[nodiscard]] int write(IOSTREAM *s, int precedence, int flags) const
-  { return Plx_write_term(s, C_, precedence, flags & ~PL_WRT_NEWLINE);
+  { // TODO: move "&~PL_WRITE_NEWLINE" to PL_write_term() and update foreign.doc
+    return Plx_write_term(s, C_, precedence, flags & ~PL_WRT_NEWLINE);
   }
 
   void reset_term_refs() { Plx_reset_term_refs(C_); }
@@ -666,6 +667,7 @@ public:
 [[nodiscard]]
 inline int
 PlAtom::write(IOSTREAM *s, int flags) const {
+  // TODO: move "&~PL_WRITE_NEWLINE" to PL_write_term() and update foreign.doc
   return PlTerm_atom(*this).write(s, 1200, flags & ~PL_WRT_NEWLINE);
 }
 

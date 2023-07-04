@@ -926,8 +926,12 @@ Explanation of the \ctype{my_data} structure:
       \item write() A default implementation that outputs \exam{<my_blob>(ptr)}.
             It calls write_fields() to allow adding class-specific information.
       \item write_fields() allows outputting class-specific information.
+            It is given the flags that were passed to PL_write_term() that
+            called write_fields(), with some of the flags removed
+            (such as \exam{PL_WRT_NEWLINE}), so that write_fields() can
+            call PlTerm::write() or PlAtom::write() with the same flags.
       \item save() Generates an error when attempting to save the blob.
-      \item laod() generates an error when attemptint to laod the blob.
+      \item load() generates an error when attemptint to load the blob.
       \end{itemize}
 
 \item The blob_size_() virtual method is abstract; when the blob is defined,

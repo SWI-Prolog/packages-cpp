@@ -92,7 +92,7 @@ class PlTerm;
 class PlTermv;
 class PlRecord;
 class PlRecordExternalCopy;
-template<const PL_blob_t& blob_t> class PlBlob;
+class PlBlob;
 
 
 // PlFail is a pseudo-exception for quick exist on failure, for use by
@@ -590,11 +590,10 @@ public:
   [[nodiscard]] bool unify_list(PlTerm h, PlTerm t)      const { return Plx_unify_list(C_, h.C_, t.C_); }
   [[nodiscard]] bool unify_bool(bool val)                const { return Plx_unify_bool(C_, val); }
 
-  template<const PL_blob_t& blob_t>
-  [[nodiscard]] bool unify_blob(PlBlob<blob_t>* blob) const
-  { return unify_blob(static_cast<void*>(blob), blob->blob_size_(), const_cast<PL_blob_t*>(&blob_t)); }
-  [[nodiscard]] bool unify_blob(void *blob, size_t len, PL_blob_t *type) const
-  { return Plx_unify_blob(C_, blob, len, type); }
+
+  [[nodiscard]] bool unify_blob(const PlBlob* blob) const;
+  [[nodiscard]] bool unify_blob(const void *blob, size_t len, const PL_blob_t *type) const
+  { return Plx_unify_blob(C_, const_cast<void*>(blob), len, const_cast<PL_blob_t*>(type)); }
 
   // TODO: PL_unify_mpz(), PL_unify_mpq()
 
@@ -1547,7 +1546,7 @@ cast_blob(PlAtom aref)
 { size_t len;
   PL_blob_t *type;
   auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
-  if ( ref && type == ref->blob_t_())
+  if ( ref && type == ref->blob_t_)
   { assert(len == sizeof *ref);
     return ref;
   }
@@ -1602,7 +1601,8 @@ int blob_save(atom_t a, IOSTREAM *fd)
 
 template<typename C_t> [[nodiscard]]
 atom_t blob_load(IOSTREAM *fd)
-{ return C_t::load(fd).C_;
+{ C_t ref;
+  return ref.load(fd).C_;
 }
 
 
@@ -1618,20 +1618,21 @@ atom_t blob_load(IOSTREAM *fd)
   .load    = blob_load<   blob_class>	\
 }
 
+#define PL_BLOB_SIZE \
+  virtual size_t blob_size_() const override { return sizeof *this; }
 
-template<const PL_blob_t& blob_t>
 class PlBlob
 {
 public:
-  explicit PlBlob() { }
+  explicit PlBlob(const PL_blob_t* _blob_t)
+    : blob_t_(_blob_t) { }
+  explicit PlBlob() = delete;
   explicit PlBlob(const PlBlob&) = delete;
   explicit PlBlob(PlBlob&&) = delete;
   PlBlob& operator =(const PlBlob&) = delete;
   virtual ~PlBlob() = default;
 
-  const PL_blob_t *blob_t_() { return &blob_t; }
-
-  virtual size_t blob_size_() const = 0;
+  virtual size_t blob_size_() const = 0; // See PL_BLOB_SIZE
 
   void acquire(PlAtom _symbol) {
     symbol_ = _symbol;
@@ -1646,7 +1647,7 @@ public:
 
   PlTerm symbol_term() const;
 
-  virtual int compare_fields(const PlBlob<blob_t> *_b) const
+  virtual int compare_fields(const PlBlob *_b) const
   { return 0;
   }
 
@@ -1657,7 +1658,9 @@ public:
 
   virtual bool save(IOSTREAM *fd) const;
 
-  static PlAtom load(IOSTREAM *fd);
+  virtual PlAtom load(IOSTREAM *fd);
+
+  const PL_blob_t* blob_t_ = nullptr;
 
   // associated symbol (used for error terms)
   // filed in by acquire():
@@ -1665,37 +1668,40 @@ public:
 };
 
 
-template<const PL_blob_t& blob_t>
 inline
-bool PlBlob<blob_t>::write(IOSTREAM *s, int flags) const
-{ return Sfprintf(s, "<%s>(%p", blob_t.name, this) &&
+bool PlBlob::write(IOSTREAM *s, int flags) const
+{ return Sfprintf(s, "<%s>(%p", blob_t_->name, this) &&
     write_fields(s, flags) &&
     // In general, the flags are handled by the calling
     // Plx_write_term(), so don't check for, e.g., flags&PL_WRT_NEWLINE.
     Sfprintf(s, ")");
 }
 
-template<const PL_blob_t& blob_t>
 inline
-bool PlBlob<blob_t>::save(IOSTREAM *fd) const
-{ return PL_warning("Cannot save reference to <%s>(%p)", blob_t.name, this);
+bool PlBlob::save(IOSTREAM *fd) const
+{ return PL_warning("Cannot save reference to <%s>(%p)", blob_t_->name, this);
 }
 
-template<const PL_blob_t& blob_t>
 inline
-PlAtom PlBlob<blob_t>::load(IOSTREAM *fd)
-{ (void)PL_warning("Cannot load reference to <%s>", blob_t.name);
-  PL_fatal_error("Cannot load reference to <%s>", blob_t.name);
+PlAtom PlBlob::load(IOSTREAM *fd)
+{ (void)PL_warning("Cannot load reference to <%s>", blob_t_->name);
+  PL_fatal_error("Cannot load reference to <%s>", blob_t_->name);
   return PlAtom(PlAtom::null);
 }
 
-template<const PL_blob_t& blob_t>
 inline
-PlTerm PlBlob<blob_t>::symbol_term() const
+PlTerm PlBlob::symbol_term() const
 { if ( symbol_not_null() )
     return PlTerm_atom(symbol_);
   return PlTerm_var();
 }
+
+inline
+bool PlTerm::unify_blob(const PlBlob* blob) const
+{ return PlTerm::unify_blob(static_cast<const void*>(blob),
+                            blob->blob_size_(), blob->blob_t_);
+}
+
 
 
 #endif /*_SWI_CPP2_H*/

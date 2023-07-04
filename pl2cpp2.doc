@@ -774,22 +774,23 @@ Here is minimal sample code for creating a blob that owns a connection
 to a database. It has a single field (\exam{connection}) and
 defines \cfuncref{compare_fields}{} and \cfuncref{write_fields}{}.
 Note that you must add the boilerplate definition for the virtual
-method blob_size_(), using the convenience macro
-\cmacro{}PL_BLOB_DISPLATCH{blob_class,blob_name}.
+method blob_size_(), using the convenience macros
+\cmacro{}PL_BLOB_DEFINITION{blob_class,blob_name} and
+\cmacro{}PL_BLOB_SIZE.
 
 \begin{code}
-struct my_data;
+struct dbref;
 
-static PL_blob_t my_blob = PL_BLOB_DEFINITION(my_data, "my_blob");
+static PL_blob_t my_blob = PL_BLOB_DEFINITION(dbref, "my_blob");
 
-struct my_data : public PlBlob<my_blob>
-{ my_connection *connection;
+struct dbref : public PlBlob
+{ my_connection *connection = nullptr;
 
-  explicit my_data()
-    : connection(nullptr)
+  explicit dbref()
+    : PlBlob(&my_blob)
   { }
 
-  ~my_data()
+  ~dbref()
   { if ( connection )
     { // This is similar to close_my_blob/1, except there's no check
       // for an error -- there's nothing we can do on an error because
@@ -799,10 +800,10 @@ struct my_data : public PlBlob<my_blob>
     }
   }
 
-  virtual size_t blob_size_() const override { return sizeof *this; }
+  PL_BLOB_SIZE
 
-  int compare_fields(const PlBlob<my_blob>* _b_data) const override
-  { auto b_data = static_cast<const my_data*>(_b_data); // See note about cast
+  int compare_fields(const PlBlob* _b_data) const override
+  { auto b_data = static_cast<const dbref*>(_b_data); // See note about cast
     if ( connection && b_data->connection )
       return connection->name.compare(b_data->connection->name);
     return connection ? 1 : b_data->connection ? -1 : 0;
@@ -817,7 +818,11 @@ struct my_data : public PlBlob<my_blob>
 
 // %! create_my_blob(+Options, -MyBlob) is semidet.
 PREDICATE(create_my_blob, 2)
-{ auto ref = std::make_unique<my_data>();;
+{ // Allocating the blob uses unique_ptr<dbref> so that it'll be
+  // deleted if an error happens - the auto-deletion is disabled by
+  // ref.release() before returning success.
+
+  auto ref = std::make_unique<dbref>();
 
   // ... fill in the fields of *ref from options in A1  ...
 
@@ -832,7 +837,7 @@ PREDICATE(create_my_blob, 2)
 // % Close the connection, silently succeeding if is already
 // % closed; throw an exception if something goes wrong.
 PREDICATE(close_my_blob, 1)
-{ auto ref = cast_blob_check<my_data>(A1.as_atom());
+{ auto ref = cast_blob_check<dbref>(A1.as_atom());
   auto c = ref->connection;
   ref->connection = nullptr;
   if ( c )
@@ -845,27 +850,34 @@ PREDICATE(close_my_blob, 1)
 }
 \end{code}
 
-Explanation of the \ctype{my_blob} structure:
+Explanation of the \ctype{my_blob} structure, which is usually
+created using \cmacro{}{PL_BLOB_DEFINITION{blob_class,blob_name}.
+It should be declared outside the \ctype{PlBlob} class and should
+not be marked \exam{const} - otherwise, a runtime error can
+occur.\footnote{The cause of the runtime error is not clear, but
+possibly has to do with the order of initializing globals.}
+
 \begin{itemize}
 
 \item The \exam{magic}, \exam{flags}, and \exam{name} flags are required.
 
 \item The \exam{release} and \exam{acquire} fields are required. The
       defaults given will normally suffice (see more on this in the
-      definition of \exam{my_data}).
+      definition of \exam{dbref}). These can be extended by overriding
+      PlBlob::acquire2() or PlBlob::release2().
 
 \item The default \cfuncref{save}{} and \cfuncref{load}{} provide a
-      default implementation that throws an error on an attempt to
+      implementation that throws an error on an attempt to
       save the blob (e.g., by using \qsave_program/[1,2]). If they are
       omitted, the defaults for \cfuncref{save}{} and
       \cfuncref{load}{} are used, which save the internal form of the
       blob, which is probably not what you want. If you wish to define
       your own \cfuncref{save}{} and \cfuncref{load}{}, you must also
       add \cfuncref{save}{} and \cfuncref{load}{} methods to
-      \ctype{my_data}.
+      \ctype{dbref}.
 
 \item The default \cfuncref{compare}{} does a pointer
-      comparison. You can define a \cfuncref{compare_fields}{}; 
+      comparison. You can define a \cfuncref{compare_fields}{};
       if it returns 0 (equal), the pointers are compared.
       If no \cfuncref{compare}{} is specified in the definition
       of the blob (\ctype{PL_blob_t}), the default
@@ -885,16 +897,16 @@ Explanation of the \ctype{my_blob} structure:
 
 \end{itemize}
 
-Explanation of the \ctype{my_data} structure:
+Explanation of the \ctype{dbref} structure:
 
 \begin{itemize}
 
-\item \ctype{PlBlob<my_blob>} provides default methods plus a few
+\item \ctype{PlBlob} provides default methods plus a few
       utility methods and functions:
       \begin{itemize}
       \item Copy and move constructors are disabled, as is the
             assignment operator.
-      \item blob_t_() gets the \ctype{PL_blob_t} definition.
+      \item blob_t_() gets a pointer to the \ctype{PL_blob_t} definition.
       \item acquire() is used by the default \cfuncref{acquire}{} function;
             it fills in the \exam{symbol} field. It calls acquire2()
             for any additional actions.
@@ -925,6 +937,9 @@ Explanation of the \ctype{my_data} structure:
       \item load() generates an error when attemptint to load the blob.
       \end{itemize}
 
+\item The constructor sets the \ctype{PL_blob_t} value, which is similar
+      to a C++ vtable.
+
 \item The blob_size_() virtual method is abstract; when the blob is defined,
       it must contain the following, which is used by PlTerm::unify_blob():
       \begin{code}
@@ -945,10 +960,10 @@ Explanation of create_my_blob/2:
 
 \begin{itemize}
 
-\item \exam{std::make_unique<my_data>()} creates a
-      \ctype{std::unique_ptr<my_data>} that is deleted when it goes
+\item \exam{std::make_unique<dbref>()} creates a
+      \ctype{std::unique_ptr<dbref>} that is deleted when it goes
       out of scope. If an exception occurs between the creation of the
-      blob (as a \ctype{std::unique_ptr<my_data>}) and the call to
+      blob (as a \ctype{std::unique_ptr<dbref>}) and the call to
       \cfuncref{unify_blob}{}, the pointer will be freed (and the
       \ctype{MyBlob} destructor will be called.
 
@@ -966,13 +981,13 @@ Explanation of close_my_blob/1:
 
 \begin{itemize}
 
-\item This code is similar to the destructor for \ctype{my_data},
+\item This code is similar to the destructor for \ctype{dbref},
       except it throws an error if something goes wrong during the
       "close".
 
 \item Other predicates that use the blob access the
       blob from the arguments the same way, namely
-      \exam{cast_blob_check<my_data>(A1.as_atom())}.
+      \exam{cast_blob_check<dbref>(A1.as_atom())}.
 
 \end{itemize}
 

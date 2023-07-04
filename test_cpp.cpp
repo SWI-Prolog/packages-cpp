@@ -1209,18 +1209,18 @@ struct my_connection
 };
 
 
-struct my_data;
+struct dbref;
 
-static PL_blob_t my_blob = PL_BLOB_DEFINITION(my_data, "my_blob");
+static PL_blob_t my_blob = PL_BLOB_DEFINITION(dbref, "my_blob");
 
-struct my_data : public PlBlob<my_blob>
-{ my_connection *connection;
+struct dbref : public PlBlob
+{ my_connection *connection = nullptr;
 
-  explicit my_data()
-    : connection(nullptr)
+  explicit dbref()
+    : PlBlob(&my_blob)
   { }
 
-  ~my_data()
+  ~dbref()
   { if ( connection )
     { // This is similar to close_my_blob/1, except there's no check
       // for an error -- there's nothing we can do on an error because
@@ -1230,12 +1230,12 @@ struct my_data : public PlBlob<my_blob>
     }
   }
 
-  virtual size_t blob_size_() const override { return sizeof *this; }
+  PL_BLOB_SIZE
 
-  int compare_fields(const PlBlob<my_blob>* _b_data) const override
+  int compare_fields(const PlBlob* _b_data) const override
   { // dynamic_cast is safer than static_cast, but slower (see documentation)
     // It's used here for testing (the documentation has static_cast)
-    auto b_data = dynamic_cast<const my_data*>(_b_data);
+    auto b_data = dynamic_cast<const dbref*>(_b_data);
     assert(b_data);
     assert(this != b_data); // Prolog should have already done this test.
     if ( connection && b_data->connection )
@@ -1252,7 +1252,11 @@ struct my_data : public PlBlob<my_blob>
 
 // %! create_my_blob(+Name: atom, -MyBlob) is semidet.
 PREDICATE(create_my_blob, 2)
-{ auto ref = std::make_unique<my_data>();
+{ // Allocating the blob uses unique_ptr<dbref> so that it'll be
+  // deleted if an error happens - the auto-deletion is disabled by
+  // ref.release() before returning success.
+
+  auto ref = std::make_unique<dbref>();
 
   // ... fill in the fields of *ref from A1  ...
   ref->connection = new my_connection(A1.as_atom().as_string());
@@ -1268,7 +1272,7 @@ PREDICATE(create_my_blob, 2)
 // % Close the connection, silently succeeding if is already
 // % closed; throw an exception if something goes wrong.
 PREDICATE(close_my_blob, 1)
-{ auto ref = cast_blob_check<my_data>(A1.as_atom());
+{ auto ref = cast_blob_check<dbref>(A1.as_atom());
   auto c = ref->connection;
   ref->connection = nullptr;
   if ( c )

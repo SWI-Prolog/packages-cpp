@@ -743,6 +743,14 @@ PlQuery::next_solution()
 }
 
 
+		 /*******************************
+		 *	    DEBUG		*
+		 *******************************/
+
+// This is used in SWI-cpp2-plx.h - currently its action is commented out.
+// TODO: remove this when PlWrapDebug() is removed from SWI-cpp2-plx.h
+
+
 #ifdef O_DEBUG
 #include <SWI-Stream.h>
 void PlWrapDebug(const char*msg) {

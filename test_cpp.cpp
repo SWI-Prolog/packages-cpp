@@ -1240,6 +1240,8 @@ struct my_data : public PlBlob<my_blob>
     }
   }
 
+  virtual size_t blob_size_() const override { return sizeof *this; }
+
   int compare_fields(const PlBlob<my_blob>* _b_data) const override
   { // dynamic_cast is safer than static_cast, but slower (see documentation)
     auto b_data = dynamic_cast<const my_data*>(_b_data);

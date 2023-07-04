@@ -773,6 +773,8 @@ in the "release" function. Optionally, define one or more of
 Here is minimal sample code for creating a blob that owns a connection
 to a database. It has a single field (\exam{connection}) and
 defines \cfuncref{compare_fields}{} and \cfuncref{write_fields}{}.
+Note that you must add the boilerplate definition for the virtual
+method blob_size_().
 
 \begin{code}
 struct my_data;
@@ -806,6 +808,8 @@ struct my_data : public PlBlob<my_blob>
     }
   }
 
+  virtual size_t blob_size_() const override { return sizeof *this; }
+
   int compare_fields(const PlBlob<my_blob>* _b_data) const override
   { auto b_data = static_cast<const my_data*>(_b_data); // See note
     if ( connection && b_data->connection )
@@ -828,7 +832,7 @@ PREDICATE(create_my_blob, 2)
 
   if ( !ref->connection->open() )
     throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
-  PlCheckFail(A2.unify_blob(ref.get(), sizeof *ref, &my_blob));
+  PlCheckFail(A2.unify_blob(ref.get()));
   (void)ref.release();
   return true;
 }
@@ -875,14 +879,14 @@ Explanation of the \ctype{my_blob} structure:
       If no \cfuncref{compare}{} is specified in the definition
       of the blob (\ctype{PL_blob_t}), the default
       is a bit-wise comparison.
-      The \compare_fields}{} method receives a pointer to
+      The compare_fields}{} method receives a pointer to
       \ctype{PlBob<my_blob>} - it is safe to use
       \exam{static_cast} to convert this to a pointer to
       \ctype{my_blob} because Prolog guarantees that the
       \cfuncref{compare_fields}{} method will only be called
       if two blobs are of the same type.
 
-\item The dfault \cfuncref{write}{} outputs something of the
+\item The default \cfuncref{write}{} outputs something of the
       form \exam{<my_blob>(0x1234)}, giving the blob type name
       and its address. You can define \cfuncref{write_fields}{},
       to provide additional information - in the example code,
@@ -899,10 +903,14 @@ Explanation of the \ctype{my_data} structure:
       \begin{itemize}
       \item Copy and move constructors are disabled, as is the
             assignment operator.
-      \item validate() verifies that the blob is valid, assuming that
-            the default \cfuncref{acquire}{} has been called.
+      \item blob_t_() gets the \ctype{PL_blob_t} definition.
       \item acquire() is used by the default \cfuncref{acquire}{} function;
-            it fills in the \exam{symbol} field.
+            it fills in the \exam{symbol} field. It calls acquire2()
+            for any additional actions.
+      \item acquire2() is called by aquire() to do any additional processing
+            when the blob is first initialized. The default does nothing.
+      \item release2() is called by the blob's release() callback.
+            The default does nothing.
       \item symbol_not_null() tests whether \exam{symbol} has been set
             (this will normally be the case, unless the \cfuncref{acquire}{}
             function hasn't been called as part of the blob creation
@@ -921,6 +929,12 @@ Explanation of the \ctype{my_data} structure:
       \item save() Generates an error when attempting to save the blob.
       \item laod() generates an error when attemptint to laod the blob.
       \end{itemize}
+
+\item The blob_size_() virtual method is abstract; when the blob is defined,
+      it must contain the following, which is used by PlTerm::unify_blob():
+      \begin{code}
+      virtual size_t blob_size_() const override { return sizeof *this; }
+      \end{code}
 
 \item The constructor must initialize fields so that the destructor
       can determine whether to delete them or not. Typically, this is
@@ -1677,6 +1691,8 @@ See also \secref{cpp2-foreign-frame}.
     \cfunction{bool}{PlTerm::unify_pointer}{void *}
     \nodescription
     \cfunction{bool}{PlTerm::unify_nil}{}
+    \nodescription
+    \cfunction{bool}{PlTerm::unify_blob}{PlBlob<blob_t>* blob}
     \nodescription
     \cfunction{bool}{PlTerm::unify_blob}{void *blob, size_t len, PL_blob_t *type}
     \nodescription

@@ -1537,85 +1537,87 @@ private:
 		 *          BLOBS		*
 		 *******************************/
 
-// TODO: these should be in a namespace
-
-
-template<typename C_t> [[nodiscard]]
-static C_t *
-cast_blob(PlAtom aref)
-{ size_t len;
-  PL_blob_t *type;
-  auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
-  if ( ref && type == ref->blob_t_)
-  { assert(len == sizeof *ref);
-    return ref;
-  }
-  return nullptr;
-}
-
-template<typename C_t> [[nodiscard]]
-static C_t*
-cast_blob_check(PlAtom aref)
-{ auto ref = cast_blob<C_t>(aref);
-  assert(ref);
-  return ref;
-}
 
 template<typename C_t>
-void blob_acquire(atom_t a)
-{ PlAtom a_(a);
-  auto data = cast_blob_check<C_t>(a_);
-  data->acquire(a_);
-}
-
-template<typename C_t> [[nodiscard]]
-int blob_release(atom_t a)
-{ auto data = cast_blob_check<C_t>(PlAtom(a));
-  data->release2();
-  delete data;
-  return true;
-}
-
-template<typename C_t> [[nodiscard]]
-int blob_compare(atom_t a, atom_t b)
-{ const auto a_data = cast_blob_check<C_t>(PlAtom(a));
-  const auto b_data = cast_blob_check<C_t>(PlAtom(b));
-  int rc = a_data->compare_fields(b_data);
-  if ( rc == 0 )
-    { return (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
+class PlBlobV
+{
+public:
+  [[nodiscard]]
+  static C_t *
+  cast(PlAtom aref)
+  { size_t len;
+    PL_blob_t *type;
+    auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
+    if ( ref && type == ref->blob_t_ )
+    { assert(len == sizeof *ref);
+      return ref;
+    }
+    return nullptr;
   }
-  return rc;
-}
 
-template<typename C_t> [[nodiscard]]
-int blob_write(IOSTREAM *s, atom_t a, int flags)
-{ const auto data = cast_blob_check<C_t>(PlAtom(a));
-  return data->write(s, flags);
-}
+  [[nodiscard]]
+  static C_t*
+  cast_check(PlAtom aref)
+  { auto ref = cast(aref);
+    assert(ref);
+    return ref;
+  }
 
-template<typename C_t> [[nodiscard]]
-int blob_save(atom_t a, IOSTREAM *fd)
-{ const auto data = cast_blob_check<C_t>(PlAtom(a));
-  return data->save(fd);
-}
+  static void acquire(atom_t a)
+  { PlAtom a_(a);
+    auto data = cast_check(a_);
+    data->acquire(a_);
+  }
 
-template<typename C_t> [[nodiscard]]
-atom_t blob_load(IOSTREAM *fd)
-{ C_t ref;
-  return ref.load(fd).C_;
-}
+  [[nodiscard]]
+  static int release(atom_t a)
+  { auto data = cast_check(PlAtom(a));
+    data->release2();
+    delete data;
+    return true;
+  }
+
+  [[nodiscard]]
+  static int compare(atom_t a, atom_t b)
+  { const auto a_data = cast_check(PlAtom(a)); // TODO: cast(...)
+    const auto b_data = cast_check(PlAtom(b));
+    int rc = a_data->compare_fields(b_data);
+    if ( rc == 0 )
+    { return (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
+    }
+    return rc;
+  }
+
+  [[nodiscard]]
+  static int write(IOSTREAM *s, atom_t a, int flags)
+  { const auto data = cast_check(PlAtom(a));
+    return data->write(s, flags);
+  }
+
+  [[nodiscard]]
+  static int save(atom_t a, IOSTREAM *fd)
+  { const auto data = cast_check(PlAtom(a));
+    return data->save(fd);
+  }
+
+  [[nodiscard]]
+  static atom_t load(IOSTREAM *fd)
+  { C_t ref;
+    return ref.load(fd).C_;
+  }
+};
 
 
 #define PL_BLOB_DEFINITION(blob_class, blob_name) \
 { .magic   = PL_BLOB_MAGIC,		\
   .flags   = PL_BLOB_NOCOPY,		\
   .name    = blob_name,			\
-  .release = blob_release<blob_class>,	\
-  .compare = blob_compare<blob_class>,	\
-  .write   = blob_write<  blob_class>,	\
-  .acquire = blob_acquire<blob_class>,	\
-  .save    = blob_save<   blob_class>,	\
-  .load    = blob_load<   blob_class>	\
+  .release = PlBlobV<blob_class>::release,	\
+  .compare = PlBlobV<blob_class>::compare,	\
+  .write   = PlBlobV<blob_class>::write,	\
+  .acquire = PlBlobV<blob_class>::acquire,	\
+  .save    = PlBlobV<blob_class>::save,		\
+  .load    = PlBlobV<blob_class>::load		\
 }
 
 #define PL_BLOB_SIZE \

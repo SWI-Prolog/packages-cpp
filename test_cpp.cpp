@@ -1272,7 +1272,7 @@ PREDICATE(create_my_blob, 2)
 // % Close the connection, silently succeeding if is already
 // % closed; throw an exception if something goes wrong.
 PREDICATE(close_my_blob, 1)
-{ auto ref = cast_blob_check<dbref>(A1.as_atom());
+{ auto ref = PlBlobV<dbref>::cast_check(A1.as_atom());
   auto c = ref->connection;
   ref->connection = nullptr;
   if ( c )

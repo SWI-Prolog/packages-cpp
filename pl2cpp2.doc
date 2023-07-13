@@ -73,7 +73,7 @@ More specifically:
     \ctype{PlFail}, similar to returning \const{false} from the
     top-level of a foreign predicate.}
 \item
-    The \ctype{PlException} class is a subclass of \ctype{std::excxeption}
+    The \ctype{PlException} class is a subclass of \ctype{std::exception}
     and encapsulates a Prolog error.
     Prolog errors are converted into \exam{throw PlException(...)}.
     If the user code does not catch the \ctype{PlException}, the PREDICATE()
@@ -464,7 +464,7 @@ to build complex terms and provide argument-lists to Prolog goals.
 \end{description}
 
     \classitem{PlException}
-Subclass of \ctype{std::exception}, representing a Prolog exception.
+Subclass of \ctype{PlExceptionBase}, representing a Prolog exception.
 Provides methods for the Prolog communication and mapping to
 human-readable text representation.
 \begin{description}
@@ -481,6 +481,11 @@ Creates a \ctype{PlException} object for representing a Prolog
 Creates a \ctype{PlException}object for representing a Prolog
 \except{permission_error} exception.
 \end{description}
+
+    \classitem{PlExceptionBase}
+A "do nothing" subclass of \ctype{std::exception}, to allow catching
+\ctype{PlException}, \ctype{PlExceptionFail} or \ctype{PlFail}
+in a single "catch" clause.
 
     \classitem{PlAtom}
 Allow for manipulating atoms (\ctype{atom_t}) in their internal Prolog
@@ -571,6 +576,11 @@ PL_next_solution() has multiple return values (\const{PL_S_EXCEPTION},
 Most of the PL_*() functions whose first argument is of type
 \ctype{term_t}, \ctype{atom_t}, etc. have corresponding methods
 in classes \ctype{PlTerm}, \ctype{PlAtom}, etc.
+
+\emph{Important}: You should use the Plx_*() wrappers only in the
+context of a PREDICATE() call, which will handle any C++ exceptions.
+If you use a Plx_*() wrapper in another situation (e.g., in a
+callback for a blob), results are unpredicatable (probably a crash).
 
 \subsection{Naming conventions, utility functions and methods (version 2)}
 \label{sec:cpp2-naming}
@@ -933,6 +943,9 @@ Explanation of the \ctype{dbref} structure:
             called write_fields(), with some of the flags removed
             (such as \exam{PL_WRT_NEWLINE}), so that write_fields() can
             call PlTerm::write() or PlAtom::write() with the same flags.
+            \emph{Note}: if you use any C++ functions or methods that
+            can throw an exception, you should catch them and return
+            \const{false}.
       \item save() Generates an error when attempting to save the blob.
       \item load() generates an error when attemptint to load the blob.
       \end{itemize}

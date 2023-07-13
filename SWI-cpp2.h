@@ -95,13 +95,21 @@ class PlRecordExternalCopy;
 class PlBlob;
 
 
+// PlExceptionBase is used for try-catch that handles the
+// exceptions defined in this header file but excluds the
+// standard C++ exceptions.
+class PlExceptionBase : public std::exception
+{
+};
+
+
 // PlFail is a pseudo-exception for quick exist on failure, for use by
 // the PlTerm::unify methods and PlQuery::next_solution().  This is
 // special-cased in the PREDICATE et al macros.  Note that it is *not*
 // a subclass of PlException. See the documentation for more details
 // on how this works with returning Prolog failure and returning
 // exceptions.
-class PlFail : public std::exception
+class PlFail : public PlExceptionBase
 {
 public:
   explicit PlFail() {}
@@ -114,7 +122,7 @@ public:
 // PlExceptionFail is a variant of PlFail, for when a resource error
 // happens and we can't use PlException (because we're out of resources
 // and therefore can't create any more terms).
-class PlExceptionFail : public std::exception
+class PlExceptionFail : public PlExceptionBase 
 {
 public:
   explicit PlExceptionFail() {}
@@ -943,7 +951,7 @@ private:
 //       - the same as below
 //       - PlExceptionFailImpl - for error(resource_error(_))
 
-class PlException : public std::exception
+class PlException : public PlExceptionBase
 {
 public:
   explicit PlException(const PlTerm& t)

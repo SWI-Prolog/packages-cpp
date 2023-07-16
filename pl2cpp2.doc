@@ -37,9 +37,9 @@ More specifically:
      either \verb$#include <SWI-cpp2.cpp>$ or compile it separately and
      link it with the other foreign  function code.
   \item
-     The constructor \cfuncref{PlTerm}{} is restricted to a few
+     The constructor PlTerm() is restricted to a few
      unambiguous cases - instead, you should use the appropriate
-     subclass' constructors (\cfuncref{PlTerm_var}{},
+     subclass' constructors (PlTerm_var(),
      \cfuncref{PlTerm_atom}{a}, \cfuncref{PlTerm_term_t}{t},
      \cfuncref{PlTerm_integer}{i}, \cfuncref{PlTerm_int64}{i},
      \cfuncref{PlTerm_uint64}{i}, \cfuncref{PlTerm_size_t}{i},
@@ -68,10 +68,10 @@ More specifically:
     are used, Prolog errors result in a C++ \ctype{PlException}
     exception.\footnote{If a ``Plx_'' wrapper is used to call a
     \file{SWI-Prolog.h} function, a Prolog error will have already
-    resulted in throwing \ctype{PlException};
+    resulted in throwing \ctype{PlException}};
     `cfuncref{PlCheckFail}{rc} is used to additionally throw
     \ctype{PlFail}, similar to returning \const{false} from the
-    top-level of a foreign predicate.}
+    top-level of a foreign predicate.
 \item
     The \ctype{PlException} class is a subclass of \ctype{std::exception}
     and encapsulates a Prolog error.
@@ -92,8 +92,8 @@ More specifically:
     more verbose: \exam{static_cast<char*>(t)}.}
   \item
     The overloaded assignment operator for unification is deprecated;
-    replaced by \cfuncref{unify_term}{}, \cfuncref{unify_atom}{},
-    etc., and the helper \cfuncref{PlCheckFail}{}.
+    replaced by unify_term(), unify_atom(),
+    etc., and the helper PlCheckFail().
   \item
     Many of the equality and inequality operators are deprecated;
     replaced by the as_string() method and the associated
@@ -119,8 +119,8 @@ More specifically:
     arguments. Where possible, encoding information can also be
     specified.
   \item
-    Type-checking methods have been added: \cfuncref{type}{},
-    \cfuncref{is_variable}{}, \cfuncref{is_atom}{}, etc.
+    Type-checking methods have been added: type(),
+    is_variable(), is_atom(), etc.
   \item
     \ctype{PlString} has been renamed to \ctype{PlTerm_string} to make it clear
     that it's a term that contains a Prolog string.
@@ -141,14 +141,14 @@ More specifically:
     \exam{C_}.\footnote{This is done by subclassing from
     \ctype{Wrapped<term_t>}, \ctype{Wrapped<atom_t>}, etc., which
     define the field \exam{C_}, standard constructors, the methods
-    \cfuncref{is_null}{}, \cfuncref{not_null}{}, \cfuncref{reset}{},
+    is_null(), not_null(), reset(),
     and \cfuncref{reset}{v}, plus the constant \const{null}.}
   \item
     A convenience class \ctype{PlForeignContextPtr<\emph{ContextType}>}
     has been added, to simplify dynamic memory allocation in
     non-deterministic predicates.
   \item
-    A convenience function \cfuncref{PlRewindOnFail}{} has been added,
+    A convenience function PlRewindOnFail() has been added,
     to simplify non-deterministic code that does backtracking by
     checking unification results.
   \item
@@ -214,10 +214,10 @@ some convenience functions (see \secref{summary-cpp2-changes}).
 \section{The life of a PREDICATE (version 2)}
 \label{sec:cpp2-life-of-a-predicate}
 
-A foreign predicate is defined using the \cfuncref{PREDICATE}{}
+A foreign predicate is defined using the PREDICATE()
 macro, pPlus a few variations on this, such as
-\cfuncref{PREDICATE_NONDET}{}, \cfuncref{NAMED_PREDICATE}{}, and
-\cfuncref{NAMED_PREDICATE_NONDET}{}. This defines an internal name for
+PREDICATE_NONDET(), NAMED_PREDICATE(), and
+NAMED_PREDICATE_NONDET(). This defines an internal name for
 the function, registers it with the SWI-Prolog runtime (where it will
 be picked up by the use_foreign_library/1 directive), and defines the
 names \exam{A1}, \exam{A2}, etc. for the arguments.\footnote{You can
@@ -235,8 +235,8 @@ predicate). When a Prolog exception is raised, it is important that a
 return be made to the calling environment as soon as possible. In C
 code, this requires checking every call for failure, which can become
 cumbersome. C++ has exceptions, so instead the code can wrap calls to
-\cfuncref{PL_*}{} functions with \cfuncref{PlCheck_PL}{} or
-\cfuncref{PlCheckEx}{}, which will throw a PlException() to exit from
+PL_*() functions with PlCheck_PL() or
+PlCheckEx(), which will throw a PlException() to exit from
 the top level of the foreign predicate, and handle the failure or
 exception appropriately.
 
@@ -348,7 +348,7 @@ calls PL_new_term_ref() and throws an exception if this fails. The
 various constructors are described in
 \secref{cpp2-plterm-constructurs}. Note that the default constructor
 is not public; to create a "variable" term, you should use the
-subclass constructor \cfuncref{PlTerm_var}{}.
+subclass constructor PlTerm_var().
 
 \subsection{Summary of files}
 \label{sec:cpp2-files-summary}
@@ -520,7 +520,7 @@ object is turned back into a Prolog error.
     \classitem{PlExceptionFail}
 In some situations, a Prolog error cannot be turned into a
 \ctype{PlException} object, so a \ctype{PlExceptionFail} object
-is thrown. This is turned into failure by the \cfuncref{PREDICATE}{}
+is thrown. This is turned into failure by the PREDICATE()
 macro, resulting in normal Prolog error handling.
     \classitem{PlFrame}
 This utility-class can be used to discard unused term-references as well
@@ -535,7 +535,7 @@ use C++ global constructors for registering foreign predicates.
 \end{description}
 
 The required C++ function header and registration of a predicate
-is arranged through a macro called \cfuncref{PREDICATE}{}.
+is arranged through a macro called PREDICATE().
 
 \subsection{Wrapper functions}
 \label{sec:cpp2-wrapper-functions}
@@ -649,10 +649,10 @@ PREDICATE(mypred, 2)
 \end{code}
 
 For functions in \file{SWI-Prolog.h} that don't have a C++ equivalent
-in \file{SWI-cpp2.h}, \cfuncref{PlCheck_PL}{} is a convenience
+in \file{SWI-cpp2.h}, PlCheck_PL() is a convenience
 function that checks the return code and throws a \ctype{PlFail}
 exception on failure or \ctype{PlException} if there was an
-exception. The \cfuncref{PREDICATE}{} code catches \ctype{PlFail}
+exception. The PREDICATE() code catches \ctype{PlFail}
 exceptions and converts them to the \ctype{foreign_t} return code for
 failure.  If the failure from the C function was due to an exception
 (e.g., unification failed because of an out-of-memory condition), the
@@ -718,7 +718,7 @@ underlying C API can still be used. The use case is:
 \item The foreign object can be deleted when the blob is deleted.
 \item The blob's allocation is controlled by Prolog and its
       destructor is envoked when the blob is garbage collected.
-end{itemize}
+\end{itemize}
 
 A Prolog blob consists of five parts:
 \begin{itemize}
@@ -742,26 +742,26 @@ usually the programmer will specify all the template callbacks.
 For the data, which is subclassed from \ctype{PlBlob}, the programmer
 defines the various fields, a constructor that initializes them, and a
 destructor.  Optionally, methods can be defined for one of more of
-blob \cfuncref{compare_fields}{}, \cfuncref{write_fields}{},
-\cfuncref{save}{}, \cfuncref{load}{}. The \cfuncref{acquire}{} and
-\cfuncref{release}{} callbacks should normally be allowed to default
+blob compare_fields(), write_fields(),
+save(), load(). The acquire() and
+release() callbacks should normally be allowed to default
 to what is defined in \ctype{PlBlob}; and the default
-\cfuncref{write}{} and \cfuncref{compare}{} callbacks call
-\cfuncref{write_fields}{} and \cfuncref{compare_fields}{}.
+write() and compare() callbacks call
+write_fields() and compare_fields().
 
 There is a mismatch between how Prolog does memory management (and
 garbage collection) and how C++ does it. In particular, Prolog assumes
-that cleanup will be done in the \cfuncref{release}{} function
+that cleanup will be done in the release() function
 associated with the blob whereas C++ typically does cleanup in a
 destructor. The blob interface gets around this mismatch by providing
-a default \cfuncref{release}{} function that assumes that the blob was
+a default release() function that assumes that the blob was
 created using \const{PL_BLOB_NOCOPY} and manages memory using a
 \ctype{std::unique_ptr}.
 
 The C blob interface has a flag that determines how memory is managed:
 \const{PL_BLOB_NOCOPY}. If this is set, Prolog does not do a call to
-\cfuncref{free}{} when the blob is garbage collected; instead, it
-assumes that the blob's \cfuncref{release}{} function will free the
+free() when the blob is garbage collected; instead, it
+assumes that the blob's release() function will free the
 memory.
 
 The C++ API for blobs only supports blobs with
@@ -777,16 +777,16 @@ default \ctype{PlBlob} wrappers; no copy constructor, move
 constructor, or assignment operator; create blob with
 \exam{make_unique}, use \exam{unique_ptr::release}, do \exam{delete}
 in the "release" function. Optionally, define one or more of
-\cfuncref{compare_fields}{}, \cfuncref{write_fields}{},
-\cfuncref{save}{}, \cfuncref{load}{} methods.
+compare_fields(), write_fields(),
+save(), load() methods.
 
 Here is minimal sample code for creating a blob that owns a connection
 to a database. It has a single field (\exam{connection}) and
-defines \cfuncref{compare_fields}{} and \cfuncref{write_fields}{}.
+defines compare_fields() and write_fields().
 Note that you must add the boilerplate definition for the virtual
 method blob_size_(), using the convenience macros
-\cmacro{}PL_BLOB_DEFINITION{blob_class,blob_name} and
-\cmacro{}PL_BLOB_SIZE.
+\cfuncref{PL_BLOB_DEFINITION}{blob_class,blob_name} and
+PL_BLOB_SIZE().
 
 \begin{code}
 struct dbref;
@@ -854,14 +854,15 @@ PREDICATE(close_my_blob, 1)
   { bool rc = c->close();
     delete c;
     if ( !rc )
-      throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
+      throw PlGeneralError(PlCompound("my_blob_error",
+				      PlTermv(ref->symbol_term())));
   }
   return true;
 }
 \end{code}
 
 Explanation of the \ctype{my_blob} structure, which is usually
-created using \cmacro{}{PL_BLOB_DEFINITION{blob_class,blob_name}.
+created using \exam{PL_BLOB_DEFINITION(blob_class,blob_name)}.
 It should be declared outside the \ctype{PlBlob} class and should
 not be marked \exam{const} - otherwise, a runtime error can
 occur.\footnote{The cause of the runtime error is not clear, but
@@ -876,32 +877,32 @@ possibly has to do with the order of initializing globals.}
       definition of \exam{dbref}). These can be extended by overriding
       PlBlob::acquire2() or PlBlob::release2().
 
-\item The default \cfuncref{save}{} and \cfuncref{load}{} provide a
+\item The default save() and load() provide a
       implementation that throws an error on an attempt to
       save the blob (e.g., by using \qsave_program/[1,2]). If they are
-      omitted, the defaults for \cfuncref{save}{} and
-      \cfuncref{load}{} are used, which save the internal form of the
+      omitted, the defaults for save() and
+      load() are used, which save the internal form of the
       blob, which is probably not what you want. If you wish to define
-      your own \cfuncref{save}{} and \cfuncref{load}{}, you must also
-      add \cfuncref{save}{} and \cfuncref{load}{} methods to
+      your own save() and load(), you must also
+      add save() and load() methods to
       \ctype{dbref}.
 
-\item The default \cfuncref{compare}{} does a pointer
-      comparison. You can define a \cfuncref{compare_fields}{};
+\item The default compare() does a pointer
+      comparison. You can define a compare_fields();
       if it returns 0 (equal), the pointers are compared.
-      If no \cfuncref{compare}{} is specified in the definition
+      If no compare() is specified in the definition
       of the blob (\ctype{PL_blob_t}), the default
       is a bit-wise comparison.
-      The compare_fields}{} method receives a pointer to
+      The compare_fields() method receives a pointer to
       \ctype{PlBob<my_blob>} - it is safe to use
       \exam{static_cast} to convert this to a pointer to
       \ctype{my_blob} because Prolog guarantees that the
-      \cfuncref{compare_fields}{} method will only be called
+      compare_fields() method will only be called
       if two blobs are of the same type.
 
-\item The default \cfuncref{write}{} outputs something of the
+\item The default write() outputs something of the
       form \exam{<my_blob>(0x1234)}, giving the blob type name
-      and its address. You can define \cfuncref{write_fields}{},
+      and its address. You can define write_fields(),
       to provide additional information - in the example code,
       the connection name is output (note the leading ",").
 
@@ -917,7 +918,7 @@ Explanation of the \ctype{dbref} structure:
       \item Copy and move constructors are disabled, as is the
             assignment operator.
       \item blob_t_() gets a pointer to the \ctype{PL_blob_t} definition.
-      \item acquire() is used by the default \cfuncref{acquire}{} function;
+      \item acquire() is used by the default acquire() function;
             it fills in the \exam{symbol} field. It calls acquire2()
             for any additional actions.
       \item acquire2() is called by aquire() to do any additional processing
@@ -925,7 +926,7 @@ Explanation of the \ctype{dbref} structure:
       \item release2() is called by the blob's release() callback.
             The default does nothing.
       \item symbol_not_null() tests whether \exam{symbol} has been set
-            (this will normally be the case, unless the \cfuncref{acquire}{}
+            (this will normally be the case, unless the acquire()
             function hasn't been called as part of the blob creation
             process).
       \item symbol_term() Creates a term the contains the blob, for
@@ -964,7 +965,7 @@ Explanation of the \ctype{dbref} structure:
       done by setting pointers to \const{nullptr} or by setting a
       flag.
 
-\item The destructor is called by \cfuncref{release}{}, assuming you've
+\item The destructor is called by release(), assuming you've
       set \exam{my_blob::release} to \exam{blob_release<my_blob>}.
 
 \end{itemize}
@@ -977,7 +978,7 @@ Explanation of create_my_blob/2:
       \ctype{std::unique_ptr<dbref>} that is deleted when it goes
       out of scope. If an exception occurs between the creation of the
       blob (as a \ctype{std::unique_ptr<dbref>}) and the call to
-      \cfuncref{unify_blob}{}, the pointer will be freed (and the
+      unify_blob(), the pointer will be freed (and the
       \ctype{MyBlob} destructor will be called.
 
 \item The exception term contains the blob, using
@@ -985,7 +986,7 @@ Explanation of create_my_blob/2:
 
 \item \exam{ref.release()} prevents the pointer from being
       automatically deleted; it is now "owned" by Prolog and is
-      deleted in the \cfuncref{release}{} function (which is defined
+      deleted in the release() function (which is defined
       in \ctype{PlBlob}).
 
 \end{itemize}
@@ -1133,11 +1134,11 @@ PREDICATE(hello, 1)
 }
 \end{code}
 
-The arguments to \cfuncref{PREDICATE}{} are the name and arity of the predicate.
+The arguments to PREDICATE() are the name and arity of the predicate.
 The macros A<n> provide access to the predicate arguments by position
 and are of the type \ctype{PlTerm}. The C or C++ string for a \ctype{PlTerm}
-can be extracted using \cfuncref{as_string}{}, or \cfuncref{as_wstring}{} methods;\footnote{The C-string
-values can be extracted from \ctype{std::string} by using \cfuncref{c_str}{}, but you
+can be extracted using as_string(), or as_wstring() methods;\footnote{The C-string
+values can be extracted from \ctype{std::string} by using c_str(), but you
 must be careful to not return a pointer to a local/stack value.}
 and similar access methods provide an easy type-conversion
 for most Prolog data-types, using the output of write/1 otherwise:
@@ -1178,10 +1179,10 @@ PREDICATE(add, 3)  // add(+X, +Y, +Result)
 }
 \end{code}
 
-The \cfuncref{as_long}{} method for a \ctype{PlTerm} performs a PL_get_long_ex()
+The as_long() method for a \ctype{PlTerm} performs a PL_get_long_ex()
 and throws a C++ exception if the Prolog argument is not a Prolog
 integer or float that can be converted without loss to a
-\ctype{long}. The \cfuncref{unify_integer}{} method of \ctype{PlTerm} is defined
+\ctype{long}. The unify_integer() method of \ctype{PlTerm} is defined
 to perform unification and returns \const{true} or \const{false}
 depending on the result.
 
@@ -1205,11 +1206,11 @@ binds \arg{Var} and will unify \arg{Average} with average of the
 
 \ctype{PlQuery} takes the name of a predicate and the goal-argument
 vector as arguments. From this information it deduces the arity and
-locates the predicate. The method \cfuncref{next_solution}{} yields
+locates the predicate. The method next_solution() yields
 \const{true} if there was a solution and \const{false} otherwise. If
 the goal yields a Prolog exception, it is mapped into a C++ exception.
 A return to Prolog does an implicit "cut" (PL_cut_query()); this
-can also be done explicitly by the \cfuncref{PlQuery::cut}{} method.
+can also be done explicitly by the PlQuery::cut() method.
 
 \begin{code}
 PREDICATE(average, 3) /* average(+Templ, :Goal, -Average) */
@@ -1313,8 +1314,8 @@ auto t = PlTerm_atom("someName");
     to the left-hand-side to returning a ctype{bool}. In addition,
     the result of unification should always be checked (e.g., an
     "always succeed" unification could fail due to an out-of-memory
-    error); the \cfuncref{unify_XXX}{} methods return
-    a \ctype{bool} and they can be wrapped inside a \cfuncref{PlCheckFail}{}
+    error); the unify_XXX() methods return
+    a \ctype{bool} and they can be wrapped inside a PlCheckFail()
     to raise an exception on unification failure.
 \end{itemize}
 
@@ -1380,8 +1381,8 @@ methods in \ctype{PlTerm}, \ctype{PlAtom}, etc.
 Here is a list of typical changes:
 \begin{itemize}
   \item
-    Replace \cfuncref{PlTerm}{} constructor with
-    \cfuncref{PlTerm_var}{} for uninstantiated variables,
+    Replace PlTerm() constructor with
+    PlTerm_var() for uninstantiated variables,
     \cfuncref{PlTerm_atom}{a} for atoms, \cfuncref{PlTerm_term_t}{t}
     for the raw \ctype{term_t}, \cfuncref{PlTerm_integer}{i},
     \cfuncref{PlTerm_float}{v}, or \cfuncref{PlTerm_pointer}{p}.
@@ -1396,7 +1397,7 @@ Here is a list of typical changes:
 
   \item
     Instead of returning \const{false} from a predicate for failure,
-    you can do \exam{throw \cfuncref{PlFail}{}}. This mechanism is also used by
+    you can do \exam{throw PlFail()}. This mechanism is also used by
     \cfuncref{PlCheckFail}{rc}. Note that throwing an exception is
     significantly slower than returning \const{false}, so
     performance-critical code should avoid \cfuncref{PlCheckFail}{rc}.
@@ -1441,7 +1442,7 @@ Here is a list of typical changes:
 
 The \ctype{PlFail} class is used for short-circuiting a function when
 failure or an exception occurs and any errors will be handled in the
-code generated by the \cfuncref{PREDICATE}{} macro. See also
+code generated by the PREDICATE() macro. See also
 \secref{cpp2-exceptions-notes}).
 
 For example, this code:
@@ -1499,25 +1500,25 @@ unify_zero(term_t a1)
 }
 \end{code}
 
-\subsection{\cfuncref{PlCheckFail}{}, \cfuncref{PlCheckEx}{}, and \cfuncref{PlCheck_PL}{} convenience functions}
+\subsection{PlCheckFail(), PlCheckEx(), and PlCheck_PL() convenience functions}
 \label{sec:cpp2-plcheck}
 
 If one of the C "PL_" functions in \file{SWI-Prolog.h} returns
 failure, this can be either a Prolog-style failure (e.g. from
 PL_unify() or PL_next_solution()) or an error. If the failure is due
 to an error, it's usually best to immediately return to Prolog - and
-this can be done with the \cfuncref{PlCheckEx}{} function, which turns
-a Prolog error into a C++ \ctype{PlException}.  \cfuncref{PlCheck}{}
+this can be done with the PlCheckEx() function, which turns
+a Prolog error into a C++ \ctype{PlException}.  PlCheck()
 calls PlCheckEx() and additionally throws PlFail() if the failure is
 for Prolog failure.
 
-The code for \cfuncref{PlCheck}{} is just
+The code for PlCheck() is just
 \begin{code}
 void PlCheck(int rc)
 { if ( !PlCheckEx(rc) ) throw PlFail(); }
 \end{code}
 
-\cfuncref{PlCheckEx}{} calls PL_exception() to see if there is a
+PlCheckEx() calls PL_exception() to see if there is a
 Prolog exception; if so, the Prolog exception is converted to a
 \ctype{PlException} object, which is then thrown.  For more details on
 the C++ exceptions, see \secref{cpp2-exceptions}.
@@ -1741,7 +1742,7 @@ PREDICATE(hostname, 1)
   return false;
 }
 \end{code}
-An alternative way of writing this would use the \cfuncref{PlCheckFail}{}
+An alternative way of writing this would use the PlCheckFail()
 to raise an exception if the unification fails.
 \begin{code}
 PREDICATE(hostname2, 1)
@@ -1987,7 +1988,7 @@ now points to the new variable \arg{B}.
 This function returns \const{true} if the unification succeeded and
 \const{false} otherwise.  No exceptions are generated.
 
-The example below translates the \cfuncref{main}{} argument vector to Prolog and
+The example below translates the main() argument vector to Prolog and
 calls the prolog predicate entry/1 with it.
 
 \begin{code}
@@ -2180,7 +2181,7 @@ atom.  Otherwise a \except{type_error} is thrown.
     \nodescription
     \cfunction{int}{PlAtom::operator ==}{const std::wstring\& text}
 Yields \const{true} if the atom represents \arg{text}, \const{false}
-otherwise.  Performs a \cfuncref{strcmp}{} or similar for this.
+otherwise.  Performs a strcmp() or similar for this.
     \cfunction{int}{PlAtom::operator ==}{const PlAtom \&a}
 Compares the two atom-handles, returning \const{true} or
 \const{false}. Because atoms are unique, there is no need
@@ -2200,7 +2201,7 @@ Verifies that the handle is valid. This can be used after calling
 a function that returns an atom handle, to check that a new atom
 was created.
     \cfunction{void}{reset}{}
-Sets the handle to an invalid valid - a subsequent call to \cfuncref{is_null}{}
+Sets the handle to an invalid valid - a subsequent call to is_null()
 will return \const{true}.
     \cfunction{const std::string}{as_string}{PlEncoding enc=EncLocale}
 Returns the string representation of the atom.\footnote{If you wish
@@ -2312,7 +2313,7 @@ code with PL_unify() can be written:
   ...
 }
 \end{code}
-Note that \cfuncref{PlTerm::unify_term}{} checks for an exception and
+Note that PlTerm::unify_term() checks for an exception and
 throws an exception to Prolog; if you with to handle exceptions, you
 must call \exam{PL_unify_term(t1.C_,t2.C_)}.
 
@@ -2321,7 +2322,7 @@ must call \exam{PL_unify_term(t1.C_,t2.C_)}.
 
 This class encapsulates PL_register_foreign().  It is defined as a class
 rather then a function to exploit the C++ \jargon{global constructor}
-feature.  This class provides a constructor to deal with the \cfuncref{PREDICATE}{}
+feature.  This class provides a constructor to deal with the PREDICATE()
 way of defining foreign predicates as well as constructors to deal with
 more conventional foreign predicate definitions.
 
@@ -2378,7 +2379,7 @@ Prolog exceptions are mapped to C++ exceptions.
 Discards the query, but does not delete an of the data created
 by the query. If there is any pending Prolog exception, it is
 mapped to a C++ exception and thrown.
-The call to \cfuncref{PlQuery::cut}{} is done implicitly by \ctype{PlQuery}'s destructor.
+The call to PlQuery::cut() is done implicitly by \ctype{PlQuery}'s destructor.
 
 Below is an example listing the currently defined Prolog modules
 to the terminal.
@@ -2401,8 +2402,8 @@ In addition to the above, the following functions have been defined.
 \begin{description}
     \cfunction{int}{PlCall}{const char *predicate, const PlTermv \&av}
 Creates a \ctype{PlQuery} from the arguments generates the
-first \cfuncref{next_solution}{} and destroys the query.  Returns the
-result of \cfuncref{next_solution}{} or an exception.
+first next_solution() and destroys the query.  Returns the
+result of next_solution() or an exception.
     \cfunction{int}{PlCall}{const char *module, const char *predicate,
 			    const PlTermv \&av}
 Same, locating the predicate in the named module.
@@ -2410,7 +2411,7 @@ Same, locating the predicate in the named module.
     \nodescription
     \cfunction{int}{PlCall}{const char *goal}
 Translates \arg{goal} into a term and calls this term as the other
-\cfuncref{PlCall}{} variations. Especially suitable for simple goals such as making
+PlCall() variations. Especially suitable for simple goals such as making
 Prolog load a file.
 \end{description}
 
@@ -2534,7 +2535,7 @@ header for the implementation is created.
 \subsection{Variations of the PREDICATE macro (version 2)}
 \label{sec:cpp2-predicate-macro-variations}
 
-The \cfuncref{PREDICATE}{} macros have a number of variations that deal with
+The PREDICATE() macros have a number of variations that deal with
 special cases.
 
 \begin{description}
@@ -2579,7 +2580,7 @@ call to the predicate and freed when the predicate either fails or
 does its last successful return. To simplify this, a template helper class
 \ctype{PlForeignContextPtr<\emph{ContextType}>} provides a "smart
 pointer" that frees the context on normal return or an exception;
-if \cfuncref{PlForeignContextPtr$<$ContextType$>$::keep}{}
+if PlForeignContextPtr$<$ContextType$>$::keep()
 is called, the pointer isn't freed on return or exception.
 
 The skeleton for a typical non-deterministic predicate is:
@@ -2696,7 +2697,7 @@ print_message/2.  The character data is stored in a ring.  Example:
   }
 \end{code}
     \cfunction{int}{plThrow}{}
-Used in the \cfuncref{PREDICATE}{} wrapper to pass the exception to Prolog.  See
+Used in the PREDICATE() wrapper to pass the exception to Prolog.  See
 PL_raise_exeption().
 
 \end{description}
@@ -2781,7 +2782,7 @@ Not all functionality of the C-interface is provided, but as
 type-conversion between the two (using the \exam{C_} field), this interface
 can be freely mixed with the functions defined for plain C.
 For checking return codes from C functions, it is recommended to
-use \cfuncref{PlCheckFail}{} or \cfuncref{PlCheck_PL}{}.
+use PlCheckFail() or PlCheck_PL().
 
 Using this interface rather than the plain C-interface requires a little
 more resources. More term-references are wasted (but reclaimed on return
@@ -2830,7 +2831,7 @@ invalidate the exception term.  So, between raising the exception and
 returning control back to Prolog we must make sure not to do anything
 that invalidates the exception term.  If you suspect something like
 that to happen, use the debugger with a breakpoint on
-\cfuncref{__do_undo__LD}{} defined in \file{pl-wam.c}.
+__do_undo__LD() defined in \file{pl-wam.c}.
 
 In order to always preserve Prolog exceptions and return as quickly as
 possible to Prolog on an exception, some of the C++ classes can throw
@@ -2901,7 +2902,7 @@ consequences.
 
 As of 2023-04, some details remain to be decided, mostly to do
 with encodings. A few methods have a \ctype{PlEncoding} optional
-parameter (e.g., \cfuncref{PlTerm::as_string}{}), but this hasn't yet been
+parameter (e.g., PlTerm::as_string()), but this hasn't yet been
 extended to all methods that take or return a string. Also, the
 details of how the default encoding is set have not yet been decided.
 

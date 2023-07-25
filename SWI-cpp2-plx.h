@@ -512,11 +512,13 @@ PLX_EXCE(int                     , thread_destroy_engine           , (), ())
 PLX_ASIS(int                     , thread_at_exit                  , (void (*function)(void *), void *closure, int global), (function, closure, global))
 PLX_ASIS(int                     , thread_raise                    , (int tid, int sig), (tid, sig))
 
-#if defined(_WINDOWS_) || defined(_WINDOWS_H) /* <windows.h> is included */
+// JW: disabled.  Claims these functions are not present in Windows, blocking the build.
+#if 0 && defined(_WINDOWS_) || defined(_WINDOWS_H) /* <windows.h> is included */
 PLX_ASIS(int                     , w32thread_raise                 , (DWORD dwTid, int sig), (dwTid, sig))
 PLX_ASIS(int                     , wait_for_console_input          , (void *handle), (handle))
 PLX_ASIS(int                     , w32_wrap_ansi_console           , (), ())
 PLX_ASIS(const char*             , w32_running_under_wine          , (), ())
+PLX_EXCE(LRESULT                 , win_message_proc                , (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam), (hwnd, message, wParam, lParam))
 #endif
 
 PLX_ASIS(PL_engine_t             , create_engine                   , (PL_thread_attr_t *attributes), (attributes))
@@ -530,10 +532,6 @@ PLX_VOID(void                    , prof_exit                       , (void *node
 // (skipped):: int emacs_module_init(void*);
 PLX_ASIS(int                     , prolog_debug                    , (const char *topic), (topic))
 PLX_ASIS(int                     , prolog_nodebug                  , (const char *topic), (topic))
-
-#if defined(_WINDOWS_) || defined(_WINDOWS_H) /* <windows.h> is included */
-PLX_EXCE(LRESULT                 , win_message_proc                , (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam), (hwnd, message, wParam, lParam))
-#endif
 
 // (skipped):: int _PL_get_xpce_reference(term_t t, xpceref_t *ref);
 // (skipped):: int _PL_unify_xpce_reference(term_t t, xpceref_t *ref);

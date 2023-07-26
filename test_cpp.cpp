@@ -1174,7 +1174,7 @@ PREDICATE(ten, 10)
   PlCheckFail(A5.unify_float(5.0));
   PlCheckFail(A6.unify_string("six"));
   PlCheckFail(A7.unify_functor(PlFunctor("seven", 1)));
-  PlCheckFail(A7[1].unify_string("SEVEN")); 
+  PlCheckFail(A7[1].unify_string("SEVEN"));
   PlCheckFail(A8.unify_nil());
   PlCheckFail(A9.unify_bool(true));
   PlTerm_var hd;

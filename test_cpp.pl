@@ -44,6 +44,7 @@
 :- use_module(library(apply)).
 :- autoload(library(aggregate)).
 :- use_module(library(plunit)).
+:- use_module(library(dcg/basics)).
 
 :- encoding(utf8).
 
@@ -707,8 +708,7 @@ test(blob, error(my_blob_error(Blob))) :-
 test(blob, cleanup(close_my_blob(A))) :-
     create_my_blob('foobar', A),
     with_output_to(string(Astr), write(current_output, A)),
-    % 0x? because Windows %p does not write 0x
-    assertion(re_match('^<my_blob>\\((0x)?[0-9a-f]+,name=foobar\\)$', Astr)).
+    assertion(my_blob_string(Astr, _, _)).
 
 test(blob_compare1, [cleanup((close_my_blob(A),
                              close_my_blob(B)))]) :-
@@ -757,9 +757,24 @@ test(blob_compare4, [cleanup((close_my_blob(A1),
 compare_portray_form(Compare, A, B) :-
     with_output_to(string(Astr), write(A)),
     with_output_to(string(Bstr), write(B)),
-    re_replace('^<my_blob>\\((0x)?([0-9a-f]+),name=(.*)\\)$', "$3,$2", Astr, Astr2),
-    re_replace('^<my_blob>\\((0x)?([0-9a-f]+),name=(.*)\\)$', "$3,$2", Bstr, Bstr2),
-    compare(Compare, Astr2, Bstr2).
+    my_blob_string(Astr, APtr, AName),
+    my_blob_string(Bstr, BPtr, BName),
+    compare(Compare, AName-APtr, BName-BPtr).
+
+my_blob_string(String, Ptr, Name) :-
+    atom_codes(String, Codes),
+    phrase(my_blob(Ptr, Name), Codes).
+
+my_blob(Ptr, Name) -->
+    "<my_blob>(",
+    ("0x" -> [] ; []),
+    xinteger(Ptr),
+    ",name=",
+    string(NameS), ")",
+    !,
+    { atom_codes(Name, NameS) }.
+
+
 
 % TODO:
 % test this (https://swi-prolog.discourse.group/t/cpp2-exceptions/6040/61):

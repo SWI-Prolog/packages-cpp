@@ -47,6 +47,7 @@
 :- use_module(library(memfile)).
 :- use_module(library(readutil)).
 :- use_module(library(plunit)).
+:- use_module(library(dcg/basics)).
 
 :- use_foreign_library(foreign(test_ffi)).
 
@@ -314,10 +315,12 @@ test(ffi_call) :-
              Exc_0, Exc_qid, Exc_0_2, NextRc),
     assertion(NextRc == 0),
     assertion(Exc_0 == Exc_0_2),
-    match_existence_error_string(Exc_0, MatchExc_0),
-    match_existence_error_string(Exc_qid, MatchExc_qid),
-    % The terms from Exc_0 and Exc_qid are different
-    assertion(MatchExc_0.1 \== MatchExc_qid.1).
+    (   match_existence_error_string(Exc_0, MatchExc_0),
+        match_existence_error_string(Exc_qid, MatchExc_qid)
+    ->  % The terms from Exc_0 and Exc_qid are different
+        assertion(MatchExc_0 \== MatchExc_qid)
+    ;   assertion(fail)
+    ).
 test(ffi_call) :-
     ffi_call(unknown_pred(foo), [nodebug,catch_exception,clear_return_true],
              "nodebug,catch_exception,clear_return_true",
@@ -325,7 +328,7 @@ test(ffi_call) :-
     assertion(NextRc == 0),
     assertion(Exc_0 == "<null-term>"),
     assertion(Exc_0_2 == "<null-term>"),
-    match_existence_error_string(Exc_qid, _MatchExc_qid).
+    assertion(match_existence_error_string(Exc_qid, _MatchExc_qid)).
 
 test(ffi_call) :-
     ffi_call(unknown_pred(foo), [nodebug,pass_exception,clear_return_true,exc_term],
@@ -344,19 +347,17 @@ test(ffi_call) :-
     assertion(Exc_0_2 == "<null-term>"),
     match_existence_error_term(Exc_qid).
 
-%! match_existence_error_string(+Str, -Matches).
+%! match_existence_error_string(+Str, -Qid).
 % Utility predicate for checking that a term, when turned into a string,
 % matches a particular existence error.
 % Str: the error term, as a string
 % Matches: gets a dict with:
 %            1: the term_t value as a string
 %            2: the contents of context(...) as a string
-match_existence_error_string(Str, Matches) :-
-    MatchRE = "^<([0-9]+)>:error\\(existence_error\\(procedure,test_ffi:unknown_pred/1\\),context\\((.*)\\)\\)$",
-    (   re_matchsub(MatchRE, Str, Matches)
-    *-> true
-    ;   assertion(re_matchsub(MatchRE, Str, Matches))
-    ).
+match_existence_error_string(Str, Qid) :-
+    string_codes(Str, Codes),
+    phrase(("<", integer(Qid), ">:error(existence_error(procedure,test_ffi:unknown_pred/1"), Codes, _Rest),
+    !.
 
 match_existence_error_term(Term) :-
     assertion(subsumes_term(error(existence_error(procedure, test_ffi:unknown_pred/1),

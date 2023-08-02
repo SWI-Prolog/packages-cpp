@@ -411,7 +411,7 @@ test(check_c_PL_unify_nil, X == []) :-
 test(check_c_PL_unify_nil) :-
     check_c_PL_unify_nil([]).
 % The following error is subject to change:
-test(check_c_PL_unify_nil, error(unknown_error('Non-zero return code without exception'))) :-
+test(check_c_PL_unify_nil, error(unknown_error('False return code without exception'))) :-
     check_c_PL_unify_nil(abc).
 
 test(check_c_PL_unify_nil_ex, X == []) :-
@@ -697,13 +697,13 @@ test(ten,
 
 test(blob) :-
     create_my_blob(foo, Blob),
-    blob(Blob, my_blob),
+    assertion(blob(Blob, my_blob)),
     close_my_blob(Blob).
 test(blob, error(my_blob_error(_),_)) :-
     create_my_blob('FAIL', _).
 test(blob, error(my_blob_error(Blob))) :-
     create_my_blob('FAIL_close', Blob),
-    blob(Blob, my_blob),
+    assertion(blob(Blob, my_blob)),
     close_my_blob(Blob).
 test(blob, cleanup(close_my_blob(A))) :-
     create_my_blob('foobar', A),

@@ -139,7 +139,7 @@ public:
 // wish to wrap the call in PlCheckFail().
 template<typename C_t> [[nodiscard]] C_t PlWrap(C_t rc, qid_t qid = 0);
 
-// As PlWrap, but always throw an exception for non-zero rc.
+// As PlWrap, but always throw an exception for zero rc.
 // This is for functions that report errors but don't have an
 // indication of "fail" - that is, almost everything except for
 // functions like PL_unify_*() or PL_next_solution().
@@ -273,6 +273,8 @@ public:
   [[deprecated("use as_string() or !=PlAtom")]] bool operator !=(const char *s) const { return !eq(s); }
   bool operator !=(const wchar_t *s) const { return !eq(s); }
   [[deprecated("use PlAtom instead of atom_t")]] bool operator !=(atom_t to) const { return C_ != to; }
+
+  // TODO: when C++17 becomes standard, rename register_ref() to register().
 
   void register_ref() const
   { Plx_register_atom(C_);
@@ -1063,21 +1065,21 @@ PlException PlResourceError(const char *resource);
 
 PlException PlUnknownError(const char *description);
 
-void PlWrap_impl(qid_t qid);
+void PlWrap_fail(qid_t qid);
 
 template<typename C_t> C_t
 PlWrap(C_t rc, qid_t qid)
 { if ( rc == static_cast<C_t>(0) )
-    PlWrap_impl(qid);
+    PlWrap_fail(qid);
   return rc;
 }
 
-void PlEx_impl(qid_t qid);
+void PlEx_fail(qid_t qid);
 
 template<typename C_t> void
 PlEx(C_t rc, qid_t qid)
 { if ( rc == static_cast<C_t>(0) )
-    PlEx_impl(qid);
+    PlEx_fail(qid);
 }
 
 
@@ -1234,6 +1236,7 @@ public:
   // The return code from next_solution can be (if called with PL_Q_EXT_STATUS):
   //    TRUE
   //    FALSE
+  //    PL_S_NOT_INNER
   //    PL_S_EXCEPTION
   //    PL_S_FALSE
   //    PL_S_TRUE
@@ -1556,6 +1559,8 @@ public:
   { size_t len;
     PL_blob_t *type;
     auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
+    // Can't throw PlException here because might be in a context
+    // outside of a PREDICATE.
     if ( ref && type == ref->blob_t_ )
     { assert(len == sizeof *ref);
       return ref;
@@ -1567,6 +1572,8 @@ public:
   static C_t*
   cast_check(PlAtom aref)
   { auto ref = cast(aref);
+    // Can't throw PlException here because might be in a context
+    // outside of a PREDICATE.
     assert(ref);
     return ref;
   }
@@ -1587,7 +1594,13 @@ public:
 
   [[nodiscard]]
   static int compare(atom_t a, atom_t b)
-  { const auto a_data = cast_check(PlAtom(a)); // TODO: cast(...)
+  { if (a == b) // Just in case Prolog didn't check this.
+      return 0;
+    // Prolog should never give us two atoms (blobs) with different
+    // types - they should have been already compared by standard
+    // order of types; but use cast_check() anyway (which will be
+    // optimised away if NDEBUG).
+    const auto a_data = cast_check(PlAtom(a)); // TODO: cast(PlAtom(a))
     const auto b_data = cast_check(PlAtom(b));
     int rc = a_data->compare_fields(b_data);
     if ( rc == 0 )

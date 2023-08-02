@@ -69,7 +69,7 @@ More specifically:
     exception.\footnote{If a ``Plx_'' wrapper is used to call a
     \file{SWI-Prolog.h} function, a Prolog error will have already
     resulted in throwing \ctype{PlException}};
-    `cfuncref{PlCheckFail}{rc} is used to additionally throw
+    PlCheckFail(rc) is used to additionally throw
     \ctype{PlFail}, similar to returning \const{false} from the
     top-level of a foreign predicate.
 \item
@@ -888,11 +888,13 @@ possibly has to do with the order of initializing globals.}
       \ctype{dbref}.
 
 \item The default compare() does a pointer
-      comparison. You can define a compare_fields();
+      comparison. You can define a compare_fields() override;
       if it returns 0 (equal), the pointers are compared.
       If no compare() is specified in the definition
       of the blob (\ctype{PL_blob_t}), the default
-      is a bit-wise comparison.
+      is a bit-wise comparison (you will get this only if
+      you define your \ctype{PL_blob_t} without using
+      PL_BLOB_DEFINITION()).
       The compare_fields() method receives a pointer to
       \ctype{PlBob<my_blob>} - it is safe to use
       \exam{static_cast} to convert this to a pointer to

@@ -66,7 +66,7 @@ bool ex_is_resource_error(PlTerm ex)
 
 _SWI_CPP2_CPP_inline
 void
-PlWrap_impl(qid_t qid)
+PlWrap_fail(qid_t qid)
 { PlTerm_term_t ex(PL_exception(qid));
   if ( ex.not_null() )
   { // The error(resource_error(stack), _) exception is special because
@@ -85,7 +85,7 @@ PlWrap_impl(qid_t qid)
 
 _SWI_CPP2_CPP_inline
 void
-PlEx_impl(qid_t qid)
+PlEx_fail(qid_t qid)
 { PlTerm_term_t ex(PL_exception(qid));
   if ( ex.not_null() )
   { // The error(resource_error(stack), _) exception is special because
@@ -100,7 +100,7 @@ PlEx_impl(qid_t qid)
     throw ex2;
   } else
   { // TODO: get the name of the PL_...() function that caused the problem:
-    throw PlUnknownError("Non-zero return code without exception");
+    throw PlUnknownError("False return code without exception");
   }
 }
 
@@ -737,7 +737,7 @@ PlQuery::next_solution()
   // request PL_Q_CATCH_EXCEPTION; otherwise exception_qid() won't
   // give an appropriate value.
   if ( flags_ & PL_Q_CATCH_EXCEPTION )
-    PlEx_impl(exception_qid());
+    PlEx_fail(exception_qid());
   close_destroy();
   return rval;
 }

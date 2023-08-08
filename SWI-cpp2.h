@@ -65,6 +65,7 @@ particularly integer conversions.
 #include <functional>
 #include <string>
 #include <cassert>
+#include <memory>
 
 #if INT_MAX != 0x7fffffff
   #error "Unexpected value for INT_MAX"
@@ -122,7 +123,7 @@ public:
 // PlExceptionFail is a variant of PlFail, for when a resource error
 // happens and we can't use PlException (because we're out of resources
 // and therefore can't create any more terms).
-class PlExceptionFail : public PlExceptionBase 
+class PlExceptionFail : public PlExceptionBase
 {
 public:
   explicit PlExceptionFail() {}
@@ -139,7 +140,7 @@ public:
 // wish to wrap the call in PlCheckFail().
 template<typename C_t> [[nodiscard]] C_t PlWrap(C_t rc, qid_t qid = 0);
 
-// As PlWrap, but always throw an exception for non-zero rc.
+// As PlWrap, but always throw an exception for zero rc.
 // This is for functions that report errors but don't have an
 // indication of "fail" - that is, almost everything except for
 // functions like PL_unify_*() or PL_next_solution().
@@ -273,6 +274,8 @@ public:
   [[deprecated("use as_string() or !=PlAtom")]] bool operator !=(const char *s) const { return !eq(s); }
   bool operator !=(const wchar_t *s) const { return !eq(s); }
   [[deprecated("use PlAtom instead of atom_t")]] bool operator !=(atom_t to) const { return C_ != to; }
+
+  // TODO: when C++17 becomes standard, rename register_ref() to register().
 
   void register_ref() const
   { Plx_register_atom(C_);
@@ -600,6 +603,7 @@ public:
 
 
   [[nodiscard]] bool unify_blob(const PlBlob* blob) const;
+  [[nodiscard]] bool unify_blob(std::unique_ptr<PlBlob>* blob) const;
   [[nodiscard]] bool unify_blob(const void *blob, size_t len, const PL_blob_t *type) const
   { return Plx_unify_blob(C_, const_cast<void*>(blob), len, const_cast<PL_blob_t*>(type)); }
 
@@ -1007,7 +1011,7 @@ public:
 
   // plThrow() is for the try-catch in PREDICATE - returns the result
   // of Plx_raise_exception(), which is always `false`, as a foreign_t.
-  virtual foreign_t plThrow()
+  virtual foreign_t plThrow() const
   { foreign_t rc = static_cast<foreign_t>(Plx_raise_exception(term().C_));
     return rc;
   }
@@ -1063,21 +1067,21 @@ PlException PlResourceError(const char *resource);
 
 PlException PlUnknownError(const char *description);
 
-void PlWrap_impl(qid_t qid);
+void PlWrap_fail(qid_t qid);
 
 template<typename C_t> C_t
 PlWrap(C_t rc, qid_t qid)
 { if ( rc == static_cast<C_t>(0) )
-    PlWrap_impl(qid);
+    PlWrap_fail(qid);
   return rc;
 }
 
-void PlEx_impl(qid_t qid);
+void PlEx_fail(qid_t qid);
 
 template<typename C_t> void
 PlEx(C_t rc, qid_t qid)
 { if ( rc == static_cast<C_t>(0) )
-    PlEx_impl(qid);
+    PlEx_fail(qid);
 }
 
 
@@ -1234,6 +1238,7 @@ public:
   // The return code from next_solution can be (if called with PL_Q_EXT_STATUS):
   //    TRUE
   //    FALSE
+  //    PL_S_NOT_INNER
   //    PL_S_EXCEPTION
   //    PL_S_FALSE
   //    PL_S_TRUE
@@ -1390,24 +1395,34 @@ public:
 #define PROLOG_MODULE static_cast<const char*>(nullptr)
 #endif
 
+// This macro is used by both the PREDICATE macros and the blob callbacks
+
+#define PREDICATE_CATCH(error_action) \
+	    catch ( const std::bad_alloc& ) \
+	  { (void)Plx_resource_error("memory"); \
+            error_action; \
+	  } catch ( const PlFail& ) \
+	  { error_action; \
+	  } catch ( const PlExceptionFail& ) \
+          { error_action; \
+	  } catch ( const PlException& ex ) \
+	  { ex.plThrow(); \
+            error_action; \
+	  }
+
 #define NAMED_PREDICATE(plname, name, arity) \
 	static foreign_t \
 	pl_ ## name ## __ ## arity(PlTermv PL_av); \
 	static foreign_t \
 	_pl_ ## name ## __ ## arity(term_t t0, int a, control_t c) \
 	{ (void)a; (void)c; \
+          foreign_t rc; \
 	  try \
 	  { \
-	    return pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm_term_t(t0))); \
-	  } catch ( const std::bad_alloc& ) \
-	  { return static_cast<foreign_t>(Plx_resource_error("memory")); \
-	  } catch ( const PlFail& ) \
-          { return false;     \
-	  } catch ( const PlExceptionFail& ) \
-          { return false;     \
-	  } catch ( PlException& ex ) \
-          { return ex.plThrow();  \
+	    rc = pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm_term_t(t0))); \
 	  } \
+          PREDICATE_CATCH(rc = false) \
+          return rc; \
 	} \
 	static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, plname, arity, \
 					    _pl_ ## name ## __ ## arity); \
@@ -1419,18 +1434,13 @@ public:
 	static foreign_t \
 	_pl_ ## name ## __0(term_t t0, int a, control_t c) \
 	{ (void)t0; (void)a; (void)c; \
+          foreign_t rc; \
 	  try \
 	  { \
-	    return pl_ ## name ## __0(); \
-	  } catch ( std::bad_alloc& ) \
-	  { return static_cast<foreign_t>(Plx_resource_error("memory")); \
-	  } catch ( PlFail& ) \
-	  { return false; \
-	  } catch ( const PlExceptionFail& ) \
-          { return false;     \
-	  } catch ( PlException& ex ) \
-	  { return ex.plThrow(); \
+	    rc = pl_ ## name ## __0(); \
 	  } \
+          PREDICATE_CATCH(rc = false) \
+          return rc; \
 	} \
 	static PlRegister _x ## name ## __0(PROLOG_MODULE, plname, 0, \
 					    _pl_ ## name ## __0); \
@@ -1442,19 +1452,14 @@ public:
 	static foreign_t \
 	_pl_ ## name ## __ ## arity(term_t t0, int a, control_t c) \
 	{ (void)a; \
+          foreign_t rc; \
 	  try \
 	  { \
 	    /* t0.C_ is 0 if handle.foreign_control()==PL_PRUNED */ \
-	    return pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm_term_t(t0)), PlControl(c)); \
-	  } catch ( std::bad_alloc& ) \
-	  { return static_cast<foreign_t>(Plx_resource_error("memory")); \
-	  } catch ( PlFail& ) \
-	  { return false; \
-	  } catch ( const PlExceptionFail& ) \
-          { return false;     \
-	  } catch ( PlException& ex ) \
-	  { return ex.plThrow(); \
+	    rc = pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm_term_t(t0)), PlControl(c)); \
 	  } \
+          PREDICATE_CATCH(rc = false) \
+          return rc; \
 	} \
 	static PlRegister _x ## name ## __ ## arity(PROLOG_MODULE, plname, arity, \
 						    _pl_ ## name ## __ ## arity, \
@@ -1541,10 +1546,20 @@ private:
   bool deferred_free_;
 };
 
+
 		 /*******************************
 		 *          BLOBS		*
 		 *******************************/
 
+// PlBlobV is used by PL_BLOB_DEFINITION to create a vector of
+// C-callable functions that in turn call the methods inside PlBlob.
+// Although PlBlobV is defined as a class, it is really a namespace,
+// with a template variable C_t for convenience.
+//
+// TODO: This code assumes that the only difference between C and C++
+//       functions is the name mangling. If there are additional
+//       differences, this template class will need to be replaced by
+//       some macros that define a set of `extern "C"` functions.
 
 template<typename C_t>
 class PlBlobV
@@ -1556,6 +1571,8 @@ public:
   { size_t len;
     PL_blob_t *type;
     auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
+    // Can't throw PlException here because might be in a context
+    // outside of a PREDICATE.
     if ( ref && type == ref->blob_t_ )
     { assert(len == sizeof *ref);
       return ref;
@@ -1567,59 +1584,114 @@ public:
   static C_t*
   cast_check(PlAtom aref)
   { auto ref = cast(aref);
+    // Can't throw PlException here because might be in a context
+    // outside of a PREDICATE.
     assert(ref);
+    return ref;
+  }
+
+  [[nodiscard]]
+  static C_t*
+  cast_ex(PlTerm t, const PL_blob_t& b)
+  { auto ref = cast(t.as_atom());
+    if ( !ref )
+      throw PlTypeError(b.name, t);
     return ref;
   }
 
   static void acquire(atom_t a)
   { PlAtom a_(a);
     auto data = cast_check(a_);
-    data->acquire(a_);
+    bool rc;
+    try
+    { data->acquire(a_);
+      rc = true;
+    }
+    PREDICATE_CATCH(rc = false)
+      // TODO: if ( ! rc ) Plx_clear_exception() ?
+    assert(rc);
   }
 
   [[nodiscard]]
-  static int release(atom_t a)
+  static int release(atom_t a) noexcept
   { auto data = cast_check(PlAtom(a));
-    data->release2();
     delete data;
     return true;
   }
 
   [[nodiscard]]
   static int compare(atom_t a, atom_t b)
-  { const auto a_data = cast_check(PlAtom(a)); // TODO: cast(...)
-    const auto b_data = cast_check(PlAtom(b));
-    int rc = a_data->compare_fields(b_data);
-    if ( rc == 0 )
-    { return (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
+  { if (a == b) // Just in case Prolog didn't check this.
+      return 0;
+    // Prolog should never give us two atoms (blobs) with different
+    // types - they should have been already compared by standard
+    // order of types; but use cast_check() anyway (which will be
+    // optimised away if NDEBUG).
+    bool rc_try;
+    int rc = -1; // Stop the compiler warning about uninitialized
+    try
+    { const auto a_data = cast_check(PlAtom(a)); // TODO: cast(PlAtom(a))
+      const auto b_data = cast_check(PlAtom(b));
+      rc = a_data->compare_fields(b_data);
+      if ( rc == 0 )
+      { rc = (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
+      }
+      rc_try = true;
     }
+    PREDICATE_CATCH(rc_try = false)
+      // TODO: if ( ! rc_try ) Plx_clear_exception() ?
+    assert(rc_try);
     return rc;
   }
 
   [[nodiscard]]
   static int write(IOSTREAM *s, atom_t a, int flags)
   { const auto data = cast_check(PlAtom(a));
-    return data->write(s, flags);
+    int rc;
+    try
+    { rc = data->write(s, flags);
+    }
+    PREDICATE_CATCH(rc = -1)
+      // TODO: if ( rc < 0 ) Plx_clear_exception() ?
+    return rc;
   }
 
   [[nodiscard]]
   static int save(atom_t a, IOSTREAM *fd)
   { const auto data = cast_check(PlAtom(a));
-    return data->save(fd);
+    bool rc;
+    try
+    { data->save(fd);
+      rc = true;
+    }
+    PREDICATE_CATCH(rc = false)
+      // TODO: if ( ! rc ) Plx_clear_exception() ?
+    return rc;
   }
 
   [[nodiscard]]
   static atom_t load(IOSTREAM *fd)
   { C_t ref;
-    return ref.load(fd).C_;
+    atom_t atom;
+    int rc_try;
+    try
+    { atom = ref.load(fd).C_;
+      rc_try = true;
+    }
+    PREDICATE_CATCH(rc_try = false);
+    if ( !rc_try )
+    { // TODO: Plx_clear_exception() ?
+      return PlAtom::null;
+    }
+    return atom;
   }
 };
 
 
 #define PL_BLOB_DEFINITION(blob_class, blob_name) \
-{ .magic   = PL_BLOB_MAGIC,		\
-  .flags   = PL_BLOB_NOCOPY,		\
-  .name    = blob_name,			\
+{ .magic   = PL_BLOB_MAGIC,			\
+  .flags   = PL_BLOB_NOCOPY,			\
+  .name    = blob_name,				\
   .release = PlBlobV<blob_class>::release,	\
   .compare = PlBlobV<blob_class>::compare,	\
   .write   = PlBlobV<blob_class>::write,	\
@@ -1644,21 +1716,18 @@ public:
 
   virtual size_t blob_size_() const = 0; // See PL_BLOB_SIZE
 
-  void acquire(PlAtom _symbol) {
-    symbol_ = _symbol;
-    acquire2();
+  void acquire(PlAtom _symbol)
+  { symbol_ = _symbol;
+    // Don't: symbol_.register_ref() because it's already got a
+    // reference from when the blob was allocated, (by
+    // PL_unify_blob(), PL_put_blob(), or PL_new_blob()); extra
+    // reference count would prevent its GC.
   }
-
-  virtual void acquire2() { }
-
-  virtual void release2() { }
-
-  bool symbol_not_null() const { return symbol_.not_null(); }
 
   PlTerm symbol_term() const;
 
   virtual int compare_fields(const PlBlob *_b) const
-  { return 0;
+  { return 0; // compare() will do bitwise comparison
   }
 
   bool write(IOSTREAM *s, int flags) const;
@@ -1666,52 +1735,16 @@ public:
   bool virtual write_fields(IOSTREAM *s, int flags) const
   { return true; }
 
-  virtual bool save(IOSTREAM *fd) const;
+  virtual void save(IOSTREAM *fd) const;
 
   virtual PlAtom load(IOSTREAM *fd);
 
   const PL_blob_t* blob_t_ = nullptr;
 
-  // associated symbol (used for error terms)
-  // filed in by acquire():
+  // Associated symbol (used for error terms) filed in by acquire()
+  // and usually accessed by the symbol_term() method
   PlAtom symbol_ = PlAtom(PlAtom::null);
 };
-
-
-inline
-bool PlBlob::write(IOSTREAM *s, int flags) const
-{ return Sfprintf(s, "<%s>(%p", blob_t_->name, this) &&
-    write_fields(s, flags) &&
-    // In general, the flags are handled by the calling
-    // Plx_write_term(), so don't check for, e.g., flags&PL_WRT_NEWLINE.
-    Sfprintf(s, ")");
-}
-
-inline
-bool PlBlob::save(IOSTREAM *fd) const
-{ return PL_warning("Cannot save reference to <%s>(%p)", blob_t_->name, this);
-}
-
-inline
-PlAtom PlBlob::load(IOSTREAM *fd)
-{ (void)PL_warning("Cannot load reference to <%s>", blob_t_->name);
-  PL_fatal_error("Cannot load reference to <%s>", blob_t_->name);
-  return PlAtom(PlAtom::null);
-}
-
-inline
-PlTerm PlBlob::symbol_term() const
-{ if ( symbol_not_null() )
-    return PlTerm_atom(symbol_);
-  return PlTerm_var();
-}
-
-inline
-bool PlTerm::unify_blob(const PlBlob* blob) const
-{ return PlTerm::unify_blob(static_cast<const void*>(blob),
-                            blob->blob_size_(), blob->blob_t_);
-}
-
 
 
 #endif /*_SWI_CPP2_H*/

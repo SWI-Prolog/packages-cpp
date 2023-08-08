@@ -122,7 +122,7 @@ PREDICATE(hello3, 2)
 
   int len = Ssnprintf(buf, sizeof buf,
 		      "Hello3 %Ws\n", atom_a1.as_wstring().c_str());
-  if ( len > 0 )
+  if ( len >= 0 )
     // TODO: use len when fixed: https://github.com/SWI-Prolog/swipl-devel/issues/1074
     return A2.unify_chars(PL_STRING|REP_UTF8, strlen(buf), buf);
   return false;
@@ -980,7 +980,7 @@ struct IntInfoCtxt
 // term, from which a fresh term is concstructed using
 // PlRecord::term(), and the unification is done in the context of
 // PlRewindOnFail(). This ensures that if the unification fails, any
-// partial bindgins will be removed.
+// partial bindings will be removed.
 
 static bool
 int_info_(const std::string name, PlTerm result, IntInfoCtxt *ctxt)
@@ -1186,100 +1186,101 @@ PREDICATE(ten, 10)
 }
 
 
-struct my_connection
+struct MyConnection
 { std::string name;
 
-  explicit my_connection() { }
-  explicit my_connection(std::string _name)
+  explicit MyConnection() { }
+  explicit MyConnection(const std::string& _name)
     : name(_name) { }
 
-  ~my_connection() { }
+  ~MyConnection() { }
 
   bool open()
-  { if ( name == "FAIL" )
+  { if ( name == "FAIL" ) // for testing error handling
       return false;
     return true;
   }
 
-  bool close()
-  { if ( name == "FAIL_close" )
+  bool close() noexcept
+  { if ( name == "FAIL_close" ) // for testing error handling
       return false;
     return true;
   }
 };
 
 
-struct dbref;
+// The following code is taken from
+// pl2cpp2.doc \subsubsection{Sample PlBlob code}
+// with some minor changes for testing
 
-static PL_blob_t my_blob = PL_BLOB_DEFINITION(dbref, "my_blob");
+struct MyBlob;
 
-struct dbref : public PlBlob
-{ my_connection *connection = nullptr;
+static PL_blob_t my_blob = PL_BLOB_DEFINITION(MyBlob, "my_blob");
 
-  explicit dbref()
-    : PlBlob(&my_blob)
-  { }
+struct MyBlob : public PlBlob
+{ std::unique_ptr<MyConnection> connection;
+  std::string name_; // Used for error terms
 
-  ~dbref()
-  { if ( connection )
-    { // This is similar to close_my_blob/1, except there's no check
-      // for an error -- there's nothing we can do on an error because
-      // throwing a C++ exception inside of C code will cause a
-      // runtime error.
-      (void)connection->close();
-    }
+  explicit MyBlob()
+    : PlBlob(&my_blob) { }
+
+  explicit MyBlob(const std::string& connection_name)
+    : PlBlob(&my_blob),
+      connection(std::make_unique<MyConnection>(connection_name)),
+      name_(connection_name)
+  { assert(connection); // make_unique should have thrown exception if it can't allocate
+    if ( !connection->open() )
+      throw MyBlobError("my_blob_open_error");
   }
 
   PL_BLOB_SIZE
 
+  ~MyBlob() noexcept
+  { if ( !close() )
+      Sdprintf("***ERROR: Close MyBlob failed: %s\n", name_.c_str()); // Can't use PL_warning()
+  }
+
+  bool close() noexcept
+  { if ( !connection )
+      return true;
+    bool rc = connection->close();
+    connection.reset(); // Can be omitted, leaving deletion to ~MyBlob()
+    return rc;
+  }
+
+  PlException MyBlobError(const char* error) const
+  { return PlGeneralError(PlCompound(error, PlTermv(symbol_term())));
+  }
+
   int compare_fields(const PlBlob* _b_data) const override
   { // dynamic_cast is safer than static_cast, but slower (see documentation)
     // It's used here for testing (the documentation has static_cast)
-    auto b_data = dynamic_cast<const dbref*>(_b_data);
-    assert(b_data);
-    assert(this != b_data); // Prolog should have already done this test.
-    if ( connection && b_data->connection )
-      return connection->name.compare(b_data->connection->name);
-    return connection ? 1 : b_data->connection ? -1 : 0;
+    auto b_data = dynamic_cast<const MyBlob*>(_b_data);
+    return name_.compare(b_data->name_);
   }
 
   bool write_fields(IOSTREAM *s, int flags) const override
-  { if ( connection )
-      return Sfprintf(s, ",name=%s", connection->name.c_str());
+  { if ( Sfprintf(s, ",name=%s", name_.c_str()) < 0 )
+      return false;
+    if ( !connection )
+      return Sfprintf(s, ",closed") < 0;
     return true;
   }
 };
 
 // %! create_my_blob(+Name: atom, -MyBlob) is semidet.
 PREDICATE(create_my_blob, 2)
-{ // Allocating the blob uses unique_ptr<dbref> so that it'll be
-  // deleted if an error happens - the auto-deletion is disabled by
-  // ref.release() before returning success.
-
-  auto ref = std::make_unique<dbref>();
-
-  // ... fill in the fields of *ref from A1  ...
-  ref->connection = new my_connection(A1.as_atom().as_string());
-
-  if ( !ref->connection->open() )
-    throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
-  PlCheckFail(A2.unify_blob(ref.get()));
-  (void)ref.release();
-  return true;
+{ auto ref = std::unique_ptr<PlBlob>(new MyBlob(A1.as_atom().as_string()));
+  return A2.unify_blob(&ref);
 }
 
 // %! close_my_blob(+MyBlob) is det.
 // % Close the connection, silently succeeding if is already
 // % closed; throw an exception if something goes wrong.
 PREDICATE(close_my_blob, 1)
-{ auto ref = PlBlobV<dbref>::cast_check(A1.as_atom());
-  auto c = ref->connection;
-  ref->connection = nullptr;
-  if ( c )
-  { bool rc = c->close();
-    delete c;
-    if ( !rc )
-      throw PlGeneralError(PlCompound("my_blob_error", PlTermv(ref->symbol_term())));
-  }
+{ auto ref = PlBlobV<MyBlob>::cast_ex(A1, my_blob);
+  assert(A1 == ref->symbol_term());
+  if ( !ref->close() )
+    throw ref->MyBlobError("my_blob_close_error");
   return true;
 }

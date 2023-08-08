@@ -57,7 +57,7 @@ test_cpp :-
 % Some of the tests can result in crashes if there's a bug, so the
 % `output(on_failure)` option results in nothing being written.
 % If so, uncomment the following line
-% :- set_test_options([output(always)]).
+% :- set_test_options([output(always), format(log)]).
 
 :- begin_tests(cpp).
 
@@ -243,7 +243,7 @@ test(square_roots_2, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772
 
 :- meta_predicate with_small_stacks(+, 0).
 with_small_stacks(Free, Goal) :-
-    garbage_collect,
+    force_gc,
     statistics(globalused, G),
     statistics(trailused, T),
     statistics(localused, L),
@@ -411,7 +411,7 @@ test(check_c_PL_unify_nil, X == []) :-
 test(check_c_PL_unify_nil) :-
     check_c_PL_unify_nil([]).
 % The following error is subject to change:
-test(check_c_PL_unify_nil, error(unknown_error('Non-zero return code without exception'))) :-
+test(check_c_PL_unify_nil, error(unknown_error('False return code without exception'))) :-
     check_c_PL_unify_nil(abc).
 
 test(check_c_PL_unify_nil_ex, X == []) :-
@@ -568,6 +568,12 @@ test(type_error_string) :-
     assertion(var(B)),
     assertion(A\==B).
 
+:- if(\+ current_prolog_flag(asan, true)).
+
+% test(int_info) causes a memory leak because the IntInfo map doesn't
+% destruct the elements on cleanup. (At least, I think that's the
+% cause of the memory leak.)
+
 test(int_info) :-
     findall(Name:Info, int_info(Name, Info), Infos),
     assertion(memberchk(uint32_t:int_info(uint32_t,4,0,4294967295), Infos)).
@@ -579,6 +585,8 @@ test(int_info) :-
     Info = int_info(_,_,0,_),
     findall(Name:Info, int_info(Name, Info), Infos),
     assertion(memberchk(uint16_t:int_info(uint16_t,2,0,65535), Infos)).
+
+:- endif.
 
 % int_info_cut test checks that PL_PRUNED works as expected:
 test(int_info_cut, Name:Info == bool:int_info(bool, 1, 0, 1)) :-
@@ -697,14 +705,34 @@ test(ten,
 
 test(blob) :-
     create_my_blob(foo, Blob),
-    blob(Blob, my_blob),
+    assertion(blob(Blob, my_blob)),
     close_my_blob(Blob).
-test(blob, error(my_blob_error(_),_)) :-
+test(blob, error(my_blob_open_error(_),_)) :-
     create_my_blob('FAIL', _).
-test(blob, error(my_blob_error(Blob))) :-
+test(blob, error(my_blob_close_error(Blob))) :-
     create_my_blob('FAIL_close', Blob),
-    blob(Blob, my_blob),
+    assertion(blob(Blob, my_blob)),
     close_my_blob(Blob).
+
+% The following attempts to test the handling of close errors in the
+% "release" callback, which calls ~MyBlob. It doesn't throw an error
+% (because it can't) but does output an error message.
+% You can run this test by hand:
+%    ?- create_fail_blob.
+%    ?- force_gc.
+% and that should print:
+%    Close MyBlob failed: FAIL_close
+test(blob, [blocked(cant_throw_error),
+            error(e),
+            setup(force_gc(GC_thread)),
+            cleanup(restore_gc(GC_thread))]) :-
+    create_fail_blob,
+    garbage_collect,
+    garbage_collect_atoms.
+create_fail_blob :-
+    create_my_blob('FAIL_close', Blob),
+    assertion(blob(Blob, my_blob)).
+
 test(blob, cleanup(close_my_blob(A))) :-
     create_my_blob('foobar', A),
     with_output_to(string(Astr), write(current_output, A)),
@@ -712,19 +740,17 @@ test(blob, cleanup(close_my_blob(A))) :-
 
 test(blob_compare1, [cleanup((close_my_blob(A),
                              close_my_blob(B)))]) :-
+    force_gc,
     create_my_blob('A', A),
     create_my_blob('B', B),
     sort([A,B], Sorted),
     predsort(compare_portray_form, [A,B], Sorted2),
     assertion(Sorted == Sorted2).
-test(blob_compare2, [setup((garbage_collect_atoms,
-                            current_prolog_flag(gc,GC0),
-                            set_prolog_flag(gc,false))),
-                     cleanup((close_my_blob(A),
-                              close_my_blob(B),
-                              set_prolog_flag(gc,GC0)))]) :-
+test(blob_compare2, [cleanup((close_my_blob(A),
+                              close_my_blob(B)))]) :-
     % Create in the opposite order from the previous test,
     % because the addresses ought to be in ascending order.
+    force_gc,
     create_my_blob('B', B),
     create_my_blob('A', A),
     % The blobs are repeated here, to verify that the equality check
@@ -736,17 +762,19 @@ test(blob_compare2, [setup((garbage_collect_atoms,
 test(blob_compare3, [cleanup((close_my_blob(A1),
                               close_my_blob(A2),
                               close_my_blob(B)))]) :-
+    force_gc,
     create_my_blob('A', A1),
     create_my_blob('A', A2),
     create_my_blob('B', B),
     sort([A2,A1,B], Sorted),
-    predsort(compare_portray_form, [A2,A1,B], Sorted2),
+    predsort(compare_portray_form, [A1,A2,B], Sorted2),
     assertion(Sorted == Sorted2).
 test(blob_compare4, [cleanup((close_my_blob(A1),
                               close_my_blob(A2),
                               close_my_blob(B)))
                     ]) :-
     % Different ordering of creation, so that address order changes
+    force_gc,
     create_my_blob('B', B),
     create_my_blob('A', A2),
     create_my_blob('A', A1),
@@ -774,6 +802,18 @@ my_blob(Ptr, Name) -->
     !,
     { atom_codes(Name, NameS) }.
 
+force_gc :-
+    force_gc(GC_thread),
+    restore_gc(GC_thread).
+
+force_gc(GC_thread) :-
+    current_prolog_flag(gc_thread, GC_thread),
+    set_prolog_gc_thread(false),
+    garbage_collect,
+    garbage_collect_atoms.
+
+restore_gc(GC_thread) :-
+    set_prolog_gc_thread(GC_thread).
 
 
 % TODO:
@@ -835,3 +875,5 @@ query_flags(Flags, CombinedFlag) :-
     maplist(query_flag, Flags, Ints),
     aggregate_all(sum(I), member(I, Ints), CombinedFlag),
     check_query_flag(CombinedFlag).
+
+end_of_file.

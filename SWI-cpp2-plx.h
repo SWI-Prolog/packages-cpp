@@ -198,6 +198,11 @@ PLX_ASIS(bool                    , get_nil                         , (term_t l),
 [[deprecated]]
 PLX_ASIS(int                     , get_term_value                  , (term_t t, term_value_t *v), (t, v))
 PLX_ASIS(char *                  , quote                           , (int chr, const char *data), (chr, data))
+// See the definition of PL_for_dict - return code determined by func:
+PLX_ASIS(int                     , for_dict                        , (term_t dict,
+                                                                      int (*func)(term_t key, term_t value, void *closure),
+                                                                      void *closure, int flags),
+                                                                     (dict, func, closure, flags))
 PLX_ASIS(int                     , term_type                       , (term_t t), (t))
 PLX_ASIS(bool                    , is_variable                     , (term_t t), (t))
 PLX_ASIS(bool                    , is_ground                       , (term_t t), (t))
@@ -235,6 +240,9 @@ PLX_EXCE(int                     , put_list                        , (term_t l),
 PLX_EXCE(int                     , put_nil                         , (term_t l), (l))
 PLX_EXCE(int                     , put_term                        , (term_t t1, term_t t2), (t1, t2))
 PLX_EXCE(int                     , put_dict                        , (term_t t, atom_t tag, size_t len, const atom_t *keys, term_t values), (t, tag, len, keys, values))
+// TODO:
+//    PL_EXPORT(atom_t)	_PL_cons_small_int(int64_t v); // 0 return code means not a small int
+//    PL_EXPORT(void)		_PL_unregister_keys(size_t len, atom_t *keys);
 // (skipped):: int PL_cons_functor(term_t h, functor_t f, ...) WUNUSED;
 PLX_EXCE(int                     , cons_functor_v                  , (term_t h, functor_t fd, term_t a0), (h, fd, a0))
 PLX_EXCE(int                     , cons_list                       , (term_t l, term_t h, term_t t), (l, h, t))
@@ -340,7 +348,9 @@ PLX_WRAP(atom_t                  , new_blob                        , (void *blob
 PLX_EXCE(int                     , put_blob                        , (term_t t, void *blob, size_t len, PL_blob_t *type), (t, blob, len, type))
 PLX_WRAP(int                     , get_blob                        , (term_t t, void **blob, size_t *len, PL_blob_t **type), (t, blob, len, type))
 PLX_ASIS(void*                   , blob_data                       , (atom_t a, size_t *len, struct PL_blob_t **type), (a, len, type))
-PLX_VOID(void                    , register_blob_type              , (PL_blob_t *type), (type))
+PLX_ASIS(int                     , free_blob                       , (atom_t blob), (blob));
+// Should not call PL_register_blob_type, so it's not defined:
+// PLX_VOID(void                 , register_blob_type              , (PL_blob_t *type), (type))
 PLX_ASIS(PL_blob_t*              , find_blob_type                  , (const char* name), (name))
 PLX_ASIS(bool                    , unregister_blob_type            , (PL_blob_t *type), (type))
 

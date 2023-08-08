@@ -66,7 +66,7 @@ bool ex_is_resource_error(PlTerm ex)
 
 _SWI_CPP2_CPP_inline
 void
-PlWrap_impl(qid_t qid)
+PlWrap_fail(qid_t qid)
 { PlTerm_term_t ex(PL_exception(qid));
   if ( ex.not_null() )
   { // The error(resource_error(stack), _) exception is special because
@@ -85,7 +85,7 @@ PlWrap_impl(qid_t qid)
 
 _SWI_CPP2_CPP_inline
 void
-PlEx_impl(qid_t qid)
+PlEx_fail(qid_t qid)
 { PlTerm_term_t ex(PL_exception(qid));
   if ( ex.not_null() )
   { // The error(resource_error(stack), _) exception is special because
@@ -100,7 +100,7 @@ PlEx_impl(qid_t qid)
     throw ex2;
   } else
   { // TODO: get the name of the PL_...() function that caused the problem:
-    throw PlUnknownError("Non-zero return code without exception");
+    throw PlUnknownError("False return code without exception");
   }
 }
 
@@ -233,6 +233,57 @@ PlAtom::as_wstring() const
   const wchar_t *s = Plx_atom_wchars(C_, &len);
   return std::wstring(s, len);
 }
+
+
+_SWI_CPP2_CPP_inline
+bool PlBlob::write(IOSTREAM *s, int flags) const
+{ if ( Sfprintf(s, "<%s>(%p", blob_t_->name, this) < 0 )
+    return false;
+  { bool rc = true;
+    try
+    { if ( !write_fields(s, flags) )
+        return false;
+    } PREDICATE_CATCH(rc = false)
+    if ( !rc )
+      return false;
+  }
+  return Sfprintf(s, ")") >= 0;
+}
+
+_SWI_CPP2_CPP_inline
+void PlBlob::save(IOSTREAM *fd) const
+{ (void)PL_warning("Cannot save reference to <%s>(%p)", blob_t_->name, this);
+  throw PlFail();
+}
+
+_SWI_CPP2_CPP_inline
+PlAtom PlBlob::load(IOSTREAM *fd)
+{ (void)PL_warning("Cannot load reference to <%s>", blob_t_->name);
+  PL_fatal_error("Cannot load reference to <%s>", blob_t_->name);
+  return PlAtom(PlAtom::null);
+}
+
+_SWI_CPP2_CPP_inline
+PlTerm PlBlob::symbol_term() const
+{ if ( symbol_.not_null() )
+    return PlTerm_atom(symbol_);
+  return PlTerm_var();
+}
+
+_SWI_CPP2_CPP_inline
+bool PlTerm::unify_blob(const PlBlob* blob) const
+{ return PlTerm::unify_blob(static_cast<const void*>(blob),
+                            blob->blob_size_(), blob->blob_t_);
+}
+
+_SWI_CPP2_CPP_inline
+bool PlTerm::unify_blob(std::unique_ptr<PlBlob>* blob) const
+{ if ( !PlTerm::unify_blob(blob->get()) )
+    return false;
+  (void)blob->release(); // Pass ownership to the Prolog blob (`this`)
+  return true;
+}
+
 
 
 		 /*******************************
@@ -737,7 +788,7 @@ PlQuery::next_solution()
   // request PL_Q_CATCH_EXCEPTION; otherwise exception_qid() won't
   // give an appropriate value.
   if ( flags_ & PL_Q_CATCH_EXCEPTION )
-    PlEx_impl(exception_qid());
+    PlEx_fail(exception_qid());
   close_destroy();
   return rval;
 }

@@ -144,7 +144,7 @@ More specifically:
     is_null(), not_null(), reset(),
     and \cfuncref{reset}{v}, plus the constant \const{null}.}
   \item
-    A convenience class \ctype{PlForeignContextPtr<\emph{ContextType}>}
+    A convenience function PlControl::context_unique_ptr<ContextType>()
     has been added, to simplify dynamic memory allocation in
     non-deterministic predicates.
   \item
@@ -2713,14 +2713,18 @@ Non-deterministic predicates are defined using
 \cfuncref{PREDICATE_NONDET}{plname, cname, arity} or
 \cfuncref{NAMED_PREDICATE_NONDET}{plname, cname, arity}.
 
-A non-deterministic predicate returns a "context", which is passed to a
-a subsequent retry. Typically, this context is allocated on the first
+A non-deterministic predicate returns a "context", which is passed to
+a subsequent retry.  Typically, this context is allocated on the first
 call to the predicate and freed when the predicate either fails or
-does its last successful return. To simplify this, a template helper class
-\ctype{PlForeignContextPtr<\emph{ContextType}>} provides a "smart
-pointer" that frees the context on normal return or an exception;
-if PlForeignContextPtr$<$ContextType$>$::keep()
-is called, the pointer isn't freed on return or exception.
+does its last successful return (the context is \const{nullptr} on the
+first call). To simplify this, a template helper function
+PlControl::context_unique_ptr<ContextType>() provides a "smart
+pointer" that frees the context on normal return or an exception; when
+used with PL_retry_address(), the context's
+std:unique_ptr<ContextType>::release() is used to pass the context
+to Prolog for the next retry, and to prevent the context
+from being freed. If the predicate is called with \const{PL_PRUNE},
+the normal \exam{return true} will implicitly free the context.
 
 The skeleton for a typical non-deterministic predicate is:
 
@@ -2728,10 +2732,11 @@ The skeleton for a typical non-deterministic predicate is:
 struct PredContext { ... }; // The "context" for retries
 
 PREDICATE_NONDET(pred, <arity>)
-{ PlForeignContextPtr<PredContext> ctxt(handle);
+{
+  auto ctxt = handle.context_unique_ptr<PredContext>();
   switch( PL_foreign_control(handle) )
   { case PL_FIRST_CALL:
-      ctxt.set(new PredContext(...));
+      ctxt.reset(new PredContext(...));
       ...
       break;
     case PL_REDO:
@@ -2749,8 +2754,7 @@ PREDICATE_NONDET(pred, <arity>)
 
   ...
 
-  ctxt.keep();
-  PL_retry_address(ctxt.get()); // Succeed with a choice point
+  PL_retry_address(ctxt.release()); // Succeed with a choice point
 }
 \end{code}
 

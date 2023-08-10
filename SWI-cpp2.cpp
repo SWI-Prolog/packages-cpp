@@ -247,7 +247,9 @@ bool PlBlob::write(IOSTREAM *s, int flags) const
     if ( !rc )
       return false;
   }
-  return Sfprintf(s, ")") >= 0;
+  if ( Sfprintf(s, ")") < 0 )
+    return false;
+  return true;
 }
 
 _SWI_CPP2_CPP_inline

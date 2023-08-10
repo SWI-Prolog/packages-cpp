@@ -778,11 +778,11 @@ struct RangeCtxt
 
 PREDICATE_NONDET(range_cpp, 3)
 { auto t_low = A1, t_high = A2, t_result = A3;
-  PlForeignContextPtr<RangeCtxt> ctxt(handle);
+  auto ctxt = handle.context_unique_ptr<RangeCtxt>();
 
   switch( handle.foreign_control() )
   { case PL_FIRST_CALL:
-      ctxt.set(new RangeCtxt(t_low.as_long(), t_high.as_long()));
+      ctxt.reset(new RangeCtxt(t_low.as_long(), t_high.as_long()));
       break;
     case PL_REDO:
       break;
@@ -802,7 +802,7 @@ PREDICATE_NONDET(range_cpp, 3)
   { return true; // Last result: succeed without a choice point
   }
 
-  PL_retry_address(ctxt.keep()); // Succeed with a choice point
+  PL_retry_address(ctxt.release()); // Succeed with a choice point
 }
 
 
@@ -993,7 +993,7 @@ int_info_(const std::string name, PlTerm result, IntInfoCtxt *ctxt)
 }
 
 PREDICATE_NONDET(int_info, 2)
-{ PlForeignContextPtr<IntInfoCtxt> ctxt(handle);
+{ auto ctxt = handle.context_unique_ptr<IntInfoCtxt>();
 
   // When called with PL_PRUNED, A1 is not bound; therefore, we need
   // to do the switch on PL_foreign_control(handle) before checking
@@ -1004,7 +1004,7 @@ PREDICATE_NONDET(int_info, 2)
   { case PL_FIRST_CALL:
       if ( !A1.is_variable() ) // int_info is a map, so unique on lookup
 	return int_info_(A1.as_string(), A2, ctxt.get());
-      ctxt.set(new IntInfoCtxt());
+      ctxt.reset(new IntInfoCtxt());
       break;
     case PL_REDO:
       break;
@@ -1023,7 +1023,7 @@ PREDICATE_NONDET(int_info, 2)
       if ( ctxt->it == ctxt->int_info->cend() )
       { return true; // Last result: no choice point
       }
-      PL_retry_address(ctxt.keep()); // Succeed with choice point
+      PL_retry_address(ctxt.release()); // Succeed with choice point
     }
     ctxt->it++;
   }

@@ -1130,6 +1130,14 @@ public:
   [[nodiscard]] void *foreign_context_address() const { return Plx_foreign_context_address(C_); }
 
   [[nodiscard]] PlPredicate foreign_context_predicate() const { return PlPredicate(Plx_foreign_context_predicate(C_)); }
+
+  template <typename ContextType>
+  [[nodiscard]]
+  std::unique_ptr<ContextType>
+  context_unique_ptr()
+  { return std::unique_ptr<ContextType>(static_cast<ContextType *>(foreign_context_address()));
+  }
+
 };
 
 
@@ -1494,56 +1502,36 @@ public:
 #define A10	PL_A10
 #endif
 
+// TODO: delete this section
 		 /*******************************
 		 *     NONDET HELPERS		*
 		 *******************************/
 
-// For non-deterministic predicates that allocate a context, the
-// PlForeignContextPtr is a RAII (Resource Acquisition Is
-// Initialization) class (a kind of "smart pointer") that holds a
-// pointer that is deleted at exit (whether by return or exception)
-// unless deferred_free_ is false. This simplifies code that can throw
-// exceptions such as the PlTerm::as_long().
-//
-// The pointer must have been allocated using the `new` operator.  The
-// pointer can have the value nullptr.
-//
-// THe methods are the usual "smart pointer" ones: dereference (either
-// using `->` or `*`), get(), set(ptr). In addition:
-//    deferred_free() - the pointer will be deleted on return/throw (default)
-//    keep() - the pointer will not be deleted on return/throw
-// Typically, keep() is used only when calling PL_retry_address()
-
-template <typename ContextType> class PlForeignContextPtr
+template <typename ContextType>
+// TODO: [[deprecated("Use PlControl::context_unique_ptr")]]
+class PlForeignContextPtr
 {
 public:
+  [[deprecated("Use PlControl::context_unique_ptr")]]
   explicit PlForeignContextPtr<ContextType>(PlControl handle)
-    : ptr_(static_cast<ContextType *>(handle.foreign_context_address())),
-      deferred_free_(true)
-  { }
+  { ptr_.reset(static_cast<ContextType *>(handle.foreign_context_address()));
+  }
 
   PlForeignContextPtr<ContextType>(const PlForeignContextPtr<ContextType>&) = delete;
   PlForeignContextPtr<ContextType>(PlForeignContextPtr<ContextType>&&) = delete;
   PlForeignContextPtr<ContextType>& operator =(const PlForeignContextPtr<ContextType>&) = delete;
   PlForeignContextPtr<ContextType>& operator =(PlForeignContextPtr<ContextType>&&) = delete;
 
-  ContextType& operator*()  const { return *ptr_; }
-  ContextType* operator->() const { return ptr_; }
-  ContextType* get()        const { return ptr_; }
-  void set(ContextType* ptr = nullptr) { ptr_ = ptr; }
-
-  void deferred_free(bool v) { deferred_free_ = v; }
-  void deferred_free()       { deferred_free(true); }
-  ContextType* keep()        { deferred_free(false); return get(); }
-
-  ~PlForeignContextPtr()
-  { if ( deferred_free_ )
-      delete ptr_; // it's safe to delete nullptr
-  }
+  [[deprecated("Use PlControl::context_unique_ptr")]] ContextType& operator*()  const { return *ptr_; }
+  [[deprecated("Use PlControl::context_unique_ptr")]] ContextType* operator->() const { return ptr_.get(); }
+  [[deprecated("Use PlControl::context_unique_ptr")]] ContextType* get()        const { return ptr_.get(); }
+  [[deprecated("Use PlControl::context_unique_ptr")]] void set(ContextType* ptr = nullptr)   { reset(ptr); } // TODO: delete
+  [[deprecated("Use PlControl::context_unique_ptr")]] void reset(ContextType* ptr = nullptr) { ptr_.reset(ptr); }
+  [[deprecated("Use PlControl::context_unique_ptr")]] ContextType* keep()        { return release(); } // TODO: delete
+  [[deprecated("Use PlControl::context_unique_ptr")]] ContextType* release()     { return ptr_.release(); }
 
 private:
-  ContextType *ptr_;
-  bool deferred_free_;
+  std::unique_ptr<ContextType> ptr_;
 };
 
 

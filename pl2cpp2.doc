@@ -1,4 +1,4 @@
->\chapter{A C++ interface to SWI-Prolog (Version 2)}
+\chapter{A C++ interface to SWI-Prolog (Version 2)}
 \label{sec:cpp2}
 
 \section{Summary of changes between Versions 1 and 2}

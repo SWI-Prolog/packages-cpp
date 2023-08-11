@@ -1598,6 +1598,7 @@ public:
     PREDICATE_CATCH(rc = false)
       // TODO: if ( ! rc ) Plx_clear_exception() ?
     assert(rc);
+    (void)rc;
   }
 
   [[nodiscard]]
@@ -1629,6 +1630,7 @@ public:
     PREDICATE_CATCH(rc_try = false)
       // TODO: if ( ! rc_try ) Plx_clear_exception() ?
     assert(rc_try);
+    (void)rc_try;
     return rc;
   }
 

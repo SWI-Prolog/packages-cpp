@@ -1,4 +1,4 @@
-\chapter{A C++ interface to SWI-Prolog (Version 2)}
+>\chapter{A C++ interface to SWI-Prolog (Version 2)}
 \label{sec:cpp2}
 
 \section{Summary of changes between Versions 1 and 2}
@@ -816,7 +816,7 @@ the following:
       \arg{MyBlob::symbol_} is usually accessed using the
       method MyBlob::symbol_term().
       If this all succeeds, PlTerm::unify_blob(ref) calls
-      \exam{ref.release()} to pass ownership to the Prolog blob.\footnote{If
+      \exam{ref.release()} to pass ownership to the Prolog blob. If
       you wish to use std::make_unique<MyBlob>(), you could instead do:
       \begin{code}
       auto ref = std::make_unique<MyBlob>(...);
@@ -824,7 +824,7 @@ the following:
       std::unique_ptr<PlBlob> refb(ref.release()); // transfer ownership of ptr
          // from here on, can't access fields in *ref
       return A2.unify_blob(refb);
-      \end{code} }
+      \end{code}
       \end{itemize}
 \end{itemize}
 
@@ -856,10 +856,10 @@ the blob. This typically has the same logic as the destructor, except
 that it can raise a Prolog error.
 
 \subsubsection{C++ exceptions and blobs}
-\label{sec:cpp2-blobs-exceptions
+\label{sec:cpp2-blobs-exceptions}
 
 When a blob is used in the context of a PREDICATE() macro, it can
-raise a C++ exception (\ctype{PlFail} or \PlException}) and the
+raise a C++ exception (\ctype{PlFail} or \ctype{PlException}) and the
 PREDICATE() code will convert it to the appropriate Prolog failure or
 error; memory allocation exceptions are also handled.
 

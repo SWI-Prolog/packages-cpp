@@ -3,8 +3,10 @@
     This example code is in the public domain
 */
 
-#include "SWI-cpp2.h"
 #include <iostream>
+#include <SWI-cpp2.h>
+#include <SWI-cpp2.cpp>
+
 using namespace std;
 
 /* Usage:
@@ -28,25 +30,19 @@ body(int argc, char **argv)
       cout << "Happy people:" << endl;
       PlQuery q("happy", av);
       while( q.next_solution() )
-	cout << "\t" << (char *)av[0] << endl;
+	cout << "\t" << av[0].as_string() << endl;
     } else
-    { PlTermv av(2);
-
+    { PlTerm_var whom;
+      PlQuery q("likes", PlTermv(PlTerm_atom(argv[0]), whom));
       cout << argv[0] << " likes:" << endl;
-      av[0] = argv[0];
-      PlQuery q("likes", av);
       while( q.next_solution() )
-	cout << "\t" << (char *)av[1] << endl;
+	cout << "\t" << whom.as_string() << endl;
     }
   } else if ( argc == 2 )
-  { PlTermv av(2);
+  { bool likes = PlCall("likes",
+                        PlTermv(PlTerm_atom(argv[0]), PlTerm_atom(argv[1])));
 
-    av[0] = argv[0];
-    av[1] = argv[1];
-    if ( PlCall("likes", av) )
-      cout << "yes" << endl;
-    else
-      cout << "no" << endl;
+    cout << (likes ? "yes" : "no") << endl;
   } else
     cout << "Usage: likes x [y] or likes -happy" << endl;
 
@@ -60,10 +56,12 @@ main(int argc, char **argv)
 
   try
   { return body(argc-1, argv+1);
-  } catch ( PlException &ex )
-  { cerr << (char *) ex << endl;
+  } catch ( const PlExceptionBase &ex )
+  { cerr << "Exception thrown: " << ex.what() << endl;
     exit(1);
   }
+
+  return 0;
 }
 
 

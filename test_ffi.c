@@ -37,6 +37,7 @@
 /* This tests the C interface and not the C++ interface.
    But it was most convenient to put the test here. */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #include <SWI-Prolog.h>
 #include <SWI-Stream.h>
 #include <assert.h>

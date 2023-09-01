@@ -3,7 +3,11 @@ project(swipl-cpp)
 
 include("../cmake/PrologPackage.cmake")
 
+if(MSVC)
+set(CMAKE_CXX_STANDARD 20) # Some users of this require C++-17
+else()
 set(CMAKE_CXX_STANDARD 17) # Some users of this require C++-17
+endif()
 set(CMAKE_C_STANDARD 11) # swipl requires C-11
 
 configure_file(config.h.cmake config.h)

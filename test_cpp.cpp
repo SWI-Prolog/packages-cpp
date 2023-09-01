@@ -55,6 +55,7 @@ This code is also used by test_cpp.pl, which has many examples of
 how the various predicates can be called from Prolog.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#define _CRT_SECURE_NO_WARNINGS 1
 #define PROLOG_MODULE "user"
 #include <iostream>
 #include <sstream>
@@ -62,7 +63,6 @@ how the various predicates can be called from Prolog.
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
-#include <unistd.h>
 #include <errno.h>
 #include <math.h>
 #include <cassert>
@@ -70,6 +70,11 @@ how the various predicates can be called from Prolog.
 #include <string>
 #include <map>
 using namespace std;
+
+#ifdef _MSC_VER
+#undef min
+#undef max
+#endif
 
 #ifdef O_DEBUG
 #define DEBUG(g) g

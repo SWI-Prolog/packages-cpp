@@ -30,6 +30,10 @@ mechanisms; and the subclasses that create exceptions have been
 changed to functions.  In addition, a \ctype{PlFail} has been added,
 to allow "short circuit" return to Prolog on failure.
 
+A convenience class for creating blobs has been added, so that an
+existing structure can be converted to a blob with only a few lines
+of code.
+
 More specifically:
 \begin{itemize}
   \item \file{SWI-cpp2.cpp} has been added, containing the implementation
@@ -40,10 +44,10 @@ More specifically:
      The constructor PlTerm() is restricted to a few
      unambiguous cases - instead, you should use the appropriate
      subclass' constructors (PlTerm_var(),
-     \cfuncref{PlTerm_atom}{a}, \cfuncref{PlTerm_term_t}{t},
-     \cfuncref{PlTerm_integer}{i}, \cfuncref{PlTerm_int64}{i},
-     \cfuncref{PlTerm_uint64}{i}, \cfuncref{PlTerm_size_t}{i},
-     \cfuncref{PlTerm_float}{v}, or \cfuncref{PlTerm_pointer}{p}).
+     PlTerm_atom(), PlTerm_term_t(),
+     PlTerm_integer(), PlTerm_int64(),
+     PlTerm_uint64(), PlTerm_size_t(),
+     PlTerm_float(), or PlTerm_pointer()).
 \item
     Wrapper functions have been provided for almost all the PL_*()
     functions in  \file{SWI-Prolog.h}, and have the same names with
@@ -52,8 +56,8 @@ More specifically:
     for ``eXtended with eXception handling.''}
     Where appropriate, these check return codes and throw a C++
     exception (created from the Prolog error).
-    See \secref{cpp2-wrapper-functions}
-    Many of these wrapper functions have been added to the \ctype{PlAtom}
+    See \secref{cpp2-wrapper-functions}.
+    Many of these wrapper functions are also methods in the \ctype{PlAtom}
     and \ctype{PlTerm} classes, with the arguments changed from
     \ctype{atom_t} and \ctype{term_t} to \ctype{PlAtom} and \ctype{PlTerm}.
     These wrappers are available if you include \file{SWI-cpp2.h}
@@ -62,7 +66,7 @@ More specifically:
 \item
     Instead of returning \const{false} from a foreign predicate to
     indicate failure, you can use \exam{throw PlFail()}. The
-    convenience function \cfuncref{PlCheckFail}{rc} can be used to
+    convenience function PlCheckFail(rc) can be used to
     throw PlFail() if \const{false} is returned from a function in
     \file{SWI-Prolog.h}.  If the wrapper functions or class methods
     are used, Prolog errors result in a C++ \ctype{PlException}
@@ -71,7 +75,8 @@ More specifically:
     resulted in throwing \ctype{PlException}};
     PlCheckFail(rc) is used to additionally throw
     \ctype{PlFail}, similar to returning \const{false} from the
-    top-level of a foreign predicate.
+    top-level of a foreign predicate - Prolog will check for an error
+    and call throw/1 if appropriate.
 \item
     The \ctype{PlException} class is a subclass of \ctype{std::exception}
     and encapsulates a Prolog error.
@@ -85,11 +90,10 @@ More specifically:
     converted to a Prolog exception when control returns to
     Prolog).
   \item
-    The "cast" operators (e.g., \exam{(char*)t}, \exam{(int64_t)t})
+    The "cast" operators (e.g., \exam{(char*)t}, \exam{(int64_t)t},
+    \exam{static_cast<char*>(t)}
     have been deprecated, replaced by "getters" (e.g.,
-    \exam{t.as_string()}, \exam{t.as_int64_t()}).\footnote{The form
-    \exam{(char*)t} is a C-style cast; C++'s preferred form is
-    more verbose: \exam{static_cast<char*>(t)}.}
+    \exam{t.as_string()}, \exam{t.as_int64_t()}).
   \item
     The overloaded assignment operator for unification is deprecated;
     replaced by unify_term(), unify_atom(),
@@ -115,23 +119,21 @@ More specifically:
     better analysis.}
 \item
     Most constructors, methods, and functions that accept \ctype{char*}
+    or \ctype{wchar_t*}
     arguments also accept \ctype{std::string} or \ctype{std::wstring}
     arguments. Where possible, encoding information can also be
     specified.
   \item
-    Type-checking methods have been added: type(),
-    is_variable(), is_atom(), etc.
+    Type-checking methods have been added: PlTerm::type(),
+    PlTerm::is_variable(), PlTerm::is_atom(), etc.
   \item
     \ctype{PlString} has been renamed to \ctype{PlTerm_string} to make it clear
     that it's a term that contains a Prolog string.
   \item
     More \exam{PL_...(term_t, ...)} methods have been added to \ctype{PlTerm},
     and \exam{PL_...(atom_t,  ...)} methods have been added to \ctype{PlAtom}.
-    Where appopriate, the arguments use \ctype{PlTerm}, \ctype{PlAtom}, etc.
+    Where appropriate, the arguments use \ctype{PlTerm}, \ctype{PlAtom}, etc.
     instead of \ctype{term_t}, \ctype{atom_t}, etc.
-  \item
-    \ctype{std::string} and \ctype{std::wstring} are now supported in most
-    places where \ctype{char*} or \ctype{wchar_t*} are allowed.
   \item
     Most functions/methods that return an \ctype{int} for true/false now
     return a C++ \ctype{bool}.
@@ -141,8 +143,8 @@ More specifically:
     \exam{C_}.\footnote{This is done by subclassing from
     \ctype{Wrapped<term_t>}, \ctype{Wrapped<atom_t>}, etc., which
     define the field \exam{C_}, standard constructors, the methods
-    is_null(), not_null(), reset(),
-    and \cfuncref{reset}{v}, plus the constant \const{null}.}
+    is_null(), not_null(), reset(), reset(v),
+    plus the constant \const{null}.}
   \item
     A convenience function PlControl::context_unique_ptr<ContextType>()
     has been added, to simplify dynamic memory allocation in
@@ -165,6 +167,40 @@ More specifically:
 
 More details are given in \secref{cpp2-rationale} and
 \secref{cpp2-porting-1-2}.
+
+\section{Sample code (version 2)}
+\label{sec:cpp2-sample-code}
+
+The file
+\href{https://github.com/SWI-Prolog/packages-cpp/blob/master/test_cpp.cpp}{test_cpp.cpp}
+contains examples of Prolog predicates written in C++. This file is
+used for testing (called from
+\href{https://github.com/SWI-Prolog/packages-cpp/blob/master/test_cpp.pl}{test_cpp.pl}).
+Notable examples:
+\begin{itemize}
+  \item add_num(A1,A2,A3) - same as \exam{A3 is A1+A2}, converting the sum
+     to an integer if possible.
+  \item name_arity/3 - same as functor/3.
+  \item average/3 - computes the average of all the solutions to \arg{Goal}
+  \item can_unify/2 - tests whether the two arguments can unify with each
+     other, without instantiating anything (similar to unifiable/3).
+  \item eq1/1, eq2/2, eq3/2 - three different ways of implementing =/2.
+  \item write_list/1 - outputs the elements of a list, each on a new line.
+  \item cappend/3 - appends two lists (requires that the two lists are
+     instantiated).
+  \item square_roots/2 - same as \exam{bagof(Sqrt, X^(between(0,4,X), Sqrt is sqrt(X)), A2)}.
+  \item range_cpp/3 - on backtracking, generates all integers starting
+     at \arg{A1} and less than \arg{A2} (that is, one less than between/3).
+  \item int_info/2 - on backtracking generates all the integral types with their
+     minimum and maximum values.
+\end{itemize}
+
+The file
+\href{https://github.com/SWI-Prolog/packages-cpp/blob/master/test_cpp.cpp}{likes.cpp}
+contains a simple program that calls the Prolog predicate likes/2 and
+happy/1 (these predicates are defined in
+\href{https://github.com/SWI-Prolog/packages-cpp/blob/master/test_cpp.pl}{likes.pl}.
+The usage and how to compile the code are in comments in \file{likes.cpp}
 
 \section{Introduction (version 2)}
 \label{sec:cpp2-intro}
@@ -215,44 +251,57 @@ some convenience functions (see \secref{summary-cpp2-changes}).
 \label{sec:cpp2-life-of-a-predicate}
 
 A foreign predicate is defined using the PREDICATE()
-macro, pPlus a few variations on this, such as
+macro, plus a few variations on this, such as
 PREDICATE_NONDET(), NAMED_PREDICATE(), and
 NAMED_PREDICATE_NONDET(). This defines an internal name for
 the function, registers it with the SWI-Prolog runtime (where it will
 be picked up by the use_foreign_library/1 directive), and defines the
 names \exam{A1}, \exam{A2}, etc. for the arguments.\footnote{You can
-define your own names for the arguments, for example: \exam{auto x=A1,
-y=A2, result=A3;}.}  If a non-deterministic predicate is being
+define your own names for the arguments, for example:
+\exam{auto dir=A1, db=A2, options=A3;}.}
+If a non-deterministic predicate is being
 defined, an additional parameter \exam{handle} is defined (of type
 \ctype{PlControl}).
 
-The foreign predicate returns a value of \const{true} or \const{false}
-to indicate whether it succeeded or failed.\footnote{Non-deterministic
-predicates can also return a "retry" value.}  If a predicate fails, it
+The foreign predicate returns a value:
+\begin{itemize}
+  \item \const{true} - success
+  \item \const{false} - failure or an error (see \secref{cpp2-exceptions}
+     and \href{https://www.swi-prolog.org/pldoc/man?section=foreign-exceptions}{Prolog exceptions in foreign code}).
+  \item "retry" - for non-deterministic predicates, gives a "context"
+     for backtracking / redoing the call for the next solution.
+\end{itemize}
+If a predicate fails, it
 could be simple failure (the equivalent of calling the builtin fail/0
 predicate) or an error (the equivalent of calling the throw/1
 predicate). When a Prolog exception is raised, it is important that a
 return be made to the calling environment as soon as possible. In C
 code, this requires checking every call for failure, which can become
 cumbersome. C++ has exceptions, so instead the code can wrap calls to
-PL_*() functions with PlCheck_PL() or
+PL_*() functions with PlCheckFail() or
 PlCheckEx(), which will throw a PlException() to exit from
 the top level of the foreign predicate, and handle the failure or
 exception appropriately.
 
-The following three snippets do the same thing (for implementing the
-equivalent of =/2):
+The following three snippets do essentially the same thing (for
+implementing the equivalent of =/2); however the thrid option (with
+PlWrap<int>()) throws a C++ \ctype{PlExceptionFail} exception if
+there's an error; the second option (with PlCheckFail()) throws a
+\ctype{PlFail} exception for both failure and an error - the
+PREDICATE() wrapper handles all of these appropriately and reports the
+same result back to Prolog; but you might wish to distinguish the two
+situations in more complex code.
 
 \begin{code}
 PREDICATE(eq, 2)
-{ PlCheckFail(A1.unify_term(A2));
-  return true;
+{ return A1.unify_term(A2);
 }
 \end{code}
 
 \begin{code}
 PREDICATE(eq, 2)
-{ return A1.unify_term(A2);
+{ PlCheckFail(A1.unify_term(A2));
+  return true;
 }
 \end{code}
 
@@ -863,21 +912,25 @@ raise a C++ exception (\ctype{PlFail} or \ctype{PlException}) and the
 PREDICATE() code will convert it to the appropriate Prolog failure or
 error; memory allocation exceptions are also handled.
 
-Blobs also have callbacks, which can run outside the context of
-a PREDICATE(). Their exception handling is as follows:
+Blobs have callbacks, which can run outside the context of a
+PREDICATE(). Their exception handling is as follows:
 
 \begin{itemize}
+\item acquire(), which is called from PlBlobV<MyBlob>::acquire()
+      can throw a C++ exception.
 \item compare_fields(), which is called from PlBlobV<MyBlob>::compare()
       should not throw an exception. A Prolog error won't work as it uses "raw
       pointers" and thus a GC or stack shift triggered by creating the
       exception will upset the system.
 \item write_fields(), which is called from PlBlobV<MyBlob>::write()
       can throw an exception, just like code inside a PREDICATE().
-      In particular, you can wrap calls to Sfprintf() in PlCheckFail().
-\item save() can throw a C++ exception, include PlFail().
+      In particular, you can wrap calls to Sfprintf() in PlCheckFail(),
+      although the calling context will check for errors on the stream,
+      so checking the Sfprintf() result isn't necessary.
+\item save() can throw a C++ exception, including PlFail().
 \item load() can throw a C++ exception, which is converted to
       a return value of\tag{PlAtom::null}, which is interpreted by
-      Prolog failure.
+      Prolog as failure.
 \end{itemize}
 
 \subsubsection{Sample PlBlob code}
@@ -1644,7 +1697,7 @@ failure, this can be either a Prolog-style failure (e.g. from
 PL_unify() or PL_next_solution()) or an error. If the failure is due
 to an error, it's usually best to immediately return to Prolog - and
 this can be done with the PlCheckEx() function, which turns
-a Prolog error into a C++ \ctype{PlException}.  PlCheck()
+a Prolog error into a C++ \ctype{PlException}.  PlCheckFail()
 calls PlCheckEx() and additionally throws PlFail() if the failure is
 for Prolog failure.
 
@@ -2793,19 +2846,40 @@ X = 3.14159
 \section{Exceptions (version 2)}
 \label{sec:cpp2-exceptions}
 
-Prolog exceptions are mapped to C++ exceptions using the subclass
-\ctype{PlException} of \ctype{PlTerm} to represent the Prolog exception
-term. All type-conversion functions of the interface raise
-Prolog-compliant exceptions, providing decent error-handling support at
-no extra work for the programmer.
+See also \href{https://www.swi-prolog.org/pldoc/man?section=foreign-exceptions}{Prolog exceptions in foreign code}.
 
-For some commonly used exceptions, subclasses of \ctype{PlException}
-have been created to exploit both their constructors for easy creation
-of these exceptions as well as selective trapping in C++.  Currently,
-these are \ctype{PlTypeEror} and \ctype{PlDomainError},
-\ctype{PlTermvDomainError}, \ctype{PlInstantiationError},
-\ctype{PlExistenceError}, \ctype{PermissionError}, \ctype{PlResourceError},
-and \ctype{PlException_qid}.
+Prolog exceptions are mapped to C++ exceptions using the class
+\ctype{PlException} (a subclass of \ctype{PlExceptionBase} to
+represent the Prolog exception term. All type-conversion functions of
+the interface raise Prolog-compliant exceptions, providing decent
+error-handling support at no extra work for the programmer.
+
+For some commonly used exceptions, convenience functions have been
+created to exploit both their constructors for easy creation of these
+exceptions. If you wish to trap these, you should use
+\ctype{PlException} or \ctype{PlExceptionBase} and then look for the
+appropriate error name. For example, the following code catches
+\exam{"type_error"} and passes all other exceptions:
+
+\begin{code}
+try
+{ do_something(...);
+} catch (const PlException& e)
+{ PlTerm e_t = e.term();
+  PlAtom ATOM_type_error("type_error");
+  // e_t.name() == PlAtom("error") && e_t.arity() == 2
+  if ( e_t[1].name() == ATOM_type_error) )
+  { ... // expected type and culprit are \exam{e_t[1][1]} and \exam{e_t[1][2]}
+  } else throw;
+}
+\end{code}
+
+The convenience functions are PlTypeEror() and PlDomainError(),
+PlDomainError(), PlInstantiationError(), PlExistenceError(),
+PlUninstantiationError(), PlRepresentationError(),
+PlPermissionError(), PlResourceError(), PlUnknownError(). There is
+also a PlGeneralError(inside) that creates \exam{error(inside,_)}
+terms and is used by the other error convience functions.
 
 To throw an exception, create an instance of \ctype{PlException} and
 use \exam{throw}. This is intercepted by the PREDICATE macro and
@@ -2820,8 +2894,8 @@ turned into a Prolog exception. See \secref{cpp2-exceptions-notes}.
 \subsection{The class PlException (version 2)}
 \label{sec:cpp2-plexception}
 
-This subclass of \ctype{PlTerm} is used to represent exceptions.
-Currently defined methods are:
+This subclass of \ctype{PlExceptionBase} is used to represent
+exceptions.  Currently defined methods are:
 
 \begin{description}
     \constructor{PlException}{const PlTerm \&t}
@@ -2854,7 +2928,7 @@ A \jargon{type error} expresses that a term does not satisfy the
 expected basic Prolog type.
 
 \begin{description}
-    \constructor{PlTypeError}{const char *expected, const PlTerm \&actual}
+    \constructor{PlTypeError}{const std::string& expected, const PlTerm \&actual}
 Creates an ISO standard Prolog error term expressing the
 \arg{expected} type and \arg{actual} term that does not satisfy this
 type.
@@ -2872,7 +2946,7 @@ is provided, this is a \jargon{type error}, if an atom other than one
 of the defined io-modes is provided it is a \jargon{domain error}.
 
 \begin{description}
-    \constructor{PlDomainError}{const char *expected, const PlTerm \&actual}
+    \constructor{PlDomainError}{const std::string& expected, const PlTerm \&actual}
 Creates an ISO standard Prolog error term expressing a the
 \arg{expected} domain and the \arg{actual} term found.
 \end{description}

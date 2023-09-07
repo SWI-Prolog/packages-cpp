@@ -25,7 +25,7 @@ int
 body(int argc, char **argv)
 { if ( argc == 1 )
   { if ( strcmp(argv[0], "-happy") == 0 )
-    { PlTermv av(1);			/* likes - happy */
+    { PlTermv av(1);			/* likes -happy */
 
       cout << "Happy people:" << endl;
       PlQuery q("happy", av);

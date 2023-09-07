@@ -67,7 +67,7 @@ bool ex_is_resource_error(PlTerm ex)
 _SWI_CPP2_CPP_inline
 void
 PlWrap_fail(qid_t qid)
-{ PlTerm_term_t ex(PL_exception(qid));
+{ PlTerm ex(PL_exception(qid));
   if ( ex.not_null() )
   { // The error(resource_error(stack), _) exception is special because
     // nothing can be put on the stack, so all we can do is report failure
@@ -86,7 +86,7 @@ PlWrap_fail(qid_t qid)
 _SWI_CPP2_CPP_inline
 void
 PlEx_fail(qid_t qid)
-{ PlTerm_term_t ex(PL_exception(qid));
+{ PlTerm ex(PL_exception(qid));
   if ( ex.not_null() )
   { // The error(resource_error(stack), _) exception is special because
     // nothing can be put on the stack, so all we can do is report failure
@@ -139,7 +139,7 @@ PlGeneralError(PlTerm inside)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlTypeError(const char *expected, const PlTerm& actual)
+PlTypeError(const std::string& expected, const PlTerm& actual)
 { // See PL_type_error()
   return PlGeneralError(PlCompound("type_error",
                                    PlTermv(PlTerm_atom(expected), actual)));
@@ -147,7 +147,7 @@ PlTypeError(const char *expected, const PlTerm& actual)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlDomainError(const char *expected, const PlTerm& actual)
+PlDomainError(const std::string& expected, const PlTerm& actual)
 { // See PL_domain_error()
   return PlGeneralError(PlCompound("domain_error",
                                    PlTermv(PlTerm_atom(expected), actual)));
@@ -180,7 +180,7 @@ PlUninstantiationError(const PlTerm& t)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlRepresentationError(const char *resource)
+PlRepresentationError(const std::string& resource)
 { // See PL_representation_error()
   return PlGeneralError(PlCompound("representation_error", PlTermv(PlAtom(resource))));
 
@@ -188,7 +188,7 @@ PlRepresentationError(const char *resource)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlExistenceError(const char *type, PlTerm actual)
+PlExistenceError(const std::string& type, PlTerm actual)
 { // See PL_existence_error()
   return PlGeneralError(PlCompound("existence_error",
                                    PlTermv(PlTerm_atom(type), actual)));
@@ -196,7 +196,7 @@ PlExistenceError(const char *type, PlTerm actual)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlPermissionError(const char *op, const char *type, const PlTerm& obj)
+PlPermissionError(const std::string& op, const std::string& type, const PlTerm& obj)
 { // See: Use PL_permission_error()
   return PlGeneralError(PlCompound("permission_error",
                                    PlTermv(PlTerm_atom(op), PlTerm_atom(type), obj)));
@@ -204,7 +204,7 @@ PlPermissionError(const char *op, const char *type, const PlTerm& obj)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlResourceError(const char *resource)
+PlResourceError(const std::string& resource)
 { // See PL_resource_error()
   return PlGeneralError(PlCompound("resource_error",
                                    PlTermv(PlTerm_atom(resource))));
@@ -212,7 +212,7 @@ PlResourceError(const char *resource)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlUnknownError(const char *description)
+PlUnknownError(const std::string& description)
 { // For PlWrap()
   return PlGeneralError(PlCompound("unknown_error",
                                    PlTermv(PlTerm_atom(description))));
@@ -297,7 +297,7 @@ bool PlTerm::unify_blob(std::unique_ptr<PlBlob>* blob) const
 _SWI_CPP2_CPP_inline
 PlTerm
 PlTerm::copy_term_ref() const
-{ PlTerm_term_t t(Plx_copy_term_ref(C_));
+{ PlTerm t(Plx_copy_term_ref(C_));
   return t;
 }
 
@@ -358,8 +358,7 @@ PlTerm::as_pointer() const
 _SWI_CPP2_CPP_inline
 PlRecord
 PlTerm::record() const
-{ PlRecord rec(*this);
-  return rec;
+{ return PlRecord(*this);
 }
 
 
@@ -612,7 +611,7 @@ _SWI_CPP2_CPP_inline
 PlCompound::PlCompound(const wchar_t *text)
 { term_t t = Plx_new_term_ref();
   if ( !Plx_wchars_to_term(text, t) )
-    throw PlException(PlTerm_term_t(PlTerm_term_t(t)));
+    throw PlException(PlTerm(t));
   Plx_put_term(C_, t);
 }
 
@@ -633,7 +632,7 @@ PlCompound::PlCompound(const std::wstring& text)
 
   // TODO: what is wchar_t equivalent of PL_put_term_from_chars()?
   if ( !Plx_wchars_to_term(text.c_str(), t) ) // TODO: use text.size()
-    throw PlException(PlTerm_term_t(PlTerm_term_t(t)));
+    throw PlException(PlTerm(t));
   Plx_put_term(C_, t);
 }
 
@@ -732,7 +731,7 @@ PlTermv::operator [](size_t n) const
                                    PlTermv(PlTerm_integer(size_))),
                         PlTerm_integer(n));
 
-  return PlTerm_term_t(a0_+n);
+  return PlTerm(a0_+n);
 }
 
 

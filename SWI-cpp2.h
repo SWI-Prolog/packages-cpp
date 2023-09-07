@@ -104,7 +104,7 @@ class PlExceptionBase : public std::exception
 };
 
 
-// PlFail is a pseudo-exception for quick exist on failure, for use by
+// PlFail is a pseudo-exception for quick exit on failure, for use by
 // the PlTerm::unify methods and PlQuery::next_solution().  This is
 // special-cased in the PREDICATE et al macros.  Note that it is *not*
 // a subclass of PlException. See the documentation for more details
@@ -385,6 +385,14 @@ public:
   { Plx_put_atom(C_, a.C_);
   }
 
+  // The following constructor is the same as to PlTerm_term_t(); the
+  // latter is for consistency with other constructors
+  // (PlTerm_integer(), etc.)  and the former is to make some template
+  // programming eaiser.
+  explicit PlTerm(term_t t)
+    : WrappedC<term_t>(t)
+  { }
+
   PlTerm(const PlTerm&) = default;
 
   // TODO: PlTerm& operator =(const PlTerm&) = delete; // TODO: when the deprecated items below are removed
@@ -648,11 +656,6 @@ public:
 
   void reset_term_refs() { Plx_reset_term_refs(C_); }
 
-protected:
-  explicit PlTerm(term_t t) // See PlTerm_term_t for a better constructor
-    : WrappedC<term_t>(t)
-  { }
-
 private:
   bool eq(const char *s) const;
   bool eq(const wchar_t *s) const;
@@ -691,6 +694,7 @@ public:
 class PlTerm_term_t : public PlTerm
 {
 public:
+  // TODO: [[deprecated("use PlTerm(Plterm::null)")]]
   explicit PlTerm_term_t(term_t t)
     : PlTerm(t) {}
 };
@@ -1022,7 +1026,7 @@ public:
 
 protected:
   explicit PlException(term_t ex)
-    : term_rec_(PlTerm_term_t(ex)) { }
+    : term_rec_(PlTerm(ex)) { }
 
   void set_what_str()
   { if ( what_str_.empty() )
@@ -1047,9 +1051,9 @@ protected:
 
 PlException PlGeneralError(PlTerm inside);
 
-PlException PlTypeError(const char *expected, const PlTerm& actual);
+PlException PlTypeError(const std::string& expected, const PlTerm& actual);
 
-PlException PlDomainError(const char *expected, const PlTerm& actual);
+PlException PlDomainError(const std::string& expected, const PlTerm& actual);
 
 PlException PlDomainError(const PlTerm& expected, const PlTerm& actual);
 
@@ -1057,15 +1061,15 @@ PlException PlInstantiationError(const PlTerm& t);
 
 PlException PlUninstantiationError(const PlTerm& t);
 
-PlException PlRepresentationError(const char *resource);
+PlException PlRepresentationError(const std::string& resource);
 
-PlException PlExistenceError(const char *type, PlTerm actual);
+PlException PlExistenceError(const std::string& type, PlTerm actual);
 
-PlException PlPermissionError(const char *op, const char *type, const PlTerm& obj);
+PlException PlPermissionError(const std::string& op, const std::string& type, const PlTerm& obj);
 
-PlException PlResourceError(const char *resource);
+PlException PlResourceError(const std::string& resource);
 
-PlException PlUnknownError(const char *description);
+PlException PlUnknownError(const std::string& description);
 
 void PlWrap_fail(qid_t qid);
 
@@ -1251,12 +1255,12 @@ public:
   //    PL_S_FALSE
   //    PL_S_TRUE
   //    PL_S_LAST
-  // Because of this, you shouldn't use PlCheck(q.next_solution())
+  // Because of this, you shouldn't use PlCheckFail(q.next_solution())
   [[nodiscard]] int next_solution();
 
   PlTerm exception() const
   { verify(); // Not meaningful if cut() or close_destroy() has been done
-    return PlTerm_term_t(Plx_exception(exception_qid()));
+    return PlTerm(Plx_exception(exception_qid()));
   }
 
   qid_t exception_qid() const
@@ -1264,7 +1268,7 @@ public:
   }
 
   PlTerm yielded() const
-  { return PlTerm_term_t(Plx_yielded(C_));
+  { return PlTerm(Plx_yielded(C_));
   }
 
   void cut()
@@ -1427,7 +1431,7 @@ public:
           foreign_t rc; \
 	  try \
 	  { \
-	    rc = pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm_term_t(t0))); \
+	    rc = pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm(t0))); \
 	  } \
           PREDICATE_CATCH(rc = false) \
           return rc; \
@@ -1464,7 +1468,7 @@ public:
 	  try \
 	  { \
 	    /* t0.C_ is 0 if handle.foreign_control()==PL_PRUNED */ \
-	    rc = pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm_term_t(t0)), PlControl(c)); \
+	    rc = pl_ ## name ## __ ## arity(PlTermv(arity, PlTerm(t0)), PlControl(c)); \
 	  } \
           PREDICATE_CATCH(rc = false) \
           return rc; \

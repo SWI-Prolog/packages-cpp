@@ -134,6 +134,10 @@ testing:p(20).
 test(average_3, Average =:= Expected) :-
     average(X, testing:p(X), Average),
     Expected is (1+10+20)/3 .
+test(average_3, Average =:= Expected) :-
+    average(X, between(1,6,X), Average),
+    aggregate(sum(X)/count, between(1,6,X), A),
+    Expected is A.
 
 call_cut_test :-
     setup_call_cleanup(true,
@@ -239,7 +243,7 @@ cpp_call(Goal, Flags) :-
     cpp_call_(Goal, CombinedFlag, false).
 
 test(square_roots_2, Result == [0.0, 1.0, 1.4142135623730951, 1.7320508075688772, 2.0]) :-
-    square_roots(5, Result).
+    square_roots(4, Result).
 
 :- meta_predicate with_small_stacks(+, 0).
 with_small_stacks(Free, Goal) :-
@@ -653,8 +657,11 @@ test(throw, error(uninstantiation_error(abc),_)) :-
 test(throw, error(representation_error(some_resource))) :-
     throw_representation_error_cpp(some_resource).
 
-test(throw, error(type_error(int,"abc"))) :-
+test(throw, error(type_error(int, "abc"))) :-
     throw_type_error_cpp(int, "abc").
+
+test(throw, error(type_error(float, abc))) :-
+    throw_and_check_error_cpp(float, abc).
 
 test(throw, error(domain_error(positive, -5))) :-
     throw_domain_error_cpp(positive, -5).

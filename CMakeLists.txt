@@ -13,7 +13,7 @@ set(CMAKE_C_STANDARD 11) # swipl requires C-11
 configure_file(config.h.cmake config.h)
 
 install_src(pkg_cpp_headers
-	    FILES SWI-cpp.h SWI-cpp2.h SWI-cpp2.cpp SWI-cpp2-plx.h DESTINATION
+	    FILES SWI-cpp.h SWI-cpp2.h SWI-cpp2.cpp SWI-cpp2-plx.h SWI-cpp2-atommap.h DESTINATION
 	    ${SWIPL_INSTALL_INCLUDE})
 
 swipl_examples(test_cpp.cpp test_ffi.c likes.cpp likes.pl README.md)

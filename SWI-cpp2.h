@@ -181,12 +181,13 @@ public:
   bool operator ==(const WrappedC<C_t>& o) const { return C_ == o.C_; }
   bool operator !=(const WrappedC<C_t>& o) const { return C_ != o.C_; }
 
-  // reset() is common with "smart pointers"; wrapped wrapped atom_t,
-  // term_t, etc. aren't "smart" in the same sense, but the objects
-  // they refer to are garbage collected and some care is needed to
+  // reset() is common with "smart pointers"; wrapped atom_t, term_t,
+  // etc. aren't "smart" in the same sense, but the objects they refer
+  // to are garbage collected by Prolog and some care is needed to
   // ensure they have appropriate reference counts (e.g.,
   // PlAtom::register_ref() and PlTerm::record()).
-  void reset(C_t v = null) { C_ = v; }
+  void reset() { C_ = null; } // same as set_null()
+  void reset(WrappedC<C_t> v) { C_ = v.C_; }
 };
 
 // TODO: use PlEncoding wherever a method takes a char* or std::string.
@@ -393,6 +394,8 @@ public:
     : WrappedC<term_t>(t)
   { }
 
+  explicit PlTerm(const PlRecord& r);
+
   PlTerm(const PlTerm&) = default;
 
   // TODO: PlTerm& operator =(const PlTerm&) = delete; // TODO: when the deprecated items below are removed
@@ -441,9 +444,9 @@ public:
   void get_char_ex(int *p, int eof) const { Plx_get_char_ex(C_, p, eof); }
   void unify_bool_ex(int val)       const { Plx_unify_bool_ex(C_, val); }
   void get_pointer_ex(void **addrp) const { Plx_get_pointer_ex(C_, addrp); }
-  void unify_list_ex(PlTerm h, PlTerm t) const { Plx_unify_list_ex(C_, h.C_, t.C_); }
+  bool unify_list_ex(PlTerm h, PlTerm t) const { return Plx_unify_list_ex(C_, h.C_, t.C_); }
   void unify_nil_ex()               const { Plx_unify_nil_ex(C_); }
-  void get_list_ex(PlTerm h, PlTerm t) const { Plx_get_list_ex(C_, h.C_, t.C_); }
+  bool get_list_ex(PlTerm h, PlTerm t) const { return Plx_get_list_ex(C_, h.C_, t.C_); }
   void get_nil_ex()                 const {  Plx_get_nil_ex(C_); }
 
   int type()         const { return Plx_term_type(C_); } // PL_VARIABLE, PL_ATOM, etc.

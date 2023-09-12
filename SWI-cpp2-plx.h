@@ -327,9 +327,9 @@ PLX_EXCE(int                     , get_float_ex                    , (term_t t, 
 PLX_EXCE(int                     , get_char_ex                     , (term_t t, int *p, int eof), (t, p, eof))
 PLX_EXCE(int                     , unify_bool_ex                   , (term_t t, int val), (t, val))
 PLX_EXCE(int                     , get_pointer_ex                  , (term_t t, void **addrp), (t, addrp))
-PLX_EXCE(int                     , unify_list_ex                   , (term_t l, term_t h, term_t t), (l, h, t))
+PLX_WRAP(int                     , unify_list_ex                   , (term_t l, term_t h, term_t t), (l, h, t))
 PLX_EXCE(int                     , unify_nil_ex                    , (term_t l), (l))
-PLX_EXCE(int                     , get_list_ex                     , (term_t l, term_t h, term_t t), (l, h, t))
+PLX_WRAP(int                     , get_list_ex                     , (term_t l, term_t h, term_t t), (l, h, t))
 PLX_EXCE(int                     , get_nil_ex                      , (term_t l), (l))
 
 PLX_ASIS(int                     , instantiation_error             , (term_t culprit), (culprit))

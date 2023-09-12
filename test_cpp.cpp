@@ -63,6 +63,7 @@ how the various predicates can be called from Prolog.
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
+#include "SWI-cpp2-atommap.h"
 #include <errno.h>
 #include <math.h>
 #include <cassert>
@@ -140,11 +141,11 @@ PREDICATE(add, 3)
 
 PREDICATE(add_num, 3)
 { auto x = A1, y = A2, result = A3;
-  // Note that as_float() handles floats
+  // Note that as_float() handles integers
   double sum = x.as_float() + y.as_float();
-  if ( double(long(sum)) == sum ) /* Can float be represented as int? */
-    return result.unify_integer(long(sum));
-  return result.unify_float(sum);
+  return ( double(long(sum)) == sum ) // Can float be represented as int?
+    ? result.unify_integer(long(sum))
+    : result.unify_float(sum);
 }
 
 PREDICATE(name_arity, 2)
@@ -281,8 +282,12 @@ PREDICATE(eq2, 2)
 }
 
 PREDICATE(eq3, 2)
-{ PlCheckFail(PL_unify(A1.C_, A2.C_));
-  return true;
+{ return Plx_unify(A1.C_, A2.C_);
+}
+
+PREDICATE(eq4, 2)
+{ // This is what Plx_unify() expands to
+  return PlWrap<bool>(PL_unify(A1.C_, A2.C_));
 }
 
 PREDICATE(write_list, 1)
@@ -606,7 +611,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom a5a(t_atom1.as_atom());
   PlAtom atom_null(PlAtom::null);
   // The following are unsafe (the as_string() is deleted in the statement):
-  //   const char *   x01  = t_var.as_string();
+  //   const char *   x01  = t_var.as_string().c_str();
   //   const wchar_t *x01a = t_var.as_wstring().c_str();
   const std::string  s01 = atom3.as_string();
   const std::wstring s01b = atom4.as_wstring();
@@ -815,15 +820,16 @@ PREDICATE_NONDET(range_cpp, 3)
 }
 
 
-
 // For benchmarking `throw PlThrow()` vs `return false`
 // Times are given for 1 million failures
 
-// 0.085 sec for ime((between(1,1000000,X), fail)).
-
+// 0.085 sec for time((between(1,1000000,X), fail)).
 // 0.16 sec for time((between(1,1000000,X), X=0)).
-
 // 0.20 sec for time((between(1,1000000,X), unify_zero_0(X))).
+
+// See also timings for individual unify_zero_* predicates, unify_foo_*
+
+
 static foreign_t
 unify_zero_0(term_t a1)
 { return static_cast<foreign_t>(Plx_unify_integer(a1, 0));
@@ -917,6 +923,37 @@ PREDICATE(unify_foo_string_2b, 1)
 
 // end of benchmarking predicates
 
+// Example pl_write_atoms from foreign.doc
+
+PREDICATE(pl_write_atoms_cpp, 1)
+{ auto l = A1;
+  PlTerm_var head;
+  PlTerm tail(l.copy_term_ref());
+
+  while( tail.get_list_ex(head, tail) )
+  { Sprintf("%s\n", head.as_string().c_str());
+  }
+
+  tail.get_nil_ex();
+  return true;
+}
+
+PREDICATE(pl_write_atoms_c, 1)
+{ term_t l = A1.C_;
+  term_t head = PL_new_term_ref();   /* the elements */
+  term_t tail = PL_copy_term_ref(l); /* copy (we modify tail) */
+  int rc = TRUE;
+
+  while( rc && PL_get_list_ex(tail, head, tail) )
+  { PL_STRINGS_MARK();
+      char *s;
+      if ( (rc=PL_get_chars(head, &s, CVT_ATOM|REP_MB|CVT_EXCEPTION)) )
+        Sprintf("%s\n", s);
+    PL_STRINGS_RELEASE();
+  }
+
+  return rc && PL_get_nil_ex(tail); /* test end for [] */
+}
 
 // Predicates for checking native integer handling
 // See https://en.cppreference.com/w/cpp/types/numeric_limits
@@ -1310,4 +1347,50 @@ PREDICATE(close_my_blob, 1)
   if ( !ref->close() )
     throw ref->MyBlobError("my_blob_close_error");
   return true;
+}
+
+
+static AtomMap<PlAtom, PlAtom> map_atom_atom("add", "atom_atom");
+
+PREDICATE(atom_atom_find, 2)
+{ auto value = map_atom_atom.find(A1.as_atom());
+  PlCheckFail(value.not_null());
+  return A2.unify_atom(value);
+}
+
+PREDICATE(atom_atom_add, 2)
+{ map_atom_atom.insert(A1.as_atom(), A2.as_atom());
+  return true;
+}
+
+PREDICATE(atom_atom_erase, 1)
+{ map_atom_atom.erase(A1.as_atom());
+  return true;
+}
+
+PREDICATE(atom_atom_size, 1)
+{ return A1.unify_integer(map_atom_atom.size());
+}
+
+static AtomMap<PlTerm, PlRecord> map_atom_term("insert", "atom_term");
+
+PREDICATE(atom_term_find, 2)
+{ auto value = map_atom_term.find(A1.as_atom());
+  if ( value.is_null() )
+    return false;
+  return A2.unify_term(value);
+}
+
+PREDICATE(atom_term_insert, 2)
+{ map_atom_term.insert(A1.as_atom(), A2);
+  return true;
+}
+
+PREDICATE(atom_term_erase, 1)
+{ map_atom_term.erase(A1.as_atom());
+  return true;
+}
+
+PREDICATE(atom_term_size, 1)
+{ return A1.unify_integer(map_atom_term.size());
 }

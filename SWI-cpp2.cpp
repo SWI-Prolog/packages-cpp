@@ -361,6 +361,11 @@ PlTerm::record() const
 { return PlRecord(*this);
 }
 
+_SWI_CPP2_CPP_inline
+PlTerm::PlTerm(const PlRecord& r)
+  : WrappedC<term_t>(r.term().C_)
+{ }
+
 
 		 /*******************************
 		 *             LISTS		*

@@ -5,13 +5,13 @@
 \label{sec:summary-cpp2-changes}
 
 Version 1 is in \file{SWI-cpp.h}; version 2 is in \file{SWI-cpp2.h},
-\file{SWI-cpp2.cpp}, and \file{SWI-cpp2-plx.h}.
+\file{SWI-cpp2.cpp}, \file{SWI-cpp2-plx.h}, and \file{SWI-cpp2-atommap.h}.
 
 The overall structure of the API has been retained - that is, it is a
 thin layer on top of the interface provided by
 \file{SWI-Prolog.h}. Based on experience with the API, most of the
 conversion operators and some of the comparison operators have been
-removed or deprecated, and replaced by "getter" methods. The
+removed or deprecated, and replaced by "getter" methods; the
 overloaded constructors have been replaced by subclasses for the
 various types. Some changes were also made to ensure that the
 \const{[]} operator for \ctype{PlTerm} and \ctype{PlTermv} doesn't
@@ -27,8 +27,9 @@ Prolog exceptions are now converted to C++ exceptions (which contain
 the exception term rather being a subclass of \ctype{PlTerm} as in
 version 1), where they can be caught and thrown using the usual C++
 mechanisms; and the subclasses that create exceptions have been
-changed to functions.  In addition, a \ctype{PlFail} has been added,
-to allow "short circuit" return to Prolog on failure.
+changed to functions.  In addition, an exception type \ctype{PlFail}
+has been added, together with PlCheckFail(), to allow more compact
+code by "short circuit" return to Prolog on failure.
 
 A convenience class for creating blobs has been added, so that an
 existing structure can be converted to a blob with only a few lines
@@ -43,11 +44,10 @@ More specifically:
   \item
      The constructor PlTerm() is restricted to a few
      unambiguous cases - instead, you should use the appropriate
-     subclass' constructors (PlTerm_var(),
-     PlTerm_atom(), PlTerm_term_t(),
-     PlTerm_integer(), PlTerm_int64(),
-     PlTerm_uint64(), PlTerm_size_t(),
-     PlTerm_float(), or PlTerm_pointer()).
+     subclass constructors (PlTerm_var(), PlTerm_atom(),
+     PlTerm_term_t(), PlTerm_integer(), PlTerm_int64(),
+     PlTerm_uint64(), PlTerm_size_t(), PlTerm_float(), or
+     PlTerm_pointer()).
 \item
     Wrapper functions have been provided for almost all the PL_*()
     functions in  \file{SWI-Prolog.h}, and have the same names with
@@ -95,9 +95,9 @@ More specifically:
     have been deprecated, replaced by "getters" (e.g.,
     \exam{t.as_string()}, \exam{t.as_int64_t()}).
   \item
-    The overloaded assignment operator for unification is deprecated;
-    replaced by unify_term(), unify_atom(),
-    etc., and the helper PlCheckFail().
+    The overloaded assignment operator for unification is deprecated,
+    replaced by unify_term(), unify_atom(), etc., and the helper
+    PlCheckFail().
   \item
     Many of the equality and inequality operators are deprecated;
     replaced by the as_string() method and the associated
@@ -253,9 +253,9 @@ some convenience functions (see \secref{summary-cpp2-changes}).
 A foreign predicate is defined using the PREDICATE()
 macro, plus a few variations on this, such as
 PREDICATE_NONDET(), NAMED_PREDICATE(), and
-NAMED_PREDICATE_NONDET(). This defines an internal name for
-the function, registers it with the SWI-Prolog runtime (where it will
-be picked up by the use_foreign_library/1 directive), and defines the
+NAMED_PREDICATE_NONDET(). These define an internal name for
+the function, register it with the SWI-Prolog runtime (where it will
+be picked up by the use_foreign_library/1 directive), and define the
 names \exam{A1}, \exam{A2}, etc. for the arguments.\footnote{You can
 define your own names for the arguments, for example:
 \exam{auto dir=A1, db=A2, options=A3;}.}
@@ -284,13 +284,14 @@ the top level of the foreign predicate, and handle the failure or
 exception appropriately.
 
 The following three snippets do essentially the same thing (for
-implementing the equivalent of =/2); however the thrid option (with
-PlWrap<int>()) throws a C++ \ctype{PlExceptionFail} exception if
-there's an error; the second option (with PlCheckFail()) throws a
-\ctype{PlFail} exception for both failure and an error - the
-PREDICATE() wrapper handles all of these appropriately and reports the
-same result back to Prolog; but you might wish to distinguish the two
-situations in more complex code.
+implementing the equivalent of =/2); however the forst option (with
+PlTerm::unify_term()) and third option (with Plx_unify()) throw a C++
+\ctype{PlExceptionFail} exception if there's an error and return
+\const{true} or \const{false}; the second option (with PlCheckFail())
+throws a \ctype{PlFail} exception for both failure and an error and
+otherwise returns \const{true} - the PREDICATE() wrapper handles all
+of these appropriately and reports the same result back to Prolog; but
+you might wish to distinguish the two situations in more complex code.
 
 \begin{code}
 PREDICATE(eq, 2)
@@ -307,7 +308,7 @@ PREDICATE(eq, 2)
 
 \begin{code}
 PREDICATE(eq, 2)
-{ return PlWrap<int>(PL_unify(A1.C_, A2.C_));
+{ return Plx_unify(A1.C_, A2.C_));
 }
 \end{code}
 
@@ -319,7 +320,7 @@ Prolog variables are dynamically typed and all information is passed
 around using the C-interface type \ctype{term_t}. In C++, \ctype{term_t}
 is embedded in the \jargon{lightweight} class \ctype{PlTerm}.
 Constructors and operator definitions provide flexible operations and
-integration with important C-types (\ctype{char *}, \ctype{wchar_t*},
+integration with important C-types (\ctype{char*}, \ctype{wchar_t*},
 \ctype{long} and \ctype{double}), plus the C++-types (\ctype{std::string},
 \ctype{std::wstring}).
 
@@ -353,14 +354,23 @@ will ensure that the object \exam{foo} is useable and will throw an
 exception if the atom can't be created. However, if you choose
 to create an \ctype{PlAtom} object from a \ctype{atom_t} value,
 no checking is done (similarly, no checking is done if you
-create a \ctype{PlTerm} object using the \ctype{PlTerm_term_t}
-constructor).
+create a \ctype{PlTerm} object from a \ctype{term_t}
+value).
 
-To help avoid programming errors, most of the classes do not have a
+To help avoid programming errors, some of the classes do not have a
 default "empty" constructor. For example, if you with to create a
 \ctype{PlAtom} that is uninitialized, you must explicitly use
 \exam{PlAtom(PlAtom::null)}. This make some code a bit more cumbersome
 because you can't omit the default constructors in struct initalizers.
+
+Many of the classes have a as_string() method - this might be changed
+in future to to_string(), to be consistent with
+\exam{std::to_string()}.  However, the method names such as
+as_int32_t() were chosen itnstead of to_int32_t() because they imply
+that the representation is already an \ctype{int32_t}, and not that
+the value is converted to a \ctype{int32_t}. That is, if the value is
+a float, \ctype{int32_t} will fail with an error rather than (for example)
+truncating the floating point value to fit into a 32-bit integer.
 
 Many of the classes wrap long-lived items, such as atoms, functors,
 predicates, or modules. For these, it's often a good idea to define
@@ -425,6 +435,10 @@ The following files are provided:
     Contains the wrapper functions for the most of the functions in
     \file{SWI-Prolog.h}. This file is not intended to be used by
     itself, but is \exam{\#include}d by \file{SWI-cpp2.h}.
+
+\item
+    \file{SWI-cpp2-atommap.h}
+    Contains a utility class for mapping atom-to-atom or atom-to-term.
 
 \item
     \file{test_cpp.cpp}, \file{test_cpp.pl}
@@ -529,12 +543,12 @@ Creates a \ctype{PlException} object for representing a Prolog
     \cfunction{PlTerm}{PlPermissionError}{}
 Creates a \ctype{PlException}object for representing a Prolog
 \except{permission_error} exception.
-\end{description}
 
     \classitem{PlExceptionBase}
 A "do nothing" subclass of \ctype{std::exception}, to allow catching
 \ctype{PlException}, \ctype{PlExceptionFail} or \ctype{PlFail}
 in a single "catch" clause.
+\end{description}
 
     \classitem{PlAtom}
 Allow for manipulating atoms (\ctype{atom_t}) in their internal Prolog
@@ -563,9 +577,10 @@ throwing one of the subclasses of \ctype{PlException} e.g.,
 \exam{throw PlTypeError("int", t)}.
     \classitem{PlException}
 If a call to Prolog results in an error, the C++ interface converts
-the error into a \ctype{PlException} object and throws it. If  the
+the error into a \ctype{PlException} object and throws it. If the
 enclosing code doesn't intercept the exception, the \ctype{PlException}
-object is turned back into a Prolog error.
+object is turned back into a Prolog error when control returns to Prolog
+from the PREDICATE() macros.
     \classitem{PlExceptionFail}
 In some situations, a Prolog error cannot be turned into a
 \ctype{PlException} object, so a \ctype{PlExceptionFail} object
@@ -583,14 +598,12 @@ The encapsulation of PL_register_foreign() is defined to be able to
 use C++ global constructors for registering foreign predicates.
 \end{description}
 
-The required C++ function header and registration of a predicate
-is arranged through a macro called PREDICATE().
-
 \subsection{Wrapper functions}
 \label{sec:cpp2-wrapper-functions}
 
 The various PL_*() functions in \file{SWI-Prolog.h} have corresponding
-Plx_*() functions. There are three kinds of wrappers:
+Plx_*() functions, defined in \file{SWI-cpp2-plx.h}, which is always
+included by \file{SWI-cpp2.h}. There are three kinds of wrappers:
 \begin{itemize}
   \item
     "as-is" - the PL_*() function cannot cause an error. If it has a
@@ -599,9 +612,9 @@ Plx_*() functions. There are three kinds of wrappers:
 
   \item
     "exception wrapper" - the PL_*() function can return \const{false},
-    indicating an error. The Plx*() function checks for this and
+    indicating an error. The Plx_*() function checks for this and
     throws a \ctype{PlException} object containing the error.  The
-    wrapper uses \exam{template<typename C_t> C_t PlExce(C_t rc)},
+    wrapper uses \exam{template<typename C_t> C_t PlEx(C_t rc)},
     where \exam{C_t} is the return type of the PL_*() function.
     (These are defined using the PLX_WRAP() macro.)
 
@@ -628,8 +641,8 @@ in classes \ctype{PlTerm}, \ctype{PlAtom}, etc.
 
 \emph{Important}: You should use the Plx_*() wrappers only in the
 context of a PREDICATE() call, which will handle any C++ exceptions.
-If you use a Plx_*() wrapper in another situation (e.g., in a
-callback for a blob), results are unpredicatable (probably a crash).
+Some blob callbacks can also handle an exception.  Everywher else,
+results are unpredicatable (probably a crash).
 
 \subsection{Naming conventions, utility functions and methods (version 2)}
 \label{sec:cpp2-naming}
@@ -645,11 +658,11 @@ The wrapper classes (\ctype{PlFunctor}, \ctype{PlAtom},
 wrapped value (\ctype{functor_t}, \ctype{atom_t}, \ctype{term_t}
 respectively).
 
-The wrapper classes (which subclass \ctype{WrappedC<\ldots>})
+The wrapper classes (which subclass \ctype{WrappedC$<$\ldots$>$})
 all define the following methods and constants:
 \begin{itemize}
   \item
-    default constructor (sets the wrapped value to \exam{null})
+    default constructor (sets the wrapped value to \exam{null}).
   \item
     constructor that takes the wrapped value (e.g.,
     for \ctype{PlAtom}, the constructor takes an \ctype{atom_t}
@@ -661,7 +674,7 @@ all define the following methods and constants:
     and \ctype{PlAtom}: \verb$Plcheck_PL(PL_put_atom(t.C_,a.C_))$.
   \item
     \exam{null} - the null value (typically \exam{0}, but
-    code should not rely on this)
+    code should not rely on this).
   \item
     \exam{is_null()}, \exam{not_null()} - test
     for the wrapped value being \exam{null}.
@@ -670,7 +683,7 @@ all define the following methods and constants:
   \item
     \exam{reset(new_value)} - set the wrapped value
 \item
-    The \ctype{bool} operator is turned off - you should
+    The \ctype{bool} operator is disabled - you should
     use not_null() instead.\footnote{The reason: a
     \ctype{bool} conversion  causes ambiguity with \exam{PlAtom(PlTterm)}
     and \exam{PlAtom(atom_t)}.}
@@ -688,8 +701,8 @@ PREDICATE(mypred, 2)
   size_t     length = 10;
   PlTerm_var callback;
 
-  PlCheck_L(PL_scan_options(options, 0, "mypred_options", mypred_options,
-                            &quoted, &length, &callback.C_));
+  PlCheckFail(PL_scan_options(options, 0, "mypred_options", mypred_options,
+                              &quoted, &length, &callback.C_));
   callback.record(); // Needed if callback is put in a blob that Prolog doesn't know about.
                      // If it were an atom (OPT_ATOM): register_ref().
 
@@ -698,7 +711,7 @@ PREDICATE(mypred, 2)
 \end{code}
 
 For functions in \file{SWI-Prolog.h} that don't have a C++ equivalent
-in \file{SWI-cpp2.h}, PlCheck_PL() is a convenience
+in \file{SWI-cpp2.h}, PlCheckFail() is a convenience
 function that checks the return code and throws a \ctype{PlFail}
 exception on failure or \ctype{PlException} if there was an
 exception. The PREDICATE() code catches \ctype{PlFail}
@@ -709,13 +722,12 @@ foreign function caller will detect that situation and convert the
 failure to an exception.
 
 The "getter" methods for \ctype{PlTerm} all throw an exception if the
-term isn't of the expected Prolog type. Where possible, the "getters"
-have the same name as the underlying type; but this isn't possible for
-types such as \ctype{int} or \ctype{float}, so for these the name is
-prepended with "as_".
+term isn't of the expected Prolog type. The "getter" methods typically
+start with "as", e.g. PlTerm::as_string(). There are also other "getter"
+methods, such as PlTerm::get_float_ex() that wrap PL_*() functions.
 
 "Getters" for integers have an additionnal problem, in that C++
-doesn't define the sizes of \ctype{int} and \ctype{long}, nor for
+doesn't define the sizes of \ctype{int}, \ctype{long}, or
 \ctype{size_t}. It seems to be impossible to make an overloaded method
 that works for all the various combinations of integer types on all
 compilers, so there are specific methods for \ctype{int64_t},
@@ -733,7 +745,7 @@ PREDICATE(p, 1)
 \end{code}
 
 \emph{It is strongly recommended that you enable conversion checking.}
-For example, with GNU C++, these options (possibly with \exam{-Werror}:
+For example, with GNU C++, these options (possibly with \exam{-Werror}):
 \exam{-Wconversion -Warith-conversion -Wsign-conversion -Wfloat-conversion}.
 
 There is an additional problem with characters - C promotes
@@ -796,8 +808,8 @@ A Prolog blob consists of five parts:
 
 For the \ctype{PL_blob_t} structure, the C++ API provides a set of
 template functions that allow easily setting up the callbacks, and
-defining the corresonding methods in the blob "contents" class.
-The C interface allows more flexibility by allosing some of the
+defining the corresponding methods in the blob "contents" class.
+The C interface allows more flexibility by allowing some of the
 callbacks to default; however, the C++ API for blobs provides suitable
 callbacks for all of them, so usually the programmer will specify all
 the template callbacks using the
@@ -836,7 +848,7 @@ TL;DR: Use PL_BLOB_DEFINITION() to define the blob with the flag
 \const{PL_BLOB_NOCOPY} and the default \ctype{PlBlob} wrappers; define
 your struct as a subclass of \ctype{PlBlob} with no copy constructor,
 move constructor, or assignment operator; create blob using
-exam{std::unique_ptr<PlBlob>(new ...)}, call PlTerm::unify_blob().
+\exam{std::unique_ptr<PlBlob>(new ...)}, call PlTerm::unify_blob().
 Optionally, define one or more of: compare_fields(), write_fields(),
 save(), load() methods (these are described after the sample code).
 
@@ -854,16 +866,16 @@ the following:
       (std::make_unique() can't be used because it returns type
       \ctype{std::unique_ptr<MyBlob>} but PlTerm::unify_blob() requires a
       \ctype{std::unique_ptr<PlBlob>} and C++'s type inferencing can't figure
-      out that this is a covariant type.
+      out that this is a covariant type).
 
 \item Calls PlTerm::unify_blob(ref), using PlCheckFail() to throw
       an exception if it fails.
       This, in turn, calls:
       \begin{itemize}
       \item PlBlobV<MyBlob>acquire(), which calls
-      \item MyBlob::acquire(), which sets \arg{MyBlob::symbol_}.
-      \arg{MyBlob::symbol_} is usually accessed using the
-      method MyBlob::symbol_term().
+      \item MyBlob::acquire(), which sets \arg{MyBlob::symbol_}
+      (\arg{MyBlob::symbol_} is usually accessed using the
+      method MyBlob::symbol_term()).
       If this all succeeds, PlTerm::unify_blob(ref) calls
       \exam{ref.release()} to pass ownership to the Prolog blob. If
       you wish to use std::make_unique<MyBlob>(), you could instead do:
@@ -878,7 +890,7 @@ the following:
 \end{itemize}
 
 At this point, the blob is owned by Prolog and will be freed by
-its atom garbage collector.
+its atom garbage collector, which will call the blob's destructor.
 
 Whenever a predicate is called with the blob as an argument (e.g.,
 as \arg{A1}), the blob can be accessed by
@@ -916,20 +928,20 @@ Blobs have callbacks, which can run outside the context of a
 PREDICATE(). Their exception handling is as follows:
 
 \begin{itemize}
-\item acquire(), which is called from PlBlobV<MyBlob>::acquire()
+\item acquire(), which is called from PlBlobV<MyBlob>::acquire(),
       can throw a C++ exception.
-\item compare_fields(), which is called from PlBlobV<MyBlob>::compare()
+\item compare_fields(), which is called from PlBlobV<MyBlob>::compare(),
       should not throw an exception. A Prolog error won't work as it uses "raw
       pointers" and thus a GC or stack shift triggered by creating the
       exception will upset the system.
-\item write_fields(), which is called from PlBlobV<MyBlob>::write()
+\item write_fields(), which is called from PlBlobV<MyBlob>::write(),
       can throw an exception, just like code inside a PREDICATE().
       In particular, you can wrap calls to Sfprintf() in PlCheckFail(),
       although the calling context will check for errors on the stream,
       so checking the Sfprintf() result isn't necessary.
 \item save() can throw a C++ exception, including PlFail().
 \item load() can throw a C++ exception, which is converted to
-      a return value of\tag{PlAtom::null}, which is interpreted by
+      a return value of \const{PlAtom::null}, which is interpreted by
       Prolog as failure.
 \end{itemize}
 
@@ -939,10 +951,6 @@ PREDICATE(). Their exception handling is as follows:
 Here is minimal sample code for creating a blob that owns a connection
 to a database. It has a single field (\exam{connection}) and
 defines compare_fields() and write_fields().
-Note that you must add the boilerplate definition for the virtual
-method blob_size_(), using the convenience macros
-PL_BLOB_DEFINITION(blob_class,blob_name) and
-\const{PL_BLOB_SIZE}.
 
 \begin{code}
 struct MyBlob;
@@ -1047,9 +1055,9 @@ PREDICATE(close_my_blob, 1)
       constructor.
 
   \item The \ctype{MyBlob} class must not provide a copy or move
-        constructor, nor an assignment operator (PlBlob defines these
-        as deleted, so if you try to use one of these, you will get a
-        compile-time error).
+        constructor, nor an assignment operator (PlBlob has these as
+        \const{delete}, so if you try to use one of these, you will
+        get a compile-time error).
 
   \item \ctype{PlBlob}'s constructor sets \exam{blob_t_} to a pointer
         to the \ctype{my_blob} definition.  This is used for run-time
@@ -1057,7 +1065,7 @@ PREDICATE(close_my_blob, 1)
         constructing error terms (see PlBlob::symbol_term()).
 
   \item \ctype{PlBlob}'s acquire() is called by
-        PlBlobV<MyBlob>::acuire() and fills in the \exam{symbol}
+        PlBlobV<MyBlob>::awcuire() and fills in the \exam{symbol}
         field. \ctype{MyBlob} must not override this - it is not a
         virtual method.
 
@@ -1069,9 +1077,9 @@ PREDICATE(close_my_blob, 1)
   \item The MyBlob(connection_name) constructor creates a
       \ctype{MyConnection} object. If this fails, an exception is
       thrown. The constructor then calls MyConnection::open() and
-      throws an exception if that fails. (The code would be similar
-      if the constructor for \ctype{MyConnection} also did an open
-      and threw an exception on failure.)
+      throws an exception if that fails. (The code would be similar if
+      instead the constructor for \ctype{MyConnection} also did an
+      open and threw an exception on failure.)
 
   \item The \const{PL_BLOB_SIZE} is boilerplate that defines a
       blob_size_() method that is used when the blob is created.
@@ -1112,7 +1120,8 @@ PREDICATE(close_my_blob, 1)
   \item PlBlob::compare_fields() makes the blob comparison function
       more deterministic by comparing the name fields; if the names
       are the same, the comparison will be done by comparing the
-      addresses of the blobs (this is the default behavior for blobs).
+      addresses of the blobs (which is the default behavior for blobs
+      defined using the C API).
       PlBlob::compare_fields() is called by
       PlBlobV<PlBlob>::compare(), which provides the default
       comparison if PlBlob::compare_fields() returns \const{0}
@@ -1194,6 +1203,16 @@ PREDICATE(close_my_blob, 1)
 
 \end{itemize}
 
+\subsubsection{Identifying blobs by atoms}
+\label{sec:cpp2-atom-blob}
+
+Passing a blob around can be inconvenient; there is an easy way to
+identify a blob by an atom. An example of this is with streams, which
+are identified by atoms such as \exam{user_input}.
+
+A utility class \ctype{AtomMap} is provided for this situation.
+See \secref{cpp2-atom-map}.
+
 \subsection{Limitations of the interface}
 \label{sec:cpp2-limitations}
 
@@ -1214,13 +1233,6 @@ and PL_put_chars() on terms. There is only half of the API for
 atoms as PL_new_atom_mbchars() and PL-atom_mbchars(), which take an encoding, length and
 char*.
 
-However, there is no native "string" type in C++; the \ctype{char*}
-strings can be automatically cast to string. If a C++ interface
-provides only \ctype{std::string} arguments or return values, that
-can introduce some inefficiency; therefore, many of the functions
-and constructors allow either a \ctype{char*} or \ctype{std::string}
-as a value (also \ctype{wchar_t*} or \ctype{std::wstring}.
-
 For return values, \ctype{char*} is dangerous because it can point to
 local or stack memory. For this reason, wherever possible, the C++ API
 returns a \ctype{std::string}, which contains a copy of the the
@@ -1231,15 +1243,6 @@ overhead of passing strings, this can be done by passing in a pointer
 to a string rather than returning a string value; but this is more
 cumbersome and modern compilers can often optimize the code to avoid
 copying the return value.}
-
-Many of the classes have a as_string() method - this might be changed
-in future to to_string(), to be consistent with
-\exam{std::to_string()}.  However, the method names such as
-as_int32_t() were chosen istntead of to_int32_t() because they imply
-that the representation is already an \ctype{int32_t}, and not that
-the value is converted to a \ctype{int32_t}. That is, if the value is
-a float, \ctype{int32_t} will fail with an error rather than (for example)
-truncating the floating point value to fit into a 32-bit integer.
 
 \subsubsection{Object handles}
 \label{sec:cpp2-limitations-handles}
@@ -1254,7 +1257,7 @@ wrong handle to a function.
 This leads to a problem with classes such as \ctype{PlTerm} -
 C++ overloading cannot be used to distinguish, for example, creating
 a term from an atom versus creating a term from an integer.
-There are number of possible solutions, including:
+There are a number of possible solutions, including:
 \begin{itemize}
 \item A subclass for each kind of initializer;
 \item A tag for each kind of intializer;
@@ -1291,13 +1294,13 @@ along with any foreign predicate files. You can do this in three ways:
   Add \verb$#include SWI-cpp2.cpp$ to one of the foreign predicate
   files.
 \item
-  Wherever you have \verb$#include SWI-cpp2.h%$, add
+  Wherever you have \verb$#include SWI-cpp2.h$, add
   \begin{code}
       #define _SWI_CPP2_CPP_inline inline
       #include <SWI-cpp2.cpp>
   \end{code}
   This will cause the compiler to attempt to inline all the functions
-  and methods, even those that are rarely used, resulting in some
+  and methods, even those that are rarely used, possibly resulting in some
   code bloat.
 \end{itemize}
 
@@ -1318,7 +1321,6 @@ and how a Prolog argument is converted to C-data:
 \begin{code}
 PREDICATE(hello, 1)
 { cout << "Hello " << A1.as_string() << endl;
-
   return true;
 }
 \end{code}
@@ -1328,7 +1330,8 @@ The macros A<n> provide access to the predicate arguments by position
 and are of the type \ctype{PlTerm}. The C or C++ string for a \ctype{PlTerm}
 can be extracted using as_string(), or as_wstring() methods;\footnote{The C-string
 values can be extracted from \ctype{std::string} by using c_str(), but you
-must be careful to not return a pointer to a local/stack value.}
+must be careful to not return a pointer to a local/stack value, so this
+isn't recommende.}
 and similar access methods provide an easy type-conversion
 for most Prolog data-types, using the output of write/1 otherwise:
 
@@ -1368,6 +1371,14 @@ PREDICATE(add, 3)  // add(+X, +Y, +Result)
 }
 \end{code}
 
+or more compactly:
+\begin{code}
+PREDICATE(add, 3)  // add(+X, +Y, +Result)
+{ auto x = A1, y = A2, result = A3;
+  return result.unify_integer(x.as_long() + y.as_long());
+}
+\end{code}
+
 The as_long() method for a \ctype{PlTerm} performs a PL_get_long_ex()
 and throws a C++ exception if the Prolog argument is not a Prolog
 integer or float that can be converted without loss to a
@@ -1385,7 +1396,7 @@ X = 3.
 \end{code}
 
 
-\subsection{Average of solutions (version 2)}
+\subsection{Average of solutions - calling a Prolog goal (version 2)}
 \label{sec:cpp2-ex-average}
 
 This example is a bit harder. The predicate average/3 is defined to take
@@ -1438,7 +1449,7 @@ The original version of the C++ interface heavily used implicit
 constructors and conversion operators. This allowed, for example:
 \begin{code}
 PREDICATE(hello, 1)
-{ cout << "Hello " << A1.as_string() << endl;
+{ cout << "Hello " << (char *)A1 << endl;
   return true;
 }
 
@@ -1462,13 +1473,31 @@ PREDICATE(add, 3)
 There are a few reasons for this:
 \begin{itemize}
   \item
+    The implicit constructors and conversion operators, combined with
+    the C++ conversion rules for integers and floats, could sometimes
+    lead to subtle bugs that were difficult to find -- in one case, a
+    typo resulted in terms being unified with floating point values when
+    the code intended them to be atoms. This was mainly because the
+    underlying C types for terms, atoms, etc. are unsigned integers,
+    leading to confusion between numeric values and Prolog terms and
+    atoms.
+\item
+    The overloaded assignment operator for unification changed the
+    usual C++ semantics for assignments from returning a reference
+    to the left-hand-side to returning a \ctype{bool}. In addition,
+    the result of unification should always be checked (e.g., an
+    "always succeed" unification could fail due to an out-of-memory
+    error); the unify_XXX() methods return
+    a \ctype{bool} and they can be wrapped inside a PlCheckFail()
+    to raise an exception on unification failure.
+  \item
     The C-style of casts is deprecated in C++, so the expression
-    \exam{(char *)A1} becomes the more verbose
+    \exam{(char*)A1} becomes the more verbose
     \exam{static_cast<std::string>(A1)}, which is longer than
     \exam{A1.as_string()}. Also, the string casts don't allow for
     specifying encoding.
   \item
-    The implicit constructors and conversion operators allowed
+    The implicit constructors and conversion operators were attractive because they allowed
     directly calling the foreign language interface functions, for example:
 \begin{code}
 PlTerm t;
@@ -1488,24 +1517,8 @@ PlTerm_atom t("someName");
 \begin{code}
 auto t = PlTerm_atom("someName");
 \end{code}
-  \item
-    The implicit constructors and conversion operators, combined with
-    the C++ conversion rules for integers and floats, could sometimes
-    lead to subtle bugs that were difficult to find -- in one case, a
-    typo resulted in terms being unified with floating point values when
-    the code intended them to be atoms. This was mainly because the
-    underlying C types for terms, atoms, etc. are unsigned integers,
-    leading to confusion between numeric values and Prolog terms and
-    atoms.
-\item
-    The overloaded assignment operator for unification changed the
-    usual C++ semantics for assignments from returning a reference
-    to the left-hand-side to returning a ctype{bool}. In addition,
-    the result of unification should always be checked (e.g., an
-    "always succeed" unification could fail due to an out-of-memory
-    error); the unify_XXX() methods return
-    a \ctype{bool} and they can be wrapped inside a PlCheckFail()
-    to raise an exception on unification failure.
+Additionally, there are now wrappers for most of the PL_*() functions
+that check the error return and throw a C++ exception as appropriate.
 \end{itemize}
 
 Over time, it is expected that some of these restrictions will be
@@ -1515,7 +1528,7 @@ methods/constructors, implicit conversions and constructors can result
 in code that's difficult to understand, so a balance needs to be
 struck between compactness of code and understandability.
 
-For backwards compatibility, some of the version 1 interface is still
+For backwards compatibility, much of the version 1 interface is still
 available (except for the implicit constructors and operators), but
 marked as "deprecated"; code that depends on the parts that have been
 removed can be easily changed to use the new interface.
@@ -1526,11 +1539,12 @@ removed can be easily changed to use the new interface.
 The version API often used \ctype{char*} for both setting and setting
 string values. This is not a problem for setting (although encodings
 can be an issue), but can introduce subtle bugs in the lifetimes of
-pointers if the buffer stack isn't used properly. The buffer stack is
-abstracted into \ctype{PlStringBuffers}, but it would be preferable to
-avoid its use altogether. C++, unlike C, has a standard string that
-allows easily keeping a copy rather than dealing with a pointer that
-might become invalid. (Also, C++ strings can contain null characters.)
+pointers if the buffer stack isn't used
+properly. \ctype{PlStringBuffers} makes the buffer stack easier to
+use, but it would be preferable to avoid its use altogether. C++,
+unlike C, has a standard string that allows easily keeping a copy
+rather than dealing with a pointer that might become invalid. (Also,
+C++ strings can contain null characters.)
 
 C++ has default conversion operators from \ctype{char*} to
 \ctype{std::string}, so some of the API support only
@@ -1551,7 +1565,7 @@ default encoding - may change slightly in the future.
 \section{Porting from version 1 to version 2}
 \label{sec:cpp2-porting-1-2}
 
-\file{SWI-cpp2.h} is not complete; it needs `file{SWI-cpp2.cpp} to implement
+\file{SWI-cpp2.h} is not stand-alone; it needs \file{SWI-cpp2.cpp} to implement
 some functions. The easiest way of taking care of this is to add
 \verb$#include <SWI-cpp2.cpp>$ in your "main" file; alternatively, you
 can create another source file that contains the "include" statement.
@@ -1579,7 +1593,7 @@ Here is a list of typical changes:
   \item
     Examine uses of \ctype{char*} or \ctype{wchar_t} and replace them by
     \ctype{std::string} or \ctype{std::wstring} if appropriate.
-    For example, \exam{cout << "Hello " << A1.as_string().c_str()() << endl}
+    For example, \exam{cout << "Hello " << (char*)A1 << endl}
     can be replaced by \exam{cout << "Hello " << A1.as_string() << endl}.
     In general, \ctype{std::string} is safer than \ctype{char*} because
     the latter can potentially point to freed memory.
@@ -1588,8 +1602,9 @@ Here is a list of typical changes:
     Instead of returning \const{false} from a predicate for failure,
     you can do \exam{throw PlFail()}. This mechanism is also used by
     \cfuncref{PlCheckFail}{rc}. Note that throwing an exception is
-    significantly slower than returning \const{false}, so
-    performance-critical code should avoid \cfuncref{PlCheckFail}{rc}.
+    slower than returning \const{false}, so
+    performance-critical code should avoid \cfuncref{PlCheckFail}{rc}
+    if failure is expected to happen often.
 
   \item
     You can use the \cfuncref{PlCheck_PL}{rc} to check the return code
@@ -1608,15 +1623,16 @@ Here is a list of typical changes:
 
   \item
     The operator \exam{=} for unification has been deprecated,
-    replaced by various \exam{unify_XXX}` methods
+    replaced by various unify_*() methods
     (\cfuncref{PlTerm::unify_term}{t2},
     \cfuncref{PlTerm::unify_atom}{a}, etc.).
 
   \item
     The various "cast" operators have been deprecated or deleted;
     you should use the various "getter" methods. For example,
-    \exam{static_cast<char*>(t)} is replaced by \exam{t.as_string().c_str()};
-    \exam{static_cast<int32_t>(t)} is replaced by \exam{t.as_int32_t()}.
+    \exam{static_cast<char*>(t)} is replaced by \exam{t.as_string().c_str()}
+    (and you should prefer \exam{t.as_striong()};
+    \exam{static_cast<int32_t>(t)} is replaced by \exam{t.as_int32_t()}, etc.
 
   \item
     It is recommended that you do not use \ctype{int} or
@@ -1634,41 +1650,21 @@ failure or an exception occurs and any errors will be handled in the
 code generated by the PREDICATE() macro. See also
 \secref{cpp2-exceptions-notes}).
 
-For example, this code:
+For example, this code, using the C API:
 \begin{code}
 PREDICATE(unify_zero, 1)
 { if ( !PL_unify_integer(A1.C_, 0) )
-    return false;
+    return false; // could be an error or failure
+  Sprintf("It's zero!\n");
   return true;
 }
 \end{code}
-can instead be written this way:
-\begin{code}
-void
-PREDICATE(unify_zero, 1)
-{ if ( !PL_unify_integer(A1.C_, 0) )
-    throw PlFail();
-  return true;
-}
-\end{code}
-or:
-\begin{code}
-PREDICATE(unify_zero, 1)
-{ PlCheck_PL(PL_unify_integer(t.C_, 0));
-  return true;
-}
-\end{code}
-or:
+can instead be written this way, using the C++ API:
 \begin{code}
 PREDICATE(unify_zero, 1)
 { PlCheckFail(A1.unify_integer(0));
+  Sprintf("It's zero!\n");
   return true;
-}
-\end{code}
-or:
-\begin{code}
-PREDICATE(unify_zero, 1)
-{ return A1.unify_integer(0);
 }
 \end{code}
 
@@ -1678,7 +1674,8 @@ using \exam{throw PlFail()} compared to \exam{return false} (comparing
 the first code sample above with the second and third samples; the
 speed difference seems to have been because in the second sample, the
 compiler did a better job of inlining). However, for most code, this
-difference will be barely noticeable.
+difference will be barely noticeable. And if the code usually succeeds,
+there is no significant difference.
 
 There was no significant performance difference between the C++
 version and this C version:
@@ -3091,6 +3088,70 @@ term_foo_bar()
   return r.term();
 }
 \end{code}
+
+\subsection{Atom map utilities}
+\label{sec:cpp2-atom-map}
+
+The include file \file{SWI-cpp2-atommap.h} contains a templated class
+\ctype{AtomMap} for mapping atoms to atoms or terms. The typical use
+case is for when it is desired to open a database or stream and, instead
+of passing around the blob, an atom can be used to identify the blob.
+
+The keys in the map must be standard Prolog atoms and not blobs - the
+code depends on the fact that an atom has a unique ID.
+
+The \ctype{AtomMap} is thread-safe (it contains a mutex). It also takes
+care of reference counts for both the key and the value. Here is
+a typical use case:
+\begin{code}
+static AtomMap<PlAtom, PlAtom> map_atom_my_blob("alias", "my_blob");
+
+// look up an entry:
+   auto value = map_atom_my_blob(A1.as_atom());
+   PlCheckFail(value.not_null());
+
+// insert an entry:
+   map_atom_my_blob.insert(A1.as_atom(), A2.as_atom());
+
+// remove an entry:
+   map_atom_my_blob.erase(A1.as_atom());
+\end{code}
+
+The constructor and methods are as follows:
+
+\begin{itemize}
+
+  \item \cfunction{}{template<ValueType, StoredValueType> AtomMap::AtomMap}{const std::string\& insert_op}{const std::string\& insert_type}
+    Construct an \ctype{AtomMap}. The \arg{ValueType} and \arg{StoredValueType} specify
+    what type you wish for the value. Currently, two value types are supported:
+    \begin{itemize}
+      \item \ctype{PlAtom} - the \arg{StoredValueType} should be \ctype{PlAtom}.
+      \item \ctype{PlTerm} - the \arg{StoredValueType} shoud be \ctype{PlRecord}
+        (because the term needs to be put on the global stack).
+    \end{itemize}
+    The \arg{insert_op} and \arg{insert_type} values are used in constructing
+      error terms - these correspond to the \arg{operation} and
+      \arg{type} arguments to Pl_permission_error().
+
+  \item \cfunction{insert}{PlAtom key, ValueType value}
+    Inserts a new value; raises a \exam{permission_error}
+    if the value is already in the map, unless the value is
+    identical to the value in the map. The insert() method
+    converts the value to the \ctype{StoredValueType}.
+    The insertion code takes care of atom reference counts.
+
+  \item \cfunction{ValueType}{find}{PlAtom key}
+    Look up an entry. Success/failure can be determined by
+    using ValueType::is_null() or ValueType::not_null().
+    The stored value is converted from \ctype{StoredValueType}
+    to \ctype{ValueType}.
+
+  \item \cfunction{erase}{PlAtom} removes the entry from
+    the map. If there was no entry in the map with that key,
+    this is a no-op. The erasure code takes care of atom
+    reference counts.
+
+\end{itemize}
 
 \subsection{Static linking and embedding (version 2)}
 \label{sec:cpp2-linking}

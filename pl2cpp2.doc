@@ -188,7 +188,7 @@ Notable examples:
   \item write_list/1 - outputs the elements of a list, each on a new line.
   \item cappend/3 - appends two lists (requires that the two lists are
      instantiated).
-  \item square_roots/2 - same as \exam{bagof(Sqrt, X^(between(0,4,X), Sqrt is sqrt(X)), A2)}.
+  \item square_roots/2 - same as \verb$bagof(Sqrt, X^(between(0,4,X), Sqrt is sqrt(X)), A2)$.
   \item range_cpp/3 - on backtracking, generates all integers starting
      at \arg{A1} and less than \arg{A2} (that is, one less than between/3).
   \item int_info/2 - on backtracking generates all the integral types with their
@@ -2928,7 +2928,7 @@ A \jargon{type error} expresses that a term does not satisfy the
 expected basic Prolog type.
 
 \begin{description}
-    \constructor{PlTypeError}{const std::string& expected, const PlTerm \&actual}
+    \constructor{PlTypeError}{const std::string\& expected, const PlTerm \&actual}
 Creates an ISO standard Prolog error term expressing the
 \arg{expected} type and \arg{actual} term that does not satisfy this
 type.
@@ -2946,7 +2946,7 @@ is provided, this is a \jargon{type error}, if an atom other than one
 of the defined io-modes is provided it is a \jargon{domain error}.
 
 \begin{description}
-    \constructor{PlDomainError}{const std::string& expected, const PlTerm \&actual}
+    \constructor{PlDomainError}{const std::string\& expected, const PlTerm \&actual}
 Creates an ISO standard Prolog error term expressing a the
 \arg{expected} domain and the \arg{actual} term found.
 \end{description}

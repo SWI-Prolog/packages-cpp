@@ -346,13 +346,26 @@ test(new_chars_2) :-
     new_chars(1000, Result), % smoke test
     delete_chars(Result).
 
-test(name_arity_2, Out == "name = foo, arity = 2\n") :-
+test(name_arity, Out == "name = foo, arity = 2\n") :-
+    with_output_to(string(Out),
+                   name_arity(foo(bar,zot))).
+
+test(name_arity, Out == "name = foo, arity = 2\n") :-
     name_arity(foo(bar,zot), Out).
 
-test(name_arity_2) :-
+test(name_arity) :-
     name_arity(foo(bar,zot), Name, Arity),
     assertion(Name == foo),
     assertion(Arity == 2).
+
+test(name_arity) :-
+    name_arity_bool(foo(bar,zot), Name, Arity),
+    assertion(Name == foo),
+    assertion(Arity == 2).
+test(name_arity, error(type_error(compound,"foo"))) :-
+    name_arity("foo", _, _).
+test(name_arity, fail) :-
+    name_arity_bool("bar", _, _).
 
 test(list_modules_0) :-
     list_modules(Text),

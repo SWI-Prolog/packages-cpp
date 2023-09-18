@@ -222,6 +222,39 @@ public:
   }
 };
 
+		 /*******************************
+		 *  PL_{acquire,release}_stream *
+		 *******************************/
+
+// TODO: document this.
+// In brief, this is RAII for PL_{acquire,release_stream}.
+// To use:
+//    PlAcquireStream strm(other_stream);
+//    Sfprintf(strm, ...);
+
+class PlAcquireStream
+{
+public:
+  explicit PlAcquireStream(IOSTREAM *s)
+    : s_(Plx_acquire_stream(s))
+  { PlCheckFail(s_ != nullptr);
+  }
+
+  operator IOSTREAM *()
+  { return s_;
+  }
+
+  // The following has an implicit throw of PlFail if
+  // PL_release_stream() detects an IO error had happened
+  ~PlAcquireStream()
+  { if ( s_ )
+    { Plx_release_stream(s_);
+   }
+  }
+
+private:
+  IOSTREAM *s_ = nullptr;
+};
 
 		 /*******************************
 		 *	 PROLOG CONSTANTS	*

@@ -60,8 +60,6 @@ how the various predicates can be called from Prolog.
 #include <iostream>
 #include <sstream>
 #include <memory>
-#include <SWI-Stream.h>
-#include <SWI-Prolog.h>
 #include "SWI-cpp2.h"
 #include "SWI-cpp2-atommap.h"
 #include <errno.h>
@@ -293,9 +291,10 @@ PREDICATE(eq4, 2)
 PREDICATE(write_list, 1)
 { PlTerm_tail tail(A1);
   PlTerm_var e;
+  PlAcquireStream strm(Scurrent_output);
 
   while(tail.next(e))
-    cout << e.as_string() << endl;
+    Sfprintf(strm, "%s\n", e.as_string().c_str());
 
   return true;
 }
@@ -320,6 +319,7 @@ PREDICATE(cpp_call_, 3)
 { int flags = A2.as_int();
   int verbose = A3.as_bool();
   std::string flag_str;
+  PlAcquireStream strm(Scurrent_output);
   // if ( flags & PL_Q_DEBUG )        flag_str.append(",debug");
   // if ( flags & PL_Q_DETERMINISTIC) flag_str.append(",deterministic");
   if ( flags & PL_Q_NORMAL )          flag_str.append(",normal");
@@ -333,7 +333,7 @@ PREDICATE(cpp_call_, 3)
   else
     flag_str = std::string("cpp_call(").append(flag_str.substr(1)).append(")");
   if ( verbose )
-    cout << flag_str << ": " << A1.as_string() << endl;
+    Sfprintf(strm, "%s: %s\n",  flag_str.c_str(), A1.as_string().c_str());
 
   try
   { int rc = PlCall(A1, flags);
@@ -348,33 +348,33 @@ PREDICATE(cpp_call_, 3)
 	default:             status_str = "???";       break;
       }
       if ( verbose )
-	cout << "... after call, rc=" << rc << ": " << status_str << endl;
+	Sfprintf(strm, "... after call, rc=%d: %s\n", rc, status_str);
     } else
     { if ( verbose )
-	cout << "... after call, rc=" << rc << endl;
+	Sfprintf(strm, "... after call, rc=%d\n", rc);
     }
 
     if ( rc )
     { if ( verbose )
-	cout << "cpp_call result: rc=" << rc << ": " << A1.as_string() << endl;
+	Sfprintf(strm, "cpp_call result: rc=%d: %s\n", rc, A1.as_string().c_str());
     } else
     { PlTerm ex(Plx_exception(0));
       if ( ex.is_null() )
       { if ( verbose )
-	  cout << "cpp_call failed" << endl;
+	  Sfprintf(strm, "cpp_call failed\n");
       } else
       { if ( verbose )
-	  cout << "cpp_call failed: ex: " << ex.as_string() << endl;
+	  Sfprintf(strm, "cpp_call failed: ex: %s\n", ex.as_string().c_str());
       }
     }
     return rc; // TODO: this is wrong with some query flags
   } catch ( PlException& ex )
   { if ( ex.is_null() )
     { if ( verbose )
-	cout << "cpp_call except is_null" << endl;
+	Sfprintf(strm, "cpp_call except is_null\n");
     } else
     { if ( verbose )
-	cout << "cpp_call exception: " << ex.as_string() << endl;
+	Sfprintf(strm, "cpp_call exception: %s\n", ex.as_string().c_str());
     }
     throw;
   }
@@ -384,10 +384,11 @@ PREDICATE(cpp_atom_codes, 2)
 { int rc = PlCall("atom_codes", PlTermv(A1, A2));
   if ( ! rc )
   { PlException ex(PlTerm(Plx_exception(0)));
+    PlAcquireStream strm(Scurrent_output);
     if ( ex.is_null() )
-      cout << "atom_codes failed" << endl;
+      Sfprintf(strm, "atom_codes failed\n");
     else
-      cout << "atom_codes failed: ex: " << ex.as_string() << endl; // Shouldn't happen
+      Sfprintf(strm, "atom_codes failed: ex: %s\n", ex.as_string().c_str()); // Shouldn't happen
   }
   return rc;
 }
@@ -929,9 +930,10 @@ PREDICATE(pl_write_atoms_cpp, 1)
 { auto l = A1;
   PlTerm_var head;
   PlTerm tail(l.copy_term_ref());
-
+  PlAcquireStream strm(Scurrent_output);
+  
   while( tail.get_list_ex(head, tail) )
-  { Sprintf("%s\n", head.as_string().c_str());
+  { Sfprintf(strm, "%s\n", head.as_string().c_str());
   }
 
   tail.get_nil_ex();
@@ -943,12 +945,13 @@ PREDICATE(pl_write_atoms_c, 1)
   term_t head = PL_new_term_ref();   /* the elements */
   term_t tail = PL_copy_term_ref(l); /* copy (we modify tail) */
   int rc = TRUE;
+  PlAcquireStream strm(Scurrent_output);
 
   while( rc && PL_get_list_ex(tail, head, tail) )
   { PL_STRINGS_MARK();
       char *s;
       if ( (rc=PL_get_chars(head, &s, CVT_ATOM|REP_MB|CVT_EXCEPTION)) )
-        Sprintf("%s\n", s);
+        Sfprintf(strm, "%s\n", s);
     PL_STRINGS_RELEASE();
   }
 
@@ -1093,13 +1096,12 @@ PREDICATE(w_atom_cpp_, 2)
 { auto stream = A1, t = A2;
   IOSTREAM* s;
   Plx_get_stream(stream.C_, &s, SIO_INPUT);
-  { PlStringBuffers _string_buffers;
-    size_t len;
-    const pl_wchar_t *sa = Plx_atom_wchars(t.as_atom().C_, &len);
-    // TODO: Sfprintf() doesn't get format checked in C++
-    Sfprintf(s, "/%Ws/%zd", sa, len);
-  }
-  return TRUE;
+  PlAcquireStream strm(Scurrent_output);
+  PlStringBuffers _string_buffers;
+  size_t len;
+  const pl_wchar_t *sa = Plx_atom_wchars(t.as_atom().C_, &len);
+  SfprintfX(strm, "/%Ws/%zd", sa, len);
+  return true;
 }
 
 

@@ -837,15 +837,20 @@ void PlWrapDebug(const char*msg) {
 }
 #endif
 
+		 /*******************************
+		 *	    PlString		*
+		 *******************************/
+
 _SWI_CPP2_CPP_inline
 PlStream::PlStream(PlTerm& stream, int flags)
 { Plx_get_stream(stream.C_, &s_, flags);
+  check_stream(); // Shouldn't happen
 }
 
 _SWI_CPP2_CPP_inline
 PlStream::PlStream(IOSTREAM *s)
   : s_(Plx_acquire_stream(s))
-{ PlCheckFail(s_ != nullptr); // TODO: is Plx_acquire_stream sufficient?
+{ check_stream(); // Shouldn't happen
 }
 
 _SWI_CPP2_CPP_inline
@@ -856,6 +861,7 @@ PlStream::~PlStream() noexcept
 void PlStream::release()
 { if ( s_ )
     Plx_release_stream(s_);
+  s_ = nullptr;
 }
 
 _SWI_CPP2_CPP_inline

@@ -480,9 +480,8 @@ PlTerm::operator [](size_t index) const
 _SWI_CPP2_CPP_inline
 size_t
 PlTerm::arity() const
-{ PlAtom name(PlAtom::null);
-  size_t arity;
-  if ( get_name_arity(&name, &arity) )
+{ size_t arity;
+  if ( get_name_arity(nullptr, &arity) )
     return arity;
   throw PlTypeError("compound", *this);
 }
@@ -772,6 +771,27 @@ PlException::string_term() const
   return PlTerm_string("[ERROR: Failed to generate message. Internal error]");
 }
 
+_SWI_CPP2_CPP_inline
+const std::string
+PlException::as_string(PlEncoding enc) const
+{ // Use what_str_ to hold the string so that c_str() doesn't return
+  // a pointer into the stack. Note that as_string() can cause an
+  // exception (out of memory, either in generating the string or in
+  // allocating the std::string) even though we specify "throw()" -
+  // telling the truth "noexcept(false)" results in a compilation
+  // error.
+  (void)enc; // TODO: use this
+  const_cast<PlException*>(this)->set_what_str();
+  return what_str_;
+}
+
+_SWI_CPP2_CPP_inline
+const char*
+PlException::what() const throw()
+{ const_cast<PlException*>(this)->set_what_str();
+  return what_str_.c_str();
+}
+
 
 		 /*******************************
 		 *	    QUERY (BODY)	*
@@ -810,10 +830,156 @@ PlQuery::next_solution()
 
 #ifdef O_DEBUG
 #include <SWI-Stream.h>
+_SWI_CPP2_CPP_inline
 void PlWrapDebug(const char*msg) {
   // Sdprintf("***PlWrapDebug %s\n", msg);
   // PL_check_stacks();
 }
 #endif
+
+		 /*******************************
+		 *	    PlString		*
+		 *******************************/
+
+_SWI_CPP2_CPP_inline
+PlStream::PlStream(PlTerm& stream, int flags)
+{ Plx_get_stream(stream.C_, &s_, flags);
+  check_stream(); // Shouldn't happen
+}
+
+_SWI_CPP2_CPP_inline
+PlStream::PlStream(IOSTREAM *s)
+  : s_(Plx_acquire_stream(s))
+{ check_stream(); // Shouldn't happen
+}
+
+_SWI_CPP2_CPP_inline
+PlStream::~PlStream() noexcept
+{ release();
+}
+
+void PlStream::release()
+{ if ( s_ )
+    Plx_release_stream(s_);
+  s_ = nullptr;
+}
+
+_SWI_CPP2_CPP_inline
+int
+PlStream::check_rc(int rc)
+{ if ( rc < 0 )
+  { release(); // throws an exception if stream has an error
+    throw PlUnknownError("Stream error");
+  }
+  return rc;
+}
+
+_SWI_CPP2_CPP_inline
+void
+PlStream::check_stream() const
+{ if ( ! s_ )
+    throw PlUnknownError("Stream not set");
+}
+
+#define _SWI_CPP2_CPP_check_rc(rc_t, defn, call) \
+_SWI_CPP2_CPP_inline \
+rc_t \
+PlStream::defn \
+{ check_stream(); \
+  return check_rc(call); \
+}
+
+_SWI_CPP2_CPP_check_rc(int, set_timeout(int tmo), Sset_timeout(s_, tmo))
+_SWI_CPP2_CPP_check_rc(int, unit_size(), Sunit_size(s_));
+_SWI_CPP2_CPP_check_rc(bool, canrepresent(int c), Scanrepresent(c, s_))
+_SWI_CPP2_CPP_check_rc(int, putcode(int c), Sputcode(c, s_))
+_SWI_CPP2_CPP_check_rc(int, getcode(), Sgetcode(s_))
+_SWI_CPP2_CPP_check_rc(int, peekcode(), Speekcode(s_))
+_SWI_CPP2_CPP_check_rc(int, putw(int w), Sputw(w, s_))
+_SWI_CPP2_CPP_check_rc(int, getw(), Sgetw(s_))
+_SWI_CPP2_CPP_check_rc(int, read(void *data, size_t size, size_t elems), Sfread(data, size, elems, s_))
+_SWI_CPP2_CPP_check_rc(int, write(const void *data, size_t size, size_t elems), Sfwrite(data, size, elems, s_))
+_SWI_CPP2_CPP_check_rc(int, eof(), Sfeof(s_))
+_SWI_CPP2_CPP_check_rc(int, pasteof(), Sfpasteof(s_))
+_SWI_CPP2_CPP_check_rc(int, error(), Sferror(s_))
+_SWI_CPP2_CPP_check_rc(int, seterr(int which, const char *message), Sseterr(s_, which, message))
+_SWI_CPP2_CPP_check_rc(int, set_exception(term_t ex), Sset_exception(s_, ex))
+_SWI_CPP2_CPP_check_rc(int, setenc(IOENC new_enc, IOENC *old_enc), Ssetenc(s_, new_enc, old_enc))
+_SWI_CPP2_CPP_check_rc(int, setlocale(struct PL_locale *new_loc, struct PL_locale **old_loc), Ssetlocale(s_, new_loc, old_loc))
+_SWI_CPP2_CPP_check_rc(int, flush(), Sflush(s_))
+_SWI_CPP2_CPP_check_rc(int64_t, size(), Ssize(s_))
+_SWI_CPP2_CPP_check_rc(int, seek(long pos, int whence), Sseek(s_, pos, whence))
+_SWI_CPP2_CPP_check_rc(int, tell(), Stell(s_))
+_SWI_CPP2_CPP_check_rc(int, close(), Sclose(s_))
+_SWI_CPP2_CPP_check_rc(int, gcclose(int flags), Sgcclose(s_, flags))
+_SWI_CPP2_CPP_check_rc(ssize_t, read_pending(char *buf, size_t limit, int flags), Sread_pending(s_, buf, limit, flags))
+_SWI_CPP2_CPP_check_rc(size_t, pending(), Spending(s_))
+_SWI_CPP2_CPP_check_rc(int, puts(const char *q), Sfputs(q, s_))
+_SWI_CPP2_CPP_check_rc(int, vprintf(const char *fm, va_list args), Svfprintf(s_, fm, args))
+_SWI_CPP2_CPP_check_rc(int, lock(), Slock(s_))
+_SWI_CPP2_CPP_check_rc(int, tryLock(), StryLock(s_))
+_SWI_CPP2_CPP_check_rc(int, unlock(), Sunlock(s_))
+_SWI_CPP2_CPP_check_rc(int, fileno(), Sfileno(s_))
+_SWI_CPP2_CPP_check_rc(int64_t, tell64(), Stell64(s_))
+_SWI_CPP2_CPP_check_rc(int, seek64(int64_t pos, int whence), Sseek64(s_, pos, whence))
+_SWI_CPP2_CPP_check_rc(int, checkBOM(), ScheckBOM(s_))
+_SWI_CPP2_CPP_check_rc(int, writeBOM(), SwriteBOM(s_))
+_SWI_CPP2_CPP_check_rc(int, qlf_get_int64(int64_t *ip), PL_qlf_get_int64(s_, ip))
+_SWI_CPP2_CPP_check_rc(int, qlf_get_int32(int32_t *ip), PL_qlf_get_int32(s_, ip))
+_SWI_CPP2_CPP_check_rc(int, qlf_get_uint32(uint32_t *ip), PL_qlf_get_uint32(s_, ip))
+_SWI_CPP2_CPP_check_rc(int, qlf_get_double(double *fp), PL_qlf_get_double(s_, fp))
+_SWI_CPP2_CPP_check_rc(int, qlf_get_atom(atom_t *a), PL_qlf_get_atom(s_, a))
+_SWI_CPP2_CPP_check_rc(int, qlf_put_int64(int64_t i), PL_qlf_put_int64(i, s_))
+_SWI_CPP2_CPP_check_rc(int, qlf_put_int32(int32_t i), PL_qlf_put_int32(i, s_))
+_SWI_CPP2_CPP_check_rc(int, qlf_put_uint32(uint32_t i), PL_qlf_put_uint32(i, s_))
+_SWI_CPP2_CPP_check_rc(int, qlf_put_double(double f), PL_qlf_put_double(f, s_))
+_SWI_CPP2_CPP_check_rc(int, qlf_put_atom(atom_t a), PL_qlf_put_atom(a, s_))
+
+_SWI_CPP2_CPP_inline
+void
+PlStream::clearerr()
+{ check_stream();
+  Sclearerr(s_);
+}
+
+_SWI_CPP2_CPP_inline
+char *
+PlStream::gets(char *buf, int n)
+{ check_stream();
+  return Sfgets(buf, n, s_);
+}
+
+_SWI_CPP2_CPP_inline
+void
+PlStream::setbuffer(char *buf, size_t size)
+{ check_stream();
+  Ssetbuffer(s_, buf, size);
+}
+
+_SWI_CPP2_CPP_inline
+int
+PlStream::printf(const char *fm, ...)
+{ va_list args;
+  int rval;
+  va_start(args, fm);
+  rval = vprintf(fm, args);
+  va_end(args);
+  return rval;
+}
+
+_SWI_CPP2_CPP_inline
+int
+PlStream::printfX(const char *fm, ...)
+{ va_list args;
+  int rval;
+  va_start(args, fm);
+  rval = vprintf(fm, args);
+  va_end(args);
+  return rval;
+}
+
+
+
+#undef _SWI_CPP2_CPP_check_rc
 
 #endif /*_SWI_CPP2_CPP*/

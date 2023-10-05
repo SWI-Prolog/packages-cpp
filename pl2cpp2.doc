@@ -91,7 +91,7 @@ More specifically:
     Prolog).
   \item
     The "cast" operators (e.g., \exam{(char*)t}, \exam{(int64_t)t},
-    \exam{static_cast<char*>(t)}
+    \exam{static_cast<char*>(t)})
     have been deprecated, replaced by "getters" (e.g.,
     \exam{t.as_string()}, \exam{t.as_int64_t()}).
   \item
@@ -156,6 +156,11 @@ More specifically:
   \item
     \ctype{PlStringBuffers} provides a simpler interface for allocating
     strings on the stack than PL_STRINGS_MARK() and PL_STRINGS_RELEASE().
+    See \secref{cpp2-limitations-strings}.
+  \item
+    \ctype{PlStream} provides a simpler interface for streams than
+    PL_get_stream(), PL_acquire_stream(), and PL_release_stream().
+    See \secref{cpp2-stream-io}.
   \item
     Wrapper classes for \ctype{record_t} have been added. The
     \ctype{PlRecordExternalCopy} class contains the opaque handle,
@@ -1181,7 +1186,7 @@ PREDICATE(close_my_blob, 1)
       auto ref = std::make_unique<MyBlob>(...);
         ...
       std::unique_ptr<PlBlob> refb(ref.release());
-      PlCheckFail(A2.unify_blob(&refb);
+      PlCheckFail(A2.unify_blob(&refb));
       return true;
       \end{code}
 
@@ -1243,6 +1248,115 @@ overhead of passing strings, this can be done by passing in a pointer
 to a string rather than returning a string value; but this is more
 cumbersome and modern compilers can often optimize the code to avoid
 copying the return value.}
+
+Some functions require allocating string space using PL_STRINGS_MARK().
+The \ctype{PlStringBuffers} class provides a \jargon{RAII} wrapper that
+ensures the matching PL_STRINGS_RELEASE() is done.
+The \ctype{PlAtom} or \ctype{PlTerm} member functions that need
+the string buffer use \ctype{PlStringBuffers}, and then copy the
+resulting string to a \ctype{std::string} value.
+
+\subsubsection{Stream I/O}
+\label{sec:cpp2-stream-io}
+
+\ctype{PlStream} can be used to get a stream from a Prolog term, or to
+lock the stream so that other threads cannot interleave their
+output. With either usage, \ctype{PlStream} is a \jargon{RAII} class
+that ensure the matchin PL_release_stream() is done, and also handles
+some subtle problems with C++ exceptions.
+
+The methods are:
+\begin{itemize}
+  \item \constructor{PlStream}{term_t t, int flags} - see
+     PL_get_stream() for documentation of the flags.
+     Throws a C++ exception on error.
+  \item \constructor{PlStream}{IOSTREAM *s} - calls
+    PL_acquire_stream() to lock the stream.
+     Throws a C++ exception on error.
+  \item \destructor{PlStream} - calls PlStream::release().
+    See below for caveats if there are exceptions.
+  \item \cfunction{void}{release}{} - calls PL_release_stream(),
+    throwing an exception if there has been an I/O error on
+    the stream, and sets the \ctype{PlStream} object to an
+    invalid stream (see PlStream::check_stream()).
+  \item \cppcast{IOSTREAM*}{PlStream} - when used in a context
+     that requires an \ctype{IOSTREAM*}, \ctype{PlStream}
+     is implicitly converted to \ctype{IOSTREAM*}.
+  \item cfunction{int}{check_rc}{int rc} - checks that \arg{rc}
+     is non-negative; otherwise calls PlStream::release()
+     and throws a C++ exception.
+  \item cfunction{void}{check_stream}{} - checks that the
+     \ctype{PlStream} object contains a valid stream and
+     throws an exception if it doesn't. This is used to
+     ensure that PlStream::release() hasn't been called.
+  \item Most of the stream I/O functions have corresponding
+     methods in \ctype{PlStream}. For example, Sfprintf()
+     corresponds to PlStream::printf().
+\end{itemize}
+
+The C interface to stream I/O doesn't raise a Prolog error when
+there's a stream error (typically indicated by a -1 return
+code). Instead, the error sets a flag on the stream and
+PL_release_stream() creates the error term. The
+\ctype{PlStream} destructor calls PL_release_stream(); but
+it's a fatal error in C++ to raise an exception in a destructor if the
+destructor is invoked by stack-unwinding due to another exception,
+including the pseudo-exceptions \ctype{PlFail} and
+\ctype{PlExceptionFail}.
+
+To get around this, the various stream I/O functions have wrapper
+methods in the \ctype{PlStream} class that check for an error
+and call PlStream::release() to create the Prolog error, which
+is thrown as a C++ error.
+
+The destructor calls PlStream::release(), which throws a C++
+exception if there is a stream error. This is outside the destructor,
+so it is safe - the destructor checks if the stream has been released
+and does nothing in that situation.
+
+The following two code examples do essentially the same thing:
+
+\begin{code}
+PREDICATE(name_arity, 1)
+{ PlStream strm(Scurrent_output);
+  strm.printf("name = %s, arity = %zd\n", A1.name().as_string().c_str(), A1.arity());
+  return true;
+}
+\end{code}
+
+\begin{code}
+PREDICATE(name_arity, 1)
+{ PlStream strm(Scurrent_output);
+  try
+  { strm.printf("name = %s, arity = %zd\n", A1.name().as_string().c_str(), A1.arity());
+  } PREDICATE_CATCH({strm.release(); return false;})
+  return true;
+}
+\end{code}
+
+If you write the code as follows, using Sfprintf() directly, it is
+possible that a fatal exception will be raised on an I/O error:
+
+\begin{code}
+PREDICATE(name_arity, 1)
+{ PlStream strm(Scurrent_output);
+  Sfprintf(strm, "name = %s, arity = %zd\n", A1.name().as_string().c_str(), A1.arity());
+  return true;
+  // WARNING: the PlStream destructor might throw a C++
+  //          exception on stack unwinding, giving a fatal
+  //          fatal runtime exception.
+}
+\end{code}
+
+If you don't use these, and want to throw an exception if there's an
+error, the following code works because \ctype{PlStream}
+(and the underlying PL_acquire_stream()) can be called recursively:
+\begin{code}
+{ PlStream strm(...);
+  strm.release();
+}
+\end{code}
+
 
 \subsubsection{Object handles}
 \label{sec:cpp2-limitations-handles}

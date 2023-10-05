@@ -146,6 +146,12 @@ PREDICATE(add_num, 3)
     : result.unify_float(sum);
 }
 
+PREDICATE(name_arity, 1)
+{ PlStream strm(Scurrent_output);
+  strm.printf("name = %s, arity = %zd\n", A1.name().as_string().c_str(), A1.arity());
+  return true;
+}
+
 PREDICATE(name_arity, 2)
 { std::stringstream buffer;
 
@@ -162,6 +168,17 @@ PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
   PlCheckFail(arity.unify_integer(term.arity()));
 
   return true;
+}
+
+PREDICATE(name_arity_bool, 3)  // like name_arity/3 but doesn't throw
+{ auto term = A1; auto name = A2; auto arity = A3;
+  PlAtom name_a(PlAtom::null);
+  size_t arity_a;
+  if ( !term.name_arity(&name_a, &arity_a) )
+    return false;
+  assert(name_a.not_null());
+
+  return name.unify_atom(name_a) && arity.unify_integer(arity_a);
 }
 
 PREDICATE(list_modules, 1)
@@ -291,11 +308,13 @@ PREDICATE(eq4, 2)
 PREDICATE(write_list, 1)
 { PlTerm_tail tail(A1);
   PlTerm_var e;
-  PlAcquireStream strm(Scurrent_output);
-
-  while(tail.next(e))
-    Sfprintf(strm, "%s\n", e.as_string().c_str());
-
+  PlStream strm(Scurrent_output);
+  // This is an example of using the try...PREDICATE_CATCH for avoiding
+  // throwing an exception in the PlStream destructor.
+  try
+  { while( tail.next(e) )
+      strm.printf("%s\n", e.as_string().c_str());
+  } PREDICATE_CATCH({strm.release(); return false;})
   return true;
 }
 
@@ -319,7 +338,7 @@ PREDICATE(cpp_call_, 3)
 { int flags = A2.as_int();
   int verbose = A3.as_bool();
   std::string flag_str;
-  PlAcquireStream strm(Scurrent_output);
+  PlStream strm(Scurrent_output);
   // if ( flags & PL_Q_DEBUG )        flag_str.append(",debug");
   // if ( flags & PL_Q_DETERMINISTIC) flag_str.append(",deterministic");
   if ( flags & PL_Q_NORMAL )          flag_str.append(",normal");
@@ -333,7 +352,7 @@ PREDICATE(cpp_call_, 3)
   else
     flag_str = std::string("cpp_call(").append(flag_str.substr(1)).append(")");
   if ( verbose )
-    Sfprintf(strm, "%s: %s\n",  flag_str.c_str(), A1.as_string().c_str());
+    strm.printf("%s: %s\n",  flag_str.c_str(), A1.as_string().c_str());
 
   try
   { int rc = PlCall(A1, flags);
@@ -348,33 +367,33 @@ PREDICATE(cpp_call_, 3)
 	default:             status_str = "???";       break;
       }
       if ( verbose )
-	Sfprintf(strm, "... after call, rc=%d: %s\n", rc, status_str);
+	strm.printf("... after call, rc=%d: %s\n", rc, status_str);
     } else
     { if ( verbose )
-	Sfprintf(strm, "... after call, rc=%d\n", rc);
+	strm.printf("... after call, rc=%d\n", rc);
     }
 
     if ( rc )
     { if ( verbose )
-	Sfprintf(strm, "cpp_call result: rc=%d: %s\n", rc, A1.as_string().c_str());
+	strm.printf("cpp_call result: rc=%d: %s\n", rc, A1.as_string().c_str());
     } else
     { PlTerm ex(Plx_exception(0));
       if ( ex.is_null() )
       { if ( verbose )
-	  Sfprintf(strm, "cpp_call failed\n");
+	  strm.printf("cpp_call failed\n");
       } else
       { if ( verbose )
-	  Sfprintf(strm, "cpp_call failed: ex: %s\n", ex.as_string().c_str());
+	  strm.printf("cpp_call failed: ex: %s\n", ex.as_string().c_str());
       }
     }
     return rc; // TODO: this is wrong with some query flags
   } catch ( PlException& ex )
   { if ( ex.is_null() )
     { if ( verbose )
-	Sfprintf(strm, "cpp_call except is_null\n");
+	strm.printf("cpp_call except is_null\n");
     } else
     { if ( verbose )
-	Sfprintf(strm, "cpp_call exception: %s\n", ex.as_string().c_str());
+	strm.printf("cpp_call exception: %s\n", ex.as_string().c_str());
     }
     throw;
   }
@@ -382,13 +401,13 @@ PREDICATE(cpp_call_, 3)
 
 PREDICATE(cpp_atom_codes, 2)
 { int rc = PlCall("atom_codes", PlTermv(A1, A2));
-  if ( ! rc )
+  if ( !rc )
   { PlException ex(PlTerm(Plx_exception(0)));
-    PlAcquireStream strm(Scurrent_output);
+    PlStream strm(Scurrent_output);
     if ( ex.is_null() )
-      Sfprintf(strm, "atom_codes failed\n");
+      strm.printf("atom_codes failed\n");
     else
-      Sfprintf(strm, "atom_codes failed: ex: %s\n", ex.as_string().c_str()); // Shouldn't happen
+      strm.printf("atom_codes failed: ex: %s\n", ex.as_string().c_str()); // Shouldn't happen
   }
   return rc;
 }
@@ -930,10 +949,10 @@ PREDICATE(pl_write_atoms_cpp, 1)
 { auto l = A1;
   PlTerm_var head;
   PlTerm tail(l.copy_term_ref());
-  PlAcquireStream strm(Scurrent_output);
-  
+  PlStream strm(Scurrent_output);
+
   while( tail.get_list_ex(head, tail) )
-  { Sfprintf(strm, "%s\n", head.as_string().c_str());
+  { strm.printf("%s\n", head.as_string().c_str());
   }
 
   tail.get_nil_ex();
@@ -945,7 +964,7 @@ PREDICATE(pl_write_atoms_c, 1)
   term_t head = PL_new_term_ref();   /* the elements */
   term_t tail = PL_copy_term_ref(l); /* copy (we modify tail) */
   int rc = TRUE;
-  PlAcquireStream strm(Scurrent_output);
+  auto strm = Plx_acquire_stream(Scurrent_output);
 
   while( rc && PL_get_list_ex(tail, head, tail) )
   { PL_STRINGS_MARK();
@@ -954,6 +973,7 @@ PREDICATE(pl_write_atoms_c, 1)
         Sfprintf(strm, "%s\n", s);
     PL_STRINGS_RELEASE();
   }
+  Plx_release_stream(strm);
 
   return rc && PL_get_nil_ex(tail); /* test end for [] */
 }
@@ -1096,11 +1116,11 @@ PREDICATE(w_atom_cpp_, 2)
 { auto stream = A1, t = A2;
   IOSTREAM* s;
   Plx_get_stream(stream.C_, &s, SIO_INPUT);
-  PlAcquireStream strm(Scurrent_output);
+  PlStream strm(Scurrent_output);
   PlStringBuffers _string_buffers;
   size_t len;
   const pl_wchar_t *sa = Plx_atom_wchars(t.as_atom().C_, &len);
-  SfprintfX(strm, "/%Ws/%zd", sa, len);
+  strm.printfX("/%Ws/%zd", sa, len);
   return true;
 }
 
@@ -1326,10 +1346,11 @@ struct MyBlob : public PlBlob
   }
 
   bool write_fields(IOSTREAM *s, int flags) const override
-  { if ( Sfprintf(s, ",name=%s", name_.c_str()) < 0 )
-      return false;
+  { PlStream strm(s);
+
+    strm.printf(",name=%s", name_.c_str());
     if ( !connection )
-      return Sfprintf(s, ",closed") < 0;
+      strm.printf(",closed");
     return true;
   }
 };

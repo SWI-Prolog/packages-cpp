@@ -96,13 +96,19 @@ class PlRecordExternalCopy;
 class PlBlob;
 
 
-// PlExceptionBase is used for try-catch that handles the
-// exceptions defined in this header file but excluds the
-// standard C++ exceptions.
+// PlExceptionBase is used for try-catch that handles the exceptions
+// defined in this header file but excludes the standard C++
+// exceptions.
 class PlExceptionBase : public std::exception
 {
 };
 
+// PlExceptionFail is for PlFail and PlExceptionFail in
+// PREDICATE_CATCH but excludes PlException
+
+class PlExceptionFailBase : PlExceptionBase
+{
+};
 
 // PlFail is a pseudo-exception for quick exit on failure, for use by
 // the PlTerm::unify methods and PlQuery::next_solution().  This is
@@ -110,7 +116,7 @@ class PlExceptionBase : public std::exception
 // a subclass of PlException. See the documentation for more details
 // on how this works with returning Prolog failure and returning
 // exceptions.
-class PlFail : public PlExceptionBase
+class PlFail : public PlExceptionFailBase
 {
 public:
   explicit PlFail() {}
@@ -121,9 +127,9 @@ public:
 };
 
 // PlExceptionFail is a variant of PlFail, for when a resource error
-// happens and we can't use PlException (because we're out of resources
-// and therefore can't create any more terms).
-class PlExceptionFail : public PlExceptionBase
+// happens and we can't use PlException (because we're out of
+// resources and therefore can't create any more terms).
+class PlExceptionFail : public PlExceptionFailBase
 {
 public:
   explicit PlExceptionFail() {}
@@ -1028,26 +1034,13 @@ public:
   { erase();
   }
 
-  virtual const char* what() const throw() override
-  { const_cast<PlException*>(this)->set_what_str();
-    return what_str_.c_str();
-  }
+  virtual const char* what() const throw() override;
 
   virtual PlTerm term() const
   { return term_rec_.term();
   }
 
-  virtual const std::string as_string(PlEncoding enc=ENC_OUTPUT) const
-  { // Use what_str_ to hold the string so that c_str() doesn't return
-    // a pointer into the stack. Note that as_string() can cause an
-    // exception (out of memory, either in generating the string or in
-    // allocating the std::string) even though we specify "throw()" -
-    // telling the truth "noexcept(false)" results in a compilation
-    // error.
-    (void)enc; // TODO: use this
-    const_cast<PlException*>(this)->set_what_str();
-    return what_str_;
-  }
+  virtual const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
 
   // plThrow() is for the try-catch in PREDICATE - returns the result
   // of Plx_raise_exception(), which is always `false`, as a foreign_t.
@@ -1409,29 +1402,106 @@ private:
 };
 
 
-		 /*******************************
-		 *  PL_{get,release}_stream     *
-		 *******************************/
+		 /***********************************
+		 *  PL_{get,acquire,release}_stream *
+		 ***********************************/
 
 
 class PlStream
 {
-private:
-  IOSTREAM* stream_;
-
 public:
-  explicit PlStream(PlTerm& stream, int flags)
-    : stream_(nullptr)
-  { Plx_get_stream(stream.C_, &stream_, flags);
-  }
+  explicit PlStream(PlTerm& stream, int flags);
+
+  explicit PlStream(IOSTREAM *s);
 
   PlStream(const PlStream&) = default;
   PlStream& operator =(const PlStream&) = default;
 
-  ~PlStream()
-  { if (stream_ != nullptr)
-      Plx_release_stream(stream_);
+  operator IOSTREAM *()
+  { return s_;
   }
+
+  // The destructor has an implicit throw of PlExceptionFail if
+  // PL_release_stream() detects that an IO error had happened.  This
+  // violates the C++ standard -- if ~PlStream() is called during a
+  // stack unwind due to another exception being thrown, behavior is
+  // "undefined". However, this is very unlikely; and the alternative
+  // - not throwing an exception - negates the purpose of PlStream.
+  // See https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-dtor-fail
+  ~PlStream() noexcept; // "noexcept" means it can throw
+
+  // Implicit throw of PlExceptionFail if release fails:
+  void release();
+
+  int check_rc(int rc); // check rc >= 0 else release() + throw exception
+
+  void check_stream() const; // verify that stream is set
+
+  // Following are simple wrappers around the S*() functions, which
+  // check for error and call release(), which should throw an
+  // exception.
+
+  int set_timeout(int tmo);
+  int unit_size();
+  // TODO putc(), getc(), ungetc() - they can be a bit tricky
+  //   int putc(int c);
+  //   int getc();
+  //   int ungetc(int c);
+  bool canrepresent(int c);
+  int putcode(int c);
+  int getcode();
+  int peekcode();
+  int putw(int w);
+  int getw();
+  int read(void *data, size_t size, size_t elems);
+  int write(const void *data, size_t size, size_t elems);
+  int eof();
+  int pasteof();
+  int error();
+  void clearerr();
+  int seterr(int which, const char *message);
+  int set_exception(term_t ex);
+  int setenc(IOENC new_enc, IOENC *old_enc);
+  int setlocale(struct PL_locale *new_loc, struct PL_locale **old_loc);
+  int flush();
+  int64_t size();
+  int seek(long pos, int whence);
+  int tell();
+  int close();
+  int gcclose(int flags);
+  char *gets(char *buf, int n);
+  ssize_t read_pending(char *buf, size_t limit, int flags);
+  size_t pending();
+  int puts(const char *q);
+  int printf(const char *fm, ...) WPRINTF23;
+  int printfX(const char *fm, ...);
+  int vprintf(const char *fm, va_list args);
+  int lock();
+  int tryLock();
+  int unlock();
+  int fileno();
+  // int	closehook(void (*hook)(IOSTREAM *s));
+  void	setbuffer(char *buf, size_t size);
+
+  int64_t tell64();
+  int	seek64(int64_t pos, int whence);
+
+  int	checkBOM();
+  int	writeBOM();
+
+  int qlf_get_int64(int64_t *ip);
+  int qlf_get_int32(int32_t *ip);
+  int qlf_get_uint32(uint32_t *ip);
+  int qlf_get_double(double *fp);
+  int qlf_get_atom(atom_t *a);
+  int qlf_put_int64(int64_t i);
+  int qlf_put_int32(int32_t i);
+  int qlf_put_uint32(uint32_t i);
+  int qlf_put_double(double f);
+  int qlf_put_atom(atom_t a);
+
+private:
+  IOSTREAM* s_ = nullptr;
 };
 
 
@@ -1449,9 +1519,7 @@ public:
 	    catch ( const std::bad_alloc& ) \
 	  { (void)Plx_resource_error("memory"); \
             error_action; \
-	  } catch ( const PlFail& ) \
-	  { error_action; \
-	  } catch ( const PlExceptionFail& ) \
+	  } catch ( const PlExceptionFailBase& ) \
           { error_action; \
 	  } catch ( const PlException& ex ) \
 	  { ex.plThrow(); \

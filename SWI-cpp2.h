@@ -1786,16 +1786,18 @@ public:
 };
 
 
+// TODO: use designated initializers when we have C++20
+//       (e.g., __cplusplus == 202002 with g++ 13.2.0)
 #define PL_BLOB_DEFINITION(blob_class, blob_name) \
-{ .magic   = PL_BLOB_MAGIC,			\
-  .flags   = PL_BLOB_NOCOPY,			\
-  .name    = blob_name,				\
-  .release = PlBlobV<blob_class>::release,	\
-  .compare = PlBlobV<blob_class>::compare,	\
-  .write   = PlBlobV<blob_class>::write,	\
-  .acquire = PlBlobV<blob_class>::acquire,	\
-  .save    = PlBlobV<blob_class>::save,		\
-  .load    = PlBlobV<blob_class>::load		\
+{ /* .magic   = */ PL_BLOB_MAGIC,			\
+  /* .flags   = */ PL_BLOB_NOCOPY,			\
+  /* .name    = */ blob_name,				\
+  /* .release = */ PlBlobV<blob_class>::release,	\
+  /* .compare = */ PlBlobV<blob_class>::compare,	\
+  /* .write   = */ PlBlobV<blob_class>::write,		\
+  /* .acquire = */ PlBlobV<blob_class>::acquire,	\
+  /* .save    = */ PlBlobV<blob_class>::save,		\
+  /* .load    = */ PlBlobV<blob_class>::load		\
 }
 
 #define PL_BLOB_SIZE \

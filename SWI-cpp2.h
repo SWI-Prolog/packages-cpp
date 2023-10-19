@@ -1785,17 +1785,22 @@ public:
   }
 };
 
+#if __cplusplus >= 202002L
+#define DESIG_INIT(name) .name =
+#else
+#define DESIG_INIT(name)
+#endif
 
 #define PL_BLOB_DEFINITION(blob_class, blob_name) \
-{ .magic   = PL_BLOB_MAGIC,			\
-  .flags   = PL_BLOB_NOCOPY,			\
-  .name    = blob_name,				\
-  .release = PlBlobV<blob_class>::release,	\
-  .compare = PlBlobV<blob_class>::compare,	\
-  .write   = PlBlobV<blob_class>::write,	\
-  .acquire = PlBlobV<blob_class>::acquire,	\
-  .save    = PlBlobV<blob_class>::save,		\
-  .load    = PlBlobV<blob_class>::load		\
+{ DESIG_INIT(magic)   PL_BLOB_MAGIC,			\
+  DESIG_INIT(flags)   PL_BLOB_NOCOPY,			\
+  DESIG_INIT(name)    blob_name,			\
+  DESIG_INIT(release) PlBlobV<blob_class>::release,	\
+  DESIG_INIT(compare) PlBlobV<blob_class>::compare,	\
+  DESIG_INIT(write)   PlBlobV<blob_class>::write,	\
+  DESIG_INIT(acquire) PlBlobV<blob_class>::acquire,	\
+  DESIG_INIT(save)    PlBlobV<blob_class>::save,	\
+  DESIG_INIT(load)    PlBlobV<blob_class>::load		\
 }
 
 #define PL_BLOB_SIZE \

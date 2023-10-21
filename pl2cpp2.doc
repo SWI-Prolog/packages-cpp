@@ -143,8 +143,10 @@ More specifically:
     \exam{C_}.\footnote{This is done by subclassing from
     \ctype{Wrapped<term_t>}, \ctype{Wrapped<atom_t>}, etc., which
     define the field \exam{C_}, standard constructors, the methods
-    is_null(), not_null(), reset(), reset(v),
-    plus the constant \const{null}.}
+    is_null(), not_null(), reset(), reset(v), reset_wrapped(v),
+    plus the constant \const{null}.} This value can be accessed by
+    the unwrap() and unwrap_as_ptr() methods.
+    There is also a "friend" function PlUnwrapAsPtr().
   \item
     A convenience function PlControl::context_unique_ptr<ContextType>()
     has been added, to simplify dynamic memory allocation in
@@ -313,7 +315,7 @@ PREDICATE(eq, 2)
 
 \begin{code}
 PREDICATE(eq, 2)
-{ return Plx_unify(A1.C_, A2.C_));
+{ return Plx_unify(A1.unwrap(), A2.unwrap()));
 }
 \end{code}
 
@@ -661,7 +663,13 @@ use underscores.
 The wrapper classes (\ctype{PlFunctor}, \ctype{PlAtom},
 \ctype{PlTerm}), etc.  all contain a field \exam{C_} that contains the
 wrapped value (\ctype{functor_t}, \ctype{atom_t}, \ctype{term_t}
-respectively).
+respectively). If this wrapped value is needed, it should be accessed
+using the unwrap() or unwrap_ptr() methods.
+
+In some cases, it's natural to use a pointer to a wrapper class.
+For those, the function PlUnwrapAsPtr() returns \ctype{nullptr} if
+the pointer is null; otherwise it returns the wrapped value (which
+itself might be some kind of "null").
 
 The wrapper classes (which subclass \ctype{WrappedC$<$\ldots$>$})
 all define the following methods and constants:
@@ -676,7 +684,7 @@ all define the following methods and constants:
     \exam{C_} - the wrapped value.
     This can be used directly when calling C functions,
     for example, if \exam{t} and \exam{a} are of type \ctype{PlTerm}
-    and \ctype{PlAtom}: \verb$Plcheck_PL(PL_put_atom(t.C_,a.C_))$.
+    and \ctype{PlAtom}: \verb$Plcheck_PL(PL_put_atom(t.unwrap(),a.unwrap()))$.
   \item
     \exam{null} - the null value (typically \exam{0}, but
     code should not rely on this).
@@ -686,18 +694,23 @@ all define the following methods and constants:
   \item
     \exam{reset()} - set the wrapped value to \exam{null}
   \item
-    \exam{reset(new_value)} - set the wrapped value
-\item
+    \exam{reset(new_value)} - set the wrapped value from the wrapped type
+    (e.g., PlTerm:;reset(term_t new_value))
+  \item
+    \exam{reset_wrapped(new_value)} - set the wrapped value from the
+    same type (e.g., PlTerm::reset_wrapped(PlTerm new_value))
+  \item
     The \ctype{bool} operator is disabled - you should
     use not_null() instead.\footnote{The reason: a
     \ctype{bool} conversion  causes ambiguity with \exam{PlAtom(PlTterm)}
     and \exam{PlAtom(atom_t)}.}
 \end{itemize}
 
-The \exam{C_} field can be used wherever a \ctype{atom_t} or
-\ctype{term_t} is used. For example, the PL_scan_options() example
-code can be written as follows.  Note the use of \exam{\&callback.C_}
-to pass a pointer to the wrapped \ctype{term_t} value.
+The method unwrap() can be used to access the \exam{C_} field, and can
+be used wherever a \ctype{atom_t} or \ctype{term_t} is used. For
+example, the PL_scan_options() example code can be written as follows.
+Note the use of \exam{\&callback.unwrap()} to pass a pointer to the
+wrapped \ctype{term_t} value.
 
 \begin{code}
 PREDICATE(mypred, 2)
@@ -707,7 +720,7 @@ PREDICATE(mypred, 2)
   PlTerm_var callback;
 
   PlCheckFail(PL_scan_options(options, 0, "mypred_options", mypred_options,
-                              &quoted, &length, &callback.C_));
+                              &quoted, &length, &callback.unwrap()));
   callback.record(); // Needed if callback is put in a blob that Prolog doesn't know about.
                      // If it were an atom (OPT_ATOM): register_ref().
 
@@ -1105,7 +1118,7 @@ PREDICATE(close_my_blob, 1)
       PlAtom::unregister_ref(); and the MyBlob::close() method must
       not throw an exception.\footnote{It isn't enough to just catch
       exceptions; for example, if the code does \exam{throw
-      PlUnknownErro("...")}, that will try to create a Prolog term,
+      PlUnknownError("...")}, that will try to create a Prolog term,
       which will crash because the environment for creating terms is
       not available.}  Because there is no mechanism for reporting an
       error, the destructor prints a message on failure (calling
@@ -1727,13 +1740,16 @@ Here is a list of typical changes:
     to Prolog (or throw a \ctype{PlException} if there was a Prolog error.
 
   \item
-    \exam{PlAtom::handle} has been replaced by \exam{PlAtom::C_}.
+    \exam{PlAtom::handle} has been replaced by \exam{PlAtom::C_},
+    which should be accessed by PlAtom::unwrap().
 
   \item
-    \exam{PlTerm::ref} has been replaced by \exam{PlAtom::C_}.
+    \exam{PlTerm::ref} has been replaced by \exam{PlTerm::C_},
+    which should be accessed by PlTerm::unwrap().
 
   \item
-    \exam{PlFunctor::functor} has been replaced by \exam{PlAtom::C_}.
+    \exam{PlFunctor::functor} has been replaced by \exam{PlFunctor::C_},
+    which should be accessed by PlFunctor::unwrap().
 
   \item
     The operator \exam{=} for unification has been deprecated,
@@ -1767,7 +1783,7 @@ code generated by the PREDICATE() macro. See also
 For example, this code, using the C API:
 \begin{code}
 PREDICATE(unify_zero, 1)
-{ if ( !PL_unify_integer(A1.C_, 0) )
+{ if ( !PL_unify_integer(A1.unwrap(), 0) )
     return false; // could be an error or failure
   Sprintf("It's zero!\n");
   return true;
@@ -1811,12 +1827,6 @@ this can be done with the PlCheckEx() function, which turns
 a Prolog error into a C++ \ctype{PlException}.  PlCheckFail()
 calls PlCheckEx() and additionally throws PlFail() if the failure is
 for Prolog failure.
-
-The code for PlCheck() is just
-\begin{code}
-void PlCheck(int rc)
-{ if ( !PlCheckEx(rc) ) throw PlFail(); }
-\end{code}
 
 PlCheckEx() calls PL_exception() to see if there is a
 Prolog exception; if so, the Prolog exception is converted to a
@@ -2175,13 +2185,13 @@ the argument is not compound.
 
 \begin{description}
     \cfunction{bool}{is_null}{}
-       \exam{t.is_null()} is the same as \exam{t.C_ == PlTerm::null}
+       \exam{t.is_null()} is the same as \exam{t.unwrap() == PlTerm::null}
     \cfunction{bool}{not_null}{}
-       \exam{t.not_null()} is the same as \exam{t.C_ != PlTerm::null}
+       \exam{t.not_null()} is the same as \exam{t.unwrap() != PlTerm::null}
     \cfunction{bool}{reset}{}
-       \exam{t.reset()} is the same as \exam{t.C_ = PlTerm::null}
+       \exam{t.reset()} is the same as \exam{t.unwrap() = PlTerm::null}
     \cfunction{bool}{reset}{term_t}
-       \exam{t.reset(x)} is the same as \exam{t.C_ = x}
+       \exam{t.reset(x)} is the same as \exam{t.unwrap() = x}
     \cfunction{int}{PlTerm::type}{}
 Yields the actual type of the term as PL_term_type(). Return values are
 \const{PL_VARIABLE}, \const{PL_FLOAT}, \const{PL_INTEGER},
@@ -2618,7 +2628,7 @@ code with PL_unify() can be written:
 \end{code}
 Note that PlTerm::unify_term() checks for an exception and
 throws an exception to Prolog; if you with to handle exceptions, you
-must call \exam{PL_unify_term(t1.C_,t2.C_)}.
+must call \exam{PL_unify_term(t1.unwrap(),t2.unwrap())}.
 
 \section{The class PlRegister (version 2)}
 \label{sec:cpp2-plregister}
@@ -3107,7 +3117,7 @@ Calls PL_cleanup() to destroy all data created by the Prolog engine.
 
 Not all functionality of the C-interface is provided, but as
 \ctype{PlTerm} and \ctype{term_t} are essentially the same thing with
-type-conversion between the two (using the \exam{C_} field), this interface
+type-conversion between the two (using the unwrap() method), this interface
 can be freely mixed with the functions defined for plain C.
 For checking return codes from C functions, it is recommended to
 use PlCheckFail() or PlCheck_PL().
@@ -3302,7 +3312,7 @@ As of 2023-04, the various error convenience classes do not fully
 match what the equivalent C functions do. That is, \exam{throw
 PlInstantiationError(A1)} does not result in the same context and
 traceback information that would happen from
-\exam{Plx_instantiation_error(A1.C_); throw PlFail()}.  See
+\exam{Plx_instantiation_error(A1.unwrap()); throw PlFail()}.  See
 \secref{cpp2-exceptions-notes}.
 
 The Plx_*() wrappers may require small adjustments in whether their

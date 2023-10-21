@@ -105,7 +105,7 @@ private:
   [[nodiscard]]
   ValueType
   find_inside_lock(PlAtom key)
-  { const auto lookup = entries_.find(key.C_);
+  { const auto lookup = entries_.find(key.unwrap());
     ValueType value(ValueType::null);
     if ( lookup != entries_.end() )
       value.reset(ValueType(lookup->second));
@@ -119,7 +119,7 @@ private:
     { StoredValueType stored_value(StoredValueType::null);
       register_value(value, &stored_value);
       key.register_ref();
-      entries_.insert(std::make_pair(key.C_, stored_value));
+      entries_.insert(std::make_pair(key.unwrap(), stored_value));
     } else if ( lookup != value )
     { throw PlPermissionError(insert_op_, insert_type_, PlTerm_atom(key));
     }
@@ -127,7 +127,7 @@ private:
 
   void
   erase_inside_lock(PlAtom key)
-  { auto lookup = entries_.find(key.C_);
+  { auto lookup = entries_.find(key.unwrap());
     if ( lookup == entries_.end() )
       return;
     // TODO: As an alternative to removing the entry, leave it in place

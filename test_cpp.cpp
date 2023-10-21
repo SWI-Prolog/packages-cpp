@@ -82,6 +82,17 @@ using namespace std;
 #endif
 
 
+PREDICATE(unwrap, 1)
+{ // test that the definition of C_ as a macro hasn't broken anything
+  PlTerm A1_copy(A1);
+  PlTerm *A1_ptr = &A1_copy;
+
+  return A1.C_ == A1.unwrap() &&
+    A1.C_ == *PlUnwrapAsPtr(A1_ptr) &&
+    A1.unwrap() == *PlUnwrapAsPtr(A1_ptr);
+}
+
+
 PREDICATE(hello, 0)
 { PlQuery q("write", PlTermv(PlTerm_atom("hello hello hello")));
   PlCheckFail(q.next_solution());
@@ -264,7 +275,7 @@ PREDICATE(term, 2)
 { static PlAtom ATOM_atom("atom");
   PlAtom a(A1.as_atom());
 
-  if ( a.C_ == ATOM_atom.C_ )
+  if ( a.unwrap() == ATOM_atom.unwrap() )
     return A2.unify_atom("hello world"); // or A2.unify_term(PlAtom("hello world"));
   if ( A1.as_string() == "string" )
     return A2.unify_string("hello world");
@@ -297,12 +308,12 @@ PREDICATE(eq2, 2)
 }
 
 PREDICATE(eq3, 2)
-{ return Plx_unify(A1.C_, A2.C_);
+{ return Plx_unify(A1.unwrap(), A2.unwrap());
 }
 
 PREDICATE(eq4, 2)
 { // This is what Plx_unify() expands to
-  return PlWrap<bool>(PL_unify(A1.C_, A2.C_));
+  return PlWrap<bool>(PL_unify(A1.unwrap(), A2.unwrap()));
 }
 
 PREDICATE(write_list, 1)
@@ -772,29 +783,29 @@ PREDICATE(unify_int_set, 1)
 
 // The following are for verifying some documentation details.
 
-PREDICATE(c_PL_unify_nil, 1)          { return static_cast<foreign_t>(PL_unify_nil(A1.C_)); }
+PREDICATE(c_PL_unify_nil, 1)          { return static_cast<foreign_t>(PL_unify_nil(A1.unwrap())); }
 
 PREDICATE(cpp_unify_nil, 1)           { return A1.unify_nil(); }
 
-PREDICATE(check_c_PL_unify_nil, 1)    { PlEx<bool>(PL_unify_nil(A1.C_)); return true; }
+PREDICATE(check_c_PL_unify_nil, 1)    { PlEx<bool>(PL_unify_nil(A1.unwrap())); return true; }
 
 // Repeat the above, for *_ex():
 
-PREDICATE(c_PL_unify_nil_ex, 1)       { return static_cast<foreign_t>(PL_unify_nil_ex(A1.C_)); }
+PREDICATE(c_PL_unify_nil_ex, 1)       { return static_cast<foreign_t>(PL_unify_nil_ex(A1.unwrap())); }
 
 PREDICATE(cpp_unify_nil_ex, 1)        { A1.unify_nil_ex(); return true; }
 
-PREDICATE(check_c_PL_unify_nil_ex, 1) { PlEx<bool>(PL_unify_nil_ex(A1.C_)); return true; }
+PREDICATE(check_c_PL_unify_nil_ex, 1) { PlEx<bool>(PL_unify_nil_ex(A1.unwrap())); return true; }
 
 
 
-PREDICATE(c_PL_get_nil, 1)            { return static_cast<foreign_t>(PL_get_nil(A1.C_)); }
+PREDICATE(c_PL_get_nil, 1)            { return static_cast<foreign_t>(PL_get_nil(A1.unwrap())); }
 
 PREDICATE(cpp_as_nil, 1)              { A1.as_nil();                     return true; }
 
-PREDICATE(check_c_PL_get_nil, 1)      { PlEx<bool>(PL_get_nil(A1.C_));      return true; }
+PREDICATE(check_c_PL_get_nil, 1)      { PlEx<bool>(PL_get_nil(A1.unwrap()));      return true; }
 
-PREDICATE(check_c_PL_get_nil_ex, 1)   { PlEx<bool>(PL_get_nil_ex(A1.C_));   return true; }
+PREDICATE(check_c_PL_get_nil_ex, 1)   { PlEx<bool>(PL_get_nil_ex(A1.unwrap()));   return true; }
 
 // Functions re-implemented from ffi4pl.c
 
@@ -865,21 +876,21 @@ static PlRegister _x_unify_zero_4_1(nullptr, "unify_zero_0", unify_zero_0);
 
 // 0.23 sec for time((between(1,1000000,X), unify_zero_1(X))).
 PREDICATE(unify_zero_1, 1)
-{ if ( !Plx_unify_integer(A1.C_, 0) )
+{ if ( !Plx_unify_integer(A1.unwrap(), 0) )
     return false;
   return true;
 }
 
 // 3.3 sec for time((between(1,1000000,X), unify_zero_2(X))).
 PREDICATE(unify_zero_2, 1)
-{ if ( !Plx_unify_integer(A1.C_, 0) )
+{ if ( !Plx_unify_integer(A1.unwrap(), 0) )
     throw PlFail();
   return true;
 }
 
 // 4.0 sec for time((between(1,1000000,X), unify_zero_3(X))).
 PREDICATE(unify_zero_3, 1)
-{ PlCheckFail( Plx_unify_integer(A1.C_, 0) );
+{ PlCheckFail( Plx_unify_integer(A1.unwrap(), 0) );
   return true;
 }
 
@@ -960,7 +971,7 @@ PREDICATE(pl_write_atoms_cpp, 1)
 }
 
 PREDICATE(pl_write_atoms_c, 1)
-{ term_t l = A1.C_;
+{ term_t l = A1.unwrap();
   term_t head = PL_new_term_ref();   /* the elements */
   term_t tail = PL_copy_term_ref(l); /* copy (we modify tail) */
   int rc = TRUE;
@@ -1115,11 +1126,11 @@ PREDICATE(type_error_string, 3)
 PREDICATE(w_atom_cpp_, 2)
 { auto stream = A1, t = A2;
   IOSTREAM* s;
-  Plx_get_stream(stream.C_, &s, SIO_INPUT);
+  Plx_get_stream(stream.unwrap(), &s, SIO_INPUT);
   PlStream strm(Scurrent_output);
   PlStringBuffers _string_buffers;
   size_t len;
-  const pl_wchar_t *sa = Plx_atom_wchars(t.as_atom().C_, &len);
+  const pl_wchar_t *sa = Plx_atom_wchars(t.as_atom().unwrap(), &len);
   strm.printfX("/%Ws/%zd", sa, len);
   return true;
 }
@@ -1152,8 +1163,8 @@ PREDICATE(cpp_options, 3)
   };
 
   PlStringBuffers _string_buffers; // for descr's contents
-  PlEx<bool>(PL_scan_options(options.C_, flags, "cpp_options", scan_options,
-                             &quoted, &length, &callback.C_, &token.C_, &descr));
+  PlEx<bool>(PL_scan_options(options.unwrap(), flags, "cpp_options", scan_options,
+                             &quoted, &length, callback.unwrap_as_ptr(), token.unwrap_as_ptr(), &descr));
 
   PlCheckFail(result.unify_term(
                   PlCompound("options",
@@ -1178,7 +1189,7 @@ PREDICATE(cvt_i_bool, 2)
 // TODO: add PlEngine tests
 
 PREDICATE(throw_domain_cpp0, 1)
-{ return Plx_domain_error("footype", A1.C_);
+{ return Plx_domain_error("footype", A1.unwrap());
 }
 
 PREDICATE(throw_domain_cpp1, 1)
@@ -1186,12 +1197,12 @@ PREDICATE(throw_domain_cpp1, 1)
 }
 
 PREDICATE(throw_domain_cpp2, 1)
-{ PlEx<bool>(Plx_domain_error("footype", A1.C_));
+{ PlEx<bool>(Plx_domain_error("footype", A1.unwrap()));
   return false; // Should never reach here
 }
 
 PREDICATE(throw_domain_cpp3, 1)
-{ if ( !Plx_domain_error("footype", A1.C_) )
+{ if ( !Plx_domain_error("footype", A1.unwrap()) )
     throw PlFail();
   // Shouldn't fall through to here
   Plx_clear_exception();

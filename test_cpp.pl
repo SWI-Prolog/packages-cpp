@@ -62,6 +62,11 @@ test_cpp :-
 
 :- begin_tests(cpp).
 
+test(unwrap) :-
+    unwrap(foo(1)),
+    unwrap(bar),
+    unwrap("qqsv").
+
 test(hello, Out == "hello hello hello") :-
     % hello :- write('hello hello hello')
     with_output_to(string(Out), hello).

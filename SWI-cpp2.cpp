@@ -881,13 +881,21 @@ void PlStream::release()
 }
 
 _SWI_CPP2_CPP_inline
-int
-PlStream::check_rc(int rc)
+void
+PlStream::check_rc(int32_t rc)
 { if ( rc < 0 )
   { release(); // throws an exception if stream has an error
     throw PlUnknownError("Stream error");
   }
-  return rc;
+}
+
+_SWI_CPP2_CPP_inline
+void
+PlStream::check_rc(int64_t rc)
+{ if ( rc < 0 )
+  { release(); // throws an exception if stream has an error
+    throw PlUnknownError("Stream error");
+  }
 }
 
 _SWI_CPP2_CPP_inline
@@ -902,7 +910,17 @@ _SWI_CPP2_CPP_inline \
 rc_t \
 PlStream::defn \
 { check_stream(); \
-  return check_rc(call); \
+  rc_t rc = call; \
+  check_rc(rc); \
+  return rc; \
+}
+
+#define _SWI_CPP2_CPP_nocheck(rc_t, defn, call) \
+_SWI_CPP2_CPP_inline \
+rc_t \
+PlStream::defn \
+{ check_stream(); \
+  return call; \
 }
 
 _SWI_CPP2_CPP_check_rc(int, set_timeout(int tmo), Sset_timeout(s_, tmo))
@@ -913,11 +931,11 @@ _SWI_CPP2_CPP_check_rc(int, getcode(), Sgetcode(s_))
 _SWI_CPP2_CPP_check_rc(int, peekcode(), Speekcode(s_))
 _SWI_CPP2_CPP_check_rc(int, putw(int w), Sputw(w, s_))
 _SWI_CPP2_CPP_check_rc(int, getw(), Sgetw(s_))
-_SWI_CPP2_CPP_check_rc(int, read(void *data, size_t size, size_t elems), Sfread(data, size, elems, s_))
-_SWI_CPP2_CPP_check_rc(int, write(const void *data, size_t size, size_t elems), Sfwrite(data, size, elems, s_))
-_SWI_CPP2_CPP_check_rc(int, eof(), Sfeof(s_))
-_SWI_CPP2_CPP_check_rc(int, pasteof(), Sfpasteof(s_))
-_SWI_CPP2_CPP_check_rc(int, error(), Sferror(s_))
+_SWI_CPP2_CPP_nocheck(size_t, fread(void *data, size_t size, size_t elems), Sfread(data, size, elems, s_))
+_SWI_CPP2_CPP_nocheck(size_t, fwrite(const void *data, size_t size, size_t elems), Sfwrite(data, size, elems, s_))
+_SWI_CPP2_CPP_check_rc(int, feof(), Sfeof(s_))
+_SWI_CPP2_CPP_check_rc(int, fpasteof(), Sfpasteof(s_))
+_SWI_CPP2_CPP_check_rc(int, ferror(), Sferror(s_))
 _SWI_CPP2_CPP_check_rc(int, seterr(int which, const char *message), Sseterr(s_, which, message))
 _SWI_CPP2_CPP_check_rc(int, set_exception(term_t ex), Sset_exception(s_, ex))
 _SWI_CPP2_CPP_check_rc(int, setenc(IOENC new_enc, IOENC *old_enc), Ssetenc(s_, new_enc, old_enc))
@@ -929,8 +947,8 @@ _SWI_CPP2_CPP_check_rc(int, tell(), Stell(s_))
 _SWI_CPP2_CPP_check_rc(int, close(), Sclose(s_))
 _SWI_CPP2_CPP_check_rc(int, gcclose(int flags), Sgcclose(s_, flags))
 _SWI_CPP2_CPP_check_rc(ssize_t, read_pending(char *buf, size_t limit, int flags), Sread_pending(s_, buf, limit, flags))
-_SWI_CPP2_CPP_check_rc(size_t, pending(), Spending(s_))
-_SWI_CPP2_CPP_check_rc(int, puts(const char *q), Sfputs(q, s_))
+_SWI_CPP2_CPP_nocheck(size_t, pending(), Spending(s_))
+_SWI_CPP2_CPP_check_rc(int, fputs(const char *q), Sfputs(q, s_))
 _SWI_CPP2_CPP_check_rc(int, vprintf(const char *fm, va_list args), Svfprintf(s_, fm, args))
 _SWI_CPP2_CPP_check_rc(int, lock(), Slock(s_))
 _SWI_CPP2_CPP_check_rc(int, tryLock(), StryLock(s_))
@@ -995,7 +1013,7 @@ PlStream::printfX(const char *fm, ...)
 }
 
 
-
 #undef _SWI_CPP2_CPP_check_rc
+#undef _SWI_CPP2_CPP_nocheck
 
 #endif /*_SWI_CPP2_CPP*/

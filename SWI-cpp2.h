@@ -1437,7 +1437,8 @@ public:
   // Implicit throw of PlExceptionFail if release fails:
   void release();
 
-  int check_rc(int rc); // check rc >= 0 else release() + throw exception
+  void check_rc(int32_t rc); // check rc >= 0 else release() + throw exception
+  void check_rc(int64_t rc); // check rc >= 0 else release() + throw exception
 
   void check_stream() const; // verify that stream is set
 
@@ -1457,11 +1458,11 @@ public:
   int peekcode();
   int putw(int w);
   int getw();
-  int read(void *data, size_t size, size_t elems);
-  int write(const void *data, size_t size, size_t elems);
-  int eof();
-  int pasteof();
-  int error();
+  size_t fread(void *data, size_t size, size_t elems); // TODO: does not check for error
+  size_t fwrite(const void *data, size_t size, size_t elems); // TODO: does not check for error
+  int feof();
+  int fpasteof();
+  int ferror();
   void clearerr();
   int seterr(int which, const char *message);
   int set_exception(term_t ex);
@@ -1475,8 +1476,8 @@ public:
   int gcclose(int flags);
   char *gets(char *buf, int n);
   ssize_t read_pending(char *buf, size_t limit, int flags);
-  size_t pending();
-  int puts(const char *q);
+  size_t pending(); // TODO: does not check for error
+  int fputs(const char *q);
   int printf(const char *fm, ...) WPRINTF23;
   int printfX(const char *fm, ...);
   int vprintf(const char *fm, va_list args);

@@ -754,6 +754,23 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   t_int1.integer(&xx21);
   t_int1.integer(&xx22);
 
+  PlStream strm(x20, 0);
+  strm.set_timeout(1);
+  strm.unit_size();
+  strm.canrepresent('a');
+  strm.putcode('x');
+  strm.getcode();
+  strm.putw(13);
+  strm.getw();
+  char data[10];
+  size_t bytes = strm.fwrite("abc", sizeof (char), 3);
+  bytes = strm.fread(data, sizeof data[0], bytes);
+  if ( strm.feof() ) return false;
+  if ( strm.fpasteof() ) return false;
+  strm.clearerr();
+  // TODO: the rest of the methods
+  strm.release();
+
   return true;
 }
 

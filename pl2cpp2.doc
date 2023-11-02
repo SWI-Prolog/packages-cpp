@@ -1295,9 +1295,6 @@ The methods are:
   \item \cppcast{IOSTREAM*}{PlStream} - when used in a context
      that requires an \ctype{IOSTREAM*}, \ctype{PlStream}
      is implicitly converted to \ctype{IOSTREAM*}.
-  \item cfunction{int}{check_rc}{int rc} - checks that \arg{rc}
-     is non-negative; otherwise calls PlStream::release()
-     and throws a C++ exception.
   \item cfunction{void}{check_stream}{} - checks that the
      \ctype{PlStream} object contains a valid stream and
      throws an exception if it doesn't. This is used to

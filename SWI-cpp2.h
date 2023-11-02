@@ -1437,9 +1437,6 @@ public:
   // Implicit throw of PlExceptionFail if release fails:
   void release();
 
-  void check_rc(int32_t rc); // check rc >= 0 else release() + throw exception
-  void check_rc(int64_t rc); // check rc >= 0 else release() + throw exception
-
   void check_stream() const; // verify that stream is set
 
   // Following are simple wrappers around the S*() functions, which

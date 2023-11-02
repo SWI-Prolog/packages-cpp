@@ -882,36 +882,21 @@ void PlStream::release()
 
 _SWI_CPP2_CPP_inline
 void
-PlStream::check_rc(int32_t rc)
-{ if ( rc < 0 )
-  { release(); // throws an exception if stream has an error
-    throw PlUnknownError("Stream error");
-  }
-}
-
-_SWI_CPP2_CPP_inline
-void
-PlStream::check_rc(int64_t rc)
-{ if ( rc < 0 )
-  { release(); // throws an exception if stream has an error
-    throw PlUnknownError("Stream error");
-  }
-}
-
-_SWI_CPP2_CPP_inline
-void
 PlStream::check_stream() const
 { if ( ! s_ )
     throw PlUnknownError("Stream not set");
 }
 
+/* JW: was using check_rc(), but somehown Apple Clang thinks ssize_t
+   maps both to int32_t and int64_t.
+ */
 #define _SWI_CPP2_CPP_check_rc(rc_t, defn, call) \
 _SWI_CPP2_CPP_inline \
 rc_t \
 PlStream::defn \
 { check_stream(); \
   rc_t rc = call; \
-  check_rc(rc); \
+  if ( rc < 0 ) { release(); throw PlUnknownError("Stream error"); } \
   return rc; \
 }
 

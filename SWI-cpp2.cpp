@@ -900,6 +900,16 @@ PlStream::defn \
   return rc; \
 }
 
+#define _SWI_CPP2_CPP_check_brc(rc_t, defn, call) \
+_SWI_CPP2_CPP_inline \
+rc_t \
+PlStream::defn \
+{ check_stream(); \
+  rc_t rc = call; \
+  if ( !rc ) { release(); throw PlUnknownError("Stream error"); } \
+  return rc; \
+}
+
 #define _SWI_CPP2_CPP_nocheck(rc_t, defn, call) \
 _SWI_CPP2_CPP_inline \
 rc_t \
@@ -910,7 +920,7 @@ PlStream::defn \
 
 _SWI_CPP2_CPP_check_rc(int, set_timeout(int tmo), Sset_timeout(s_, tmo))
 _SWI_CPP2_CPP_check_rc(int, unit_size(), Sunit_size(s_));
-_SWI_CPP2_CPP_check_rc(bool, canrepresent(int c), Scanrepresent(c, s_))
+_SWI_CPP2_CPP_nocheck(bool, canrepresent(int c), Scanrepresent(c, s_))
 _SWI_CPP2_CPP_check_rc(int, putcode(int c), Sputcode(c, s_))
 _SWI_CPP2_CPP_check_rc(int, getcode(), Sgetcode(s_))
 _SWI_CPP2_CPP_check_rc(int, peekcode(), Speekcode(s_))
@@ -943,16 +953,16 @@ _SWI_CPP2_CPP_check_rc(int64_t, tell64(), Stell64(s_))
 _SWI_CPP2_CPP_check_rc(int, seek64(int64_t pos, int whence), Sseek64(s_, pos, whence))
 _SWI_CPP2_CPP_check_rc(int, checkBOM(), ScheckBOM(s_))
 _SWI_CPP2_CPP_check_rc(int, writeBOM(), SwriteBOM(s_))
-_SWI_CPP2_CPP_check_rc(int, qlf_get_int64(int64_t *ip), PL_qlf_get_int64(s_, ip))
-_SWI_CPP2_CPP_check_rc(int, qlf_get_int32(int32_t *ip), PL_qlf_get_int32(s_, ip))
-_SWI_CPP2_CPP_check_rc(int, qlf_get_uint32(uint32_t *ip), PL_qlf_get_uint32(s_, ip))
-_SWI_CPP2_CPP_check_rc(int, qlf_get_double(double *fp), PL_qlf_get_double(s_, fp))
-_SWI_CPP2_CPP_check_rc(int, qlf_get_atom(atom_t *a), PL_qlf_get_atom(s_, a))
-_SWI_CPP2_CPP_check_rc(int, qlf_put_int64(int64_t i), PL_qlf_put_int64(i, s_))
-_SWI_CPP2_CPP_check_rc(int, qlf_put_int32(int32_t i), PL_qlf_put_int32(i, s_))
-_SWI_CPP2_CPP_check_rc(int, qlf_put_uint32(uint32_t i), PL_qlf_put_uint32(i, s_))
-_SWI_CPP2_CPP_check_rc(int, qlf_put_double(double f), PL_qlf_put_double(f, s_))
-_SWI_CPP2_CPP_check_rc(int, qlf_put_atom(atom_t a), PL_qlf_put_atom(a, s_))
+_SWI_CPP2_CPP_check_brc(bool, qlf_get_int64(int64_t *ip), PL_qlf_get_int64(s_, ip))
+_SWI_CPP2_CPP_check_brc(bool, qlf_get_int32(int32_t *ip), PL_qlf_get_int32(s_, ip))
+_SWI_CPP2_CPP_check_brc(bool, qlf_get_uint32(uint32_t *ip), PL_qlf_get_uint32(s_, ip))
+_SWI_CPP2_CPP_check_brc(bool, qlf_get_double(double *fp), PL_qlf_get_double(s_, fp))
+_SWI_CPP2_CPP_check_brc(bool, qlf_get_atom(atom_t *a), PL_qlf_get_atom(s_, a))
+_SWI_CPP2_CPP_check_brc(bool, qlf_put_int64(int64_t i), PL_qlf_put_int64(i, s_))
+_SWI_CPP2_CPP_check_brc(bool, qlf_put_int32(int32_t i), PL_qlf_put_int32(i, s_))
+_SWI_CPP2_CPP_check_brc(bool, qlf_put_uint32(uint32_t i), PL_qlf_put_uint32(i, s_))
+_SWI_CPP2_CPP_check_brc(bool, qlf_put_double(double f), PL_qlf_put_double(f, s_))
+_SWI_CPP2_CPP_check_brc(bool, qlf_put_atom(atom_t a), PL_qlf_put_atom(a, s_))
 
 _SWI_CPP2_CPP_inline
 void

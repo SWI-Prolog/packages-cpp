@@ -1491,16 +1491,16 @@ public:
   int	checkBOM();
   int	writeBOM();
 
-  int qlf_get_int64(int64_t *ip);
-  int qlf_get_int32(int32_t *ip);
-  int qlf_get_uint32(uint32_t *ip);
-  int qlf_get_double(double *fp);
-  int qlf_get_atom(atom_t *a);
-  int qlf_put_int64(int64_t i);
-  int qlf_put_int32(int32_t i);
-  int qlf_put_uint32(uint32_t i);
-  int qlf_put_double(double f);
-  int qlf_put_atom(atom_t a);
+  bool qlf_get_int64(int64_t *ip);
+  bool qlf_get_int32(int32_t *ip);
+  bool qlf_get_uint32(uint32_t *ip);
+  bool qlf_get_double(double *fp);
+  bool qlf_get_atom(atom_t *a);
+  bool qlf_put_int64(int64_t i);
+  bool qlf_put_int32(int32_t i);
+  bool qlf_put_uint32(uint32_t i);
+  bool qlf_put_double(double f);
+  bool qlf_put_atom(atom_t a);
 
 private:
   IOSTREAM* s_ = nullptr;

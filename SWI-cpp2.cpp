@@ -37,7 +37,7 @@
 /* If you wish, you can append SWI-cpp2.cpp file to SWI-pp2.h ...
    to do this, you need this definition:
 
-#define _SWI_CPP2_CPP_inline inline
+   #define _SWI_CPP2_CPP_inline inline
 
 */
 
@@ -874,6 +874,7 @@ PlStream::~PlStream() noexcept
 { release();
 }
 
+_SWI_CPP2_CPP_inline
 void PlStream::release()
 { if ( s_ )
     Plx_release_stream(s_);

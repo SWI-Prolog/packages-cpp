@@ -40,7 +40,7 @@ swipl_plugin(
     TEST_ONLY
     MODULE test_cpp
     C_LIBS ${SOCKET_LIBRARIES}
-    C_SOURCES test_cpp.cpp SWI-cpp2.cpp)
+    C_SOURCES test_cpp.cpp)
 endif()
 
 # Make sure we stick to the C++17 standard

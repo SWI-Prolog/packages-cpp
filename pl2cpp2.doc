@@ -37,10 +37,9 @@ of code.
 
 More specifically:
 \begin{itemize}
-  \item \file{SWI-cpp2.cpp} has been added, containing the implementation
-     of some functions that are too long to inline. The user must
-     either \verb$#include <SWI-cpp2.cpp>$ or compile it separately and
-     link it with the other foreign  function code.
+  \item \file{SWI-cpp2.cpp} has been added, containing the
+     implementation of some functions. This is included by default
+     from \file{SWI-cpp2.h} or can be compiled separately.
   \item
      The constructor PlTerm() is restricted to a few
      unambiguous cases - instead, you should use the appropriate
@@ -424,18 +423,16 @@ The following files are provided:
 \item
     \file{SWI-cpp2.h}
     Include this file to get the C++ API. It automatically includes
-    \file{SWI-cpp2-plx.h} but does not include \file{SWI-cpp2.cpp}.
+    \file{SWI-cpp2-plx.h} and \file{SWI-cpp2.cpp}, unless the
+    macro \const{_SWI_CPP2_CPP_SEPARATE} is defined, in which case
+    you must compile \file{SWI-cpp2.cpp} separately.
 
 \item
     \file{SWI-cpp2.cpp}
     Contains the implementations of some methods and functions.
-    It must be compiled as-is  or included in the foreign
-    predicate's source file.
-    Alternatively, it can be included with each include of
-    \file{SWI-cpp2.h} with this macro definition:
-    \begin{code}
-    #define _SWI_CPP2_CPP_inline inline
-    \end{code}
+    If you wish to compile this separately, you must define
+    the macro \const{_SWI_CPP2_CPP_SEPARATE} before your
+    include for \file{SWI-cpp2.h}.
 
 \item
     \file{SWI-cpp2-plx.h}
@@ -1408,26 +1405,14 @@ for more details.
 Your C++ compiler should support at least C++-17.
 
 To avoid incompatibilities amongst the various C++ compilers' ABIs,
-the object file from compiling \file{SWI-cpp2.cpp} is not included
-in the shared object \file{libswipl}; instead, it must be compiled
-along with any foreign predicate files. You can do this in three ways:
-\begin{itemize}
-\item
-  Compile \file{SWI-cpp2.cpp} separately.
-\item
-  Add \verb$#include SWI-cpp2.cpp$ to one of the foreign predicate
-  files.
-\item
-  Wherever you have \verb$#include SWI-cpp2.h$, add
-  \begin{code}
-      #define _SWI_CPP2_CPP_inline inline
-      #include <SWI-cpp2.cpp>
-  \end{code}
-  This will cause the compiler to attempt to inline all the functions
-  and methods, even those that are rarely used, possibly resulting in some
-  code bloat.
-\end{itemize}
-
+the object file from compiling \file{SWI-cpp2.cpp} is not included in
+the shared object \file{libswipl}; instead, it must be compiled along
+with any foreign predicate files. If the macro
+\const{_SWI_CPP2_CPP_SEPARATE} is defied before the include for
+\file{SWI-cpp2.h}), then \file{SWI-cpp2.cpp} is not automatically
+included and must be compiled separately - either by creating a
+\file{.a} file or by adding a \verb$#include <SWI-cpp2.cpp>$ to one of
+your source files.
 
 \section{Examples (version 2)}
 \label{sec:cpp2-examples}
@@ -1688,11 +1673,6 @@ default encoding - may change slightly in the future.
 
 \section{Porting from version 1 to version 2}
 \label{sec:cpp2-porting-1-2}
-
-\file{SWI-cpp2.h} is not stand-alone; it needs \file{SWI-cpp2.cpp} to implement
-some functions. The easiest way of taking care of this is to add
-\verb$#include <SWI-cpp2.cpp>$ in your "main" file; alternatively, you
-can create another source file that contains the "include" statement.
 
 The easiest way of porting from \file{SWI-cpp.h} to \file{SWI-cpp2.h}
 is to change the \exam{\#include "SWI-cpp.h"} to \exam{\#include "SWI-cpp2.h"}

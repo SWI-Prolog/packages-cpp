@@ -1856,4 +1856,13 @@ public:
 #define C_ unwrap()
 
 
+#ifndef _SWI_CPP2_CPP_SEPARATE
+
+#ifndef _SWI_CPP2_CPP_inline
+#define _SWI_CPP2_CPP_inline inline
+#endif
+#include "SWI-cpp2.cpp"
+
+#endif
+
 #endif /*_SWI_CPP2_H*/

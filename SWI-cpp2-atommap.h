@@ -40,10 +40,7 @@
 #include <map>
 #include <mutex>
 
-// TODO: the following is for test_cpp.cpp - fix its compile include path
-#ifndef _SWI_CPP2_H
-#include <SWI-cpp2.h>
-#endif
+#include "SWI-cpp2.h"
 
 
 // The AtomMap class is a wrapper around a std::map, mapping

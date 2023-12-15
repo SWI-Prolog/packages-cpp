@@ -991,7 +991,7 @@ struct MyBlob : public PlBlob
 
   ~MyBlob() noexcept
   { if ( !close() )
-      Sdprintf("Close MyBlob failed: %s", name_.c_str()); // Can't use PL_warning()
+      Sdprintf("***ERROR: Close MyBlob failed: %s\n", name_.c_str()); // Can't use PL_warning()
   }
 
   bool close() noexcept
@@ -1012,10 +1012,11 @@ struct MyBlob : public PlBlob
   }
 
   bool write_fields(IOSTREAM *s, int flags) const override
-  { if ( !Sfprintf(s, ",name=%s", name_.c_str()) )
-      return false;
+  { PlStream strm(s);
+
+    strm.printf(",name=%s", name_.c_str());
     if ( !connection )
-      return Sfprintf(s, ",closed");
+      strm.printf(",closed");
     return true;
   }
 };

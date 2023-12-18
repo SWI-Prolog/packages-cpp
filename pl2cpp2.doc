@@ -968,21 +968,30 @@ to a database. It has a single field (\exam{connection}) and
 defines compare_fields() and write_fields().
 
 \begin{code}
+struct MyConnection
+{ std::string name;
+
+  explicit MyConnection();
+  explicit MyConnection(const std::string& _name);
+  ~MyConnection() { }
+  bool open();
+  bool close() noexcept;
+  void portray(PlStream& strm) const;
+};
+
 struct MyBlob;
 
 static PL_blob_t my_blob = PL_BLOB_DEFINITION(MyBlob, "my_blob");
 
 struct MyBlob : public PlBlob
 { std::unique_ptr<MyConnection> connection;
-  std::string name_; // Used for error terms
 
   explicit MyBlob()
     : PlBlob(&my_blob) { }
 
   explicit MyBlob(const std::string& connection_name)
     : PlBlob(&my_blob),
-      connection(std::make_unique<MyConnection>(connection_name)),
-      name_(connection_name)
+      connection(std::make_unique<MyConnection>(connection_name))
   { if ( !connection->open() )
       throw MyBlobError("my_blob_open_error");
   }
@@ -991,7 +1000,12 @@ struct MyBlob : public PlBlob
 
   ~MyBlob() noexcept
   { if ( !close() )
-      Sdprintf("Close MyBlob failed: %s", name_.c_str()); // Can't use PL_warning()
+      Sdprintf("***ERROR: Close MyBlob failed: %s\n", name().c_str()); // Can't use PL_warning()
+  }
+
+  inline std::string
+  name() const
+  { return connection ? connection->name : "";
   }
 
   bool close() noexcept
@@ -1008,14 +1022,27 @@ struct MyBlob : public PlBlob
 
   int compare_fields(const PlBlob* _b_data) const override
   { auto b_data = static_cast<const MyBlob*>(_b_data); // See note about cast
-    return name_.compare(b_data->name_);
+    return name().compare(b_data->name());
   }
 
   bool write_fields(IOSTREAM *s, int flags) const override
-  { if ( !Sfprintf(s, ",name=%s", name_.c_str()) )
-      return false;
-    if ( !connection )
-      return Sfprintf(s, ",closed");
+  { PlStream strm(s);
+    strm.printf(",");
+    return write_fields_only(strm);
+  }
+
+  bool write_fields_only(PlStream& strm) const
+  { if ( connection )
+      connection->portray(strm);
+    else
+      strm.printf("closed");
+    return true;
+  }
+
+  bool portray(PlStream& strm) const
+  { strm.printf("MyBlob(");
+    write_fields_only(strm);
+    strm.printf(")");
     return true;
   }
 };
@@ -1038,6 +1065,17 @@ PREDICATE(close_my_blob, 1)
   if ( !ref->close() )
     throw ref->MyBlobError("my_blob_close_error");
   return true;
+}
+
+// %! portray_my_blob(+Stream, +MyBlob) is det.
+// % Hook predicate for
+// %   user:portray(MyBlob) :-
+// %     blob(MyBlob, my_blob), !,
+// %     portray_my_blob(current_output, MyBlob).
+PREDICATE(portray_my_blob, 2)
+{ auto ref = PlBlobV<MyBlob>::cast_ex(A2, my_blob);
+  PlStream strm(A1, 0);
+  return ref->portray(strm);
 }
 \end{code}
 

@@ -858,7 +858,7 @@ void PlWrapDebug(const char*msg) {
 		 *******************************/
 
 _SWI_CPP2_CPP_inline
-PlStream::PlStream(PlTerm& stream, int flags)
+PlStream::PlStream(PlTerm stream, int flags)
 { Plx_get_stream(stream.unwrap(), &s_, flags);
   check_stream(); // Shouldn't happen
 }

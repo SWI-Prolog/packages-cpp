@@ -1320,6 +1320,10 @@ struct MyConnection
       return false;
     return true;
   }
+
+  void portray(PlStream& strm) const
+  { strm.printf("Connection(name=%s)", name.c_str());
+  }
 };
 
 
@@ -1333,15 +1337,13 @@ static PL_blob_t my_blob = PL_BLOB_DEFINITION(MyBlob, "my_blob");
 
 struct MyBlob : public PlBlob
 { std::unique_ptr<MyConnection> connection;
-  std::string name_; // Used for error terms
 
   explicit MyBlob()
     : PlBlob(&my_blob) { }
 
   explicit MyBlob(const std::string& connection_name)
     : PlBlob(&my_blob),
-      connection(std::make_unique<MyConnection>(connection_name)),
-      name_(connection_name)
+      connection(std::make_unique<MyConnection>(connection_name))
   { assert(connection); // make_unique should have thrown exception if it can't allocate
     if ( !connection->open() )
       throw MyBlobError("my_blob_open_error");
@@ -1351,7 +1353,12 @@ struct MyBlob : public PlBlob
 
   ~MyBlob() noexcept
   { if ( !close() )
-      Sdprintf("***ERROR: Close MyBlob failed: %s\n", name_.c_str()); // Can't use PL_warning()
+      Sdprintf("***ERROR: Close MyBlob failed: %s\n", name().c_str()); // Can't use PL_warning()
+  }
+
+  inline std::string
+  name() const
+  { return connection ? connection->name : "";
   }
 
   bool close() noexcept
@@ -1370,15 +1377,27 @@ struct MyBlob : public PlBlob
   { // dynamic_cast is safer than static_cast, but slower (see documentation)
     // It's used here for testing (the documentation has static_cast)
     auto b_data = dynamic_cast<const MyBlob*>(_b_data);
-    return name_.compare(b_data->name_);
+    return name().compare(b_data->name());
   }
 
   bool write_fields(IOSTREAM *s, int flags) const override
   { PlStream strm(s);
+    strm.printf(",");
+    return write_fields_only(strm);
+  }
 
-    strm.printf(",name=%s", name_.c_str());
-    if ( !connection )
-      strm.printf(",closed");
+  bool write_fields_only(PlStream& strm) const
+  { if ( connection )
+      connection->portray(strm);
+    else
+      strm.printf("closed");
+    return true;
+  }
+
+  bool portray(PlStream& strm) const
+  { strm.printf("MyBlob(");
+    write_fields_only(strm);
+    strm.printf(")");
     return true;
   }
 };
@@ -1398,6 +1417,17 @@ PREDICATE(close_my_blob, 1)
   if ( !ref->close() )
     throw ref->MyBlobError("my_blob_close_error");
   return true;
+}
+
+// %! portray_my_blob(+Stream, +MyBlob) is det.
+// % Hook predicate for
+// %   user:portray(MyBlob) :-
+// %     blob(MyBlob, my_blob), !,
+// %     portray_my_blob(current_output, MyBlob).
+PREDICATE(portray_my_blob, 2)
+{ auto ref = PlBlobV<MyBlob>::cast_ex(A2, my_blob);
+  PlStream strm(A1, 0);
+  return ref->portray(strm);
 }
 
 

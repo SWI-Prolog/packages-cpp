@@ -1414,7 +1414,7 @@ private:
 class PlStream
 {
 public:
-  explicit PlStream(PlTerm& stream, int flags);
+  explicit PlStream(PlTerm stream, int flags);
 
   explicit PlStream(IOSTREAM *s);
 

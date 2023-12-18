@@ -45,10 +45,17 @@
 :- autoload(library(aggregate)).
 :- use_module(library(plunit)).
 :- use_module(library(dcg/basics)).
+:- use_module(library(dcg/high_order)).
 
 :- encoding(utf8).
 
 :- use_foreign_library(foreign(test_cpp)).
+
+:- multifile user:portray/1.
+
+user:portray(MyBlob) :-
+    blob(MyBlob, my_blob), !,
+    portray_my_blob(current_output, MyBlob).
 
 test_cpp :-
     run_tests([ cpp,
@@ -770,7 +777,7 @@ test(blob_compare1, [cleanup((close_my_blob(A),
     create_my_blob('A', A),
     create_my_blob('B', B),
     sort([A,B], Sorted),
-    predsort(compare_portray_form, [A,B], Sorted2),
+    predsort(compare_write_form, [A,B], Sorted2),
     assertion(Sorted == Sorted2).
 test(blob_compare2, [cleanup((close_my_blob(A),
                               close_my_blob(B)))]) :-
@@ -783,7 +790,7 @@ test(blob_compare2, [cleanup((close_my_blob(A),
     % is done by Prolog and never gets to my_data::compare_fields(),
     % which has an assertion check.
     sort([B,A,B,A], Sorted),
-    predsort(compare_portray_form, [B,A,B,A], Sorted2),
+    predsort(compare_write_form, [B,A,B,A], Sorted2),
     assertion(Sorted == Sorted2).
 test(blob_compare3, [cleanup((close_my_blob(A1),
                               close_my_blob(A2),
@@ -793,7 +800,7 @@ test(blob_compare3, [cleanup((close_my_blob(A1),
     create_my_blob('A', A2),
     create_my_blob('B', B),
     sort([A2,A1,B], Sorted),
-    predsort(compare_portray_form, [A1,A2,B], Sorted2),
+    predsort(compare_write_form, [A1,A2,B], Sorted2),
     assertion(Sorted == Sorted2).
 test(blob_compare4, [cleanup((close_my_blob(A1),
                               close_my_blob(A2),
@@ -805,10 +812,19 @@ test(blob_compare4, [cleanup((close_my_blob(A1),
     create_my_blob('A', A2),
     create_my_blob('A', A1),
     sort([A2,A1,B], Sorted),
-    predsort(compare_portray_form, [A2,A1,B], Sorted2),
+    predsort(compare_write_form, [A2,A1,B], Sorted2),
     assertion(Sorted == Sorted2).
 
-compare_portray_form(Compare, A, B) :-
+test(blob_portray, S == "MyBlob(Connection(name=foo))") :-
+    create_my_blob(foo, B),
+    with_output_to(string(S), print(B)),
+    close_my_blob(B).
+test(blob_portray, S == "MyBlob(closed)") :-
+    create_my_blob(foo, B),
+    close_my_blob(B),
+    with_output_to(string(S), print(B)).
+
+compare_write_form(Compare, A, B) :-
     with_output_to(string(Astr), write(A)),
     with_output_to(string(Bstr), write(B)),
     my_blob_string(Astr, APtr, AName),
@@ -821,10 +837,11 @@ my_blob_string(String, Ptr, Name) :-
 
 my_blob(Ptr, Name) -->
     "<my_blob>(",
-    ("0x" -> [] ; []),
+    optional("0x", []),
     xinteger(Ptr),
-    ",name=",
-    string(NameS), ")",
+    ",Connection(name=",
+    string(NameS),
+    "))",
     !,
     { atom_codes(Name, NameS) }.
 

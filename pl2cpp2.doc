@@ -905,7 +905,9 @@ the following:
 \end{itemize}
 
 At this point, the blob is owned by Prolog and will be freed by
-its atom garbage collector, which will call the blob's destructor.
+its atom garbage collector, which will call the blob's destructor
+(if the blob shouldn't be deleted, it can have an override for
+the pre_delete() method which returns \const{false}).
 
 Whenever a predicate is called with the blob as an argument (e.g.,
 as \arg{A1}), the blob can be accessed by
@@ -958,6 +960,15 @@ PREDICATE(). Their exception handling is as follows:
 \item load() can throw a C++ exception, which is converted to
       a return value of \const{PlAtom::null}, which is interpreted by
       Prolog as failure.
+\item pre_delete(), which is called from PlBLobV<MyBLOB>::release(),
+      can throw a C++ exception, which will be interpreted as
+      a return value of \const{false}, resulting in the blob not
+      being garbage collected, and the destructor not being called.
+      Note that this doesn't work well with final clean-up atom
+      garbage collection, which disregards the return value and also
+      doesn't respect the ordering of blob dependencies (e.g., if an
+      iterator blob refers to a file-like blob, the file-like blob
+      might be deleted before the iterator is deleted).
 \end{itemize}
 
 \subsubsection{Sample PlBlob code}
@@ -2800,22 +2811,25 @@ PREDICATE(can_unify, 2)
 }
 \end{code}
 
-\cfuncref{PlRewindOnFail}{f} is a convenience function that does a frame rewind if
-unification fails. Here is an example, where \exam{name_to_term}
-contains a map from names to terms (which are made global by using the
-PL_record() function):
+\cfuncref{PlRewindOnFail}{f} is a convenience function that does a
+frame rewind if function call fails (typically, failure due to
+unification failure). It takes a std::function<bool>()> as an argument,
+which is called in the context of a new \ctype{PlFrame}.  Here is an
+example, where \exam{name_to_terms} contains a map from names to terms
+(which are made global by using the PL_record() function).
 
 \begin{code}
-static const std::map<const std::string, record_t> name_to_term =
-    { {"a", PlTerm(...).record()}, ...};
+static const std::map<const std::string, PlRecord> name_to_term =
+    { {"a", PlTerm(...).record(), PlTerm(...).record()},
+    ... };
 
-bool lookup_term(const std::string name, PlTerm result)
-{ const auto it = name_to_term.find(name);
-  if ( it == name_to_term.cend() )
-    return false;
-
-  PlTerm t = PlTerm_recorded(it->second);
-  return PlRewindOnFail([result,t]() -> bool { return result.unify_term(t); });
+PREDICATE(name_to_terms, 3)
+{ PlTerm key(A1), term1(A2), term2(A3);
+  const auto it = name_to_term.find(key.as_string());
+  return it != name_to_term.cend() &&
+    PlRewindOnFail([term1,term2,it]() -> bool
+                   { return term1.unify_term(it->second.first.term()) &&
+                            term2.unify_term(it->second.second.term()); });
 }
 \end{code}
 

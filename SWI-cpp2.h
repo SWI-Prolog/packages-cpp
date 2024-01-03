@@ -1714,6 +1714,11 @@ public:
   [[nodiscard]]
   static int release(atom_t a) noexcept
   { auto data = cast_check(PlAtom(a));
+    try
+    { if ( !data->pre_delete() )
+        return false;
+    }
+    PREDICATE_CATCH(return false)
     delete data;
     return true;
   }
@@ -1818,6 +1823,8 @@ public:
   explicit PlBlob(PlBlob&&) = delete;
   PlBlob& operator =(const PlBlob&) = delete;
   virtual ~PlBlob() = default;
+
+  virtual bool pre_delete() { return true; }
 
   virtual size_t blob_size_() const = 0; // See PL_BLOB_SIZE
 

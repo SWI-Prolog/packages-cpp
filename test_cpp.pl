@@ -178,11 +178,22 @@ test(term_1, Result == hello(world)) :-
 test(term_1, error(domain_error(type,foo))) :-
     term(foo, _Result).
 
-test(can_unify_2, [true(X\==Y)]) :-
+test(can_unify, [true(X\==Y)]) :-
     can_unify(f(X), f(Y)).
-test(can_unify_2) :-
+test(can_unify) :-
     can_unify(a(X), a(1)),
     assertion(var(X)).
+test(can_unify, fail) :-
+    can_unify(a(1), a(2)).
+
+test(call_chars, Out=="1") :-
+    with_output_to(string(Out), call_chars("X=1, write(X)")).
+test(call_chars, Out=="1") :-
+    with_output_to(string(Out), call_chars('X=1, write(X)')).
+test(call_chars, fail) :-
+    call_chars("1=2").
+test(call_chars, error(syntax_error(operator_expected),string("1(2 . ",0))) :-
+    call_chars("1(2").
 
 % Note: unify_error has additional tests for eq1/2
 test(eq1_2, X == a) :-
@@ -600,6 +611,25 @@ test(type_error_string) :-
 
 :- if(\+ current_prolog_flag(asan, true)).
 
+% TODO: a better test that name_to_terms("two", X, "deux") cleans up `X`
+test(name_to_terms, [T1,T2] = [1,"eins"]) :-
+    name_to_terms("one", T1, T2).
+test(name_to_terms, [T1,T2] = [2,"zwei"]) :-
+    name_to_terms("two", T1, T2).
+test(name_to_terms, fail) :-
+    name_to_terms("foo", _, _).
+test(name_to_terms, fail) :-
+    name_to_terms("two", _, "deux").
+
+test(name_to_terms2, [T1,T2] = [1,"eins"]) :-
+    name_to_terms2("one", T1, T2).
+test(name_to_terms2, [T1,T2] = [2,"zwei"]) :-
+    name_to_terms2("two", T1, T2).
+test(name_to_terms2, fail) :-
+    name_to_terms2("foo", _, _).
+test(name_to_terms2, fail) :-
+    name_to_terms2("two", _, "deux").
+
 % test(int_info) causes a memory leak because the IntInfo map doesn't
 % destruct the elements on cleanup. (At least, I think that's the
 % cause of the memory leak.)
@@ -615,6 +645,34 @@ test(int_info) :-
     Info = int_info(_,_,0,_),
     findall(Name:Info, int_info(Name, Info), Infos),
     assertion(memberchk(uint16_t:int_info(uint16_t,2,0,65535), Infos)).
+test(int_info) :-
+    Info = int_info(_,_,-128,_), % skip over first result: int_info(bool,1,0,1)
+    int_info(_Name, Info),
+    !.
+test(int_info) :-
+    int_info(_Name, Info),
+    Info = int_info(_,_,-128,_), % force backtracking
+    !.
+
+test(int_info2) :-
+    findall(Name:Info, int_info2(Name, Info), Infos),
+    assertion(memberchk(uint32_t:int_info(uint32_t,4,0,4294967295), Infos)).
+test(int_info2, [nondet, Name:Info == uint32_t:int_info(uint32_t,4,0,4294967295)]) :-
+    Info = int_info(_,_,0,_),
+    int_info2(Name, Info),
+    Info = int_info(uint32_t,_,_,_).
+test(int_info2) :-
+    Info = int_info(_,_,0,_),
+    findall(Name:Info, int_info2(Name, Info), Infos),
+    assertion(memberchk(uint16_t:int_info(uint16_t,2,0,65535), Infos)).
+test(int_info2) :-
+    Info = int_info(_,_,-128,_), % skip over first result: int_info(bool,1,0,1)
+    int_info2(_Name, Info),
+    !.
+test(int_info2) :-
+    int_info2(_Name, Info),
+    Info = int_info(_,_,-128,_), % force backtracking
+    !.
 
 :- endif.
 

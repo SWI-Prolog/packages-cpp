@@ -2027,7 +2027,7 @@ methods that check the type:
 \subsection{Unification (version 2)}
 \label{sec:cpp2-plterm-unification}
 
-See also \secref{cpp2-foreign-frame}.
+See also \secref{cpp2-plframe}.
 
 \begin{description}
     \cfunction{bool}{PlTerm::unify_term}{PlTerm}
@@ -2635,27 +2635,6 @@ as an uninterpreted string. It supports the following methods.
    using PL_recorded_external()).
 \end{description}
 
-\section{Unification and foreign frames (version 2)}
-\label{sec:cpp2-foreign-frame}
-
-As documented with PL_unify(), if a unification call fails and control isn't
-made immediately to Prolog, any changes made by unification must be undone.
-The functions PL_open_foreign_frame(), PL_rewind_foreign_frame(), and
-PL_close_foreign_frame() are encapsulated in the class \ctype{PlFrame},
-whose destructor calls PL_close_foreign_frame(). Using this, the example
-code with PL_unify() can be written:
-\begin{code}
-{ PlFrame frame;
-  ...
-  if ( !t1.unify_term(t2) )
-    frame.rewind();
-  ...
-}
-\end{code}
-Note that PlTerm::unify_term() checks for an exception and
-throws an exception to Prolog; if you with to handle exceptions, you
-must call \exam{PL_unify_term(t1.unwrap(),t2.unwrap())}.
-
 \section{The class PlRegister (version 2)}
 \label{sec:cpp2-plregister}
 
@@ -2754,12 +2733,34 @@ PlCall() variations. Especially suitable for simple goals such as making
 Prolog load a file.
 \end{description}
 
-\subsection{The class PlFrame (version 2)}
+\subsection{The class PlFrame - Unification and foreign frames (version 2)}
 \label{sec:cpp2-plframe}
+
+As documented with PL_unify(), if a unification call fails and control
+isn't made immediately to Prolog, any changes made by unification must
+be undone.  The functions PL_open_foreign_frame(),
+PL_rewind_foreign_frame(), PL_discard_foreign_frame(), and
+PL_close_foreign_frame() are encapsulated in the class
+\ctype{PlFrame}, whose destructor calls
+PL_close_foreign_frame(). Using this, the example code with PL_unify()
+can be written:
+\begin{code}
+{ PlFrame frame;
+  ...
+  if ( !t1.unify_term(t2) )
+    frame.rewind();
+  ...
+}
+\end{code}
+Note that PlTerm::unify_term() checks for an exception and
+throws an exception to Prolog; if you wish to handle exceptions, you
+must call \exam{PL_unify_term(t1.unwrap(),t2.unwrap())}.
 
 The class \ctype{PlFrame} provides an interface to discard unused
 term-references as well as rewinding unifications
-(\jargon{data-backtracking}). Reclaiming unused term-references is
+(\jargon{data-backtracking}).
+
+Reclaiming unused term-references is
 automatically performed after a call to a C++-defined predicate has
 finished and returns control to Prolog. In this scenario \ctype{PlFrame}
 is rarely of any use. This class comes into play if the toplevel program
@@ -2767,21 +2768,32 @@ is defined in C++ and calls Prolog multiple times.  Setting up arguments
 to a query requires term-references and using \ctype{PlFrame} is the
 only way to reclaim them.
 
+Another use of of \ctype{PlFrame} is when multiple separate
+unifications are done - if any of them fails, then the earlier
+unifications must be undone before returning to Prolog.
+
 \begin{description}
     \constructor{PlFrame}{}
 Creating an instance of this class marks all term-references created
 afterwards to be valid only in the scope of this instance.
     \destructor{PlFrame}
 Reclaims all term-references created after constructing the instance.
+If either close() or discard() have been called, the destructor does nothing.
     \cfunction{void}{PlFrame::rewind}{}
 Discards all term-references {\bf and} global-stack data created as well
 as undoing all unifications after the instance was created.
+    \cfunction{void}{PlFrame::close}{}
+Reclaims all term-references created after constructing the instance.
+    \cfunction{void}{PlFrame::discard}{}
+Same as PlFrame::rewind() + PlFrame::close().
 \end{description}
 
 \index{assert}%
 A typical use for \ctype{PlFrame} is the definition of C++ functions
 that call Prolog and may be called repeatedly from C++.  Consider the
-definition of assertWord(), adding a fact to word/1:
+definition of assertWord(), adding a fact to word/1; the \ctype{PlFrame}
+removes the new term \exam{av[0]} from the stack, which prevents the stack
+from growing each time assertWord() is called:
 
 \begin{code}
 void
@@ -2795,28 +2807,29 @@ assertWord(const char *word)
 }
 \end{code}
 
-
-This example shows the most sensible use of \ctype{PlFrame} if it is
-used in the context of a foreign predicate. The predicate's thruth-value
-is the same as for the Prolog unification (=/2), but has no
-side effects. In Prolog one would use double negation to achieve this.
+The following example uses \ctype{PlFrame} in the context of a foreign
+predicate. The can_unify/2's truth-value is the same as for Prolog
+unification (=/2), but has no side effects. In Prolog one would use
+double negation to achieve this:
 
 \begin{code}
 PREDICATE(can_unify, 2)
 { PlFrame fr;
 
   int rval = (A1=A2);
-  fr.rewind();
+  fr.discard(); // or, less efficiently: fr.rewindd();
   return rval;
 }
 \end{code}
 
 \cfuncref{PlRewindOnFail}{f} is a convenience function that does a
-frame rewind if function call fails (typically, failure due to
+frame rewind if a function call fails (typically, failure due to
 unification failure). It takes a std::function<bool>()> as an argument,
 which is called in the context of a new \ctype{PlFrame}.  Here is an
 example, where \exam{name_to_terms} contains a map from names to terms
-(which are made global by using the PL_record() function).
+(which are made global by using the PL_record() function). The frame
+rewind is needed in the situation where the first unify_term() succeeds
+and the second one fails.
 
 \begin{code}
 static const std::map<const std::string, PlRecord> name_to_term =
@@ -2830,6 +2843,24 @@ PREDICATE(name_to_terms, 3)
     PlRewindOnFail([term1,term2,it]() -> bool
                    { return term1.unify_term(it->second.first.term()) &&
                             term2.unify_term(it->second.second.term()); });
+}
+\end{code}
+
+The equivalent code without using PlRewindOnFail() is:
+\begin{code}
+PREDICATE(name_to_terms, 3)
+{ PlTerm key(A1), term1(A2), term2(A3);
+  const auto it = name_to_term.find(key.as_string());
+  if ( it == name_to_term.cend() )
+    return false;
+  if ( !term1.unify_term(it->second.first.term()) )
+    return false;
+  PlFrame fr;
+  if ( !term2.unify_term(it->second.second.term()) )
+  { fr.discard();
+    return false;
+  }
+  return true;
 }
 \end{code}
 

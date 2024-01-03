@@ -289,12 +289,24 @@ PREDICATE(term, 2)
   throw PlDomainError("type", A1);
 }
 
+PREDICATE(call_chars_discard, 1)
+{ PlFrame fr;
+  PlCompound goal(A1.as_string());
+  bool rval = Plx_call(goal.unwrap(), (module_t)0);
+  fr.discard();
+  return rval;
+}
+
+PREDICATE(call_chars, 1)
+{ PlCompound goal(A1.as_string());
+  return Plx_call(goal.unwrap(), (module_t)0);
+}
 
 PREDICATE(can_unify, 2)
 { PlFrame fr;
 
   bool rval = A1.unify_term(A2);
-  fr.rewind();
+  fr.discard(); // or: PL.rewind()
   return rval;
 }
 
@@ -1006,6 +1018,35 @@ PREDICATE(pl_write_atoms_c, 1)
   return rc && PL_get_nil_ex(tail); /* test end for [] */
 }
 
+static const std::map<const std::string, std::pair<PlRecord, PlRecord>> name_to_term =
+  { {"one", {PlTerm_integer(1).record(), PlTerm_string("eins").record()}},
+    {"two", {PlTerm_integer(2).record(), PlTerm_string("zwei").record()}}
+  };
+
+PREDICATE(name_to_terms, 3)
+{ PlTerm key(A1), term1(A2), term2(A3);
+  const auto it = name_to_term.find(key.as_string());
+  return it != name_to_term.cend() &&
+    PlRewindOnFail([term1,term2,it]() -> bool
+                   { return term1.unify_term(it->second.first.term()) &&
+                            term2.unify_term(it->second.second.term()); });
+}
+
+PREDICATE(name_to_terms2, 3)
+{ PlTerm key(A1), term1(A2), term2(A3);
+  const auto it = name_to_term.find(key.as_string());
+  if ( it == name_to_term.cend() )
+    return false;
+  if ( !term1.unify_term(it->second.first.term()) )
+    return false;
+  PlFrame fr;
+  if ( !term2.unify_term(it->second.second.term()) )
+  { fr.discard();
+    return false;
+  }
+  return true;
+}
+
 // Predicates for checking native integer handling
 // See https://en.cppreference.com/w/cpp/types/numeric_limits
 
@@ -1073,20 +1114,27 @@ struct IntInfoCtxt
 
 // int_info_(name, result, ctx) is called from int_info/2 to do a
 // lookup of the name in ctx->int_info (see the IntInfoCtxt
-// constructor for how this gets initialized). This finds a recored
+// constructor for how this gets initialized). This finds a recorded
 // term, from which a fresh term is concstructed using
 // PlRecord::term(), and the unification is done in the context of
 // PlRewindOnFail(). This ensures that if the unification fails, any
 // partial bindings will be removed.
 
 static bool
-int_info_(const std::string name, PlTerm result, IntInfoCtxt *ctxt)
+int_info_RewindOnFail(const std::string name, PlTerm result, IntInfoCtxt *ctxt)
 { const auto it = ctxt->int_info->find(name);
   if ( it == ctxt->int_info->cend() )
     return false;
 
   return PlRewindOnFail([&result,&it]() -> bool
                         { return result.unify_term(it->second.term()); });
+}
+
+static bool
+int_info_noRewind(const std::string name, PlTerm result, IntInfoCtxt *ctxt)
+{ const auto it = ctxt->int_info->find(name);
+  return it != ctxt->int_info->cend() &&
+    result.unify_term(it->second.term());
 }
 
 PREDICATE_NONDET(int_info, 2)
@@ -1100,7 +1148,7 @@ PREDICATE_NONDET(int_info, 2)
   switch( handle.foreign_control() )
   { case PL_FIRST_CALL:
       if ( !A1.is_variable() ) // int_info is a map, so unique on lookup
-	return int_info_(A1.as_string(), A2, ctxt.get());
+	return int_info_RewindOnFail(A1.as_string(), A2, ctxt.get());
       ctxt.reset(new IntInfoCtxt());
       break;
     case PL_REDO:
@@ -1112,8 +1160,9 @@ PREDICATE_NONDET(int_info, 2)
       return false;
   }
   assert(A1.is_variable());
+  // Note that int_info_RewindOnFail() has its own frame to undo unification
   while ( ctxt->it != ctxt->int_info->cend() )
-  { if ( int_info_(ctxt->it->first, A2, ctxt.get()) )
+  { if ( int_info_RewindOnFail(ctxt->it->first, A2, ctxt.get()) )
     { if ( !A1.unify_atom(ctxt->it->first) )
         return false; // Shouldn't happen because A1 is a varaible
       ctxt->it++;
@@ -1127,6 +1176,41 @@ PREDICATE_NONDET(int_info, 2)
   return false;
 }
 
+// Same as int_info, but uses PlFrame instead of PlRewindOnFail()
+PREDICATE_NONDET(int_info2, 2)
+{ auto ctxt = handle.context_unique_ptr<IntInfoCtxt>();
+  PlFrame fr;
+
+  switch( handle.foreign_control() )
+  { case PL_FIRST_CALL:
+      if ( !A1.is_variable() ) // int_info is a map, so unique on lookup
+	return int_info_noRewind(A1.as_string(), A2, ctxt.get());
+      ctxt.reset(new IntInfoCtxt());
+      [[fallthrough]];
+  case PL_REDO:
+    assert(A1.is_variable());
+    while ( ctxt->it != ctxt->int_info->cend() )
+    { if ( int_info_noRewind(ctxt->it->first, A2, ctxt.get()) )
+      { if ( !A1.unify_atom(ctxt->it->first) )
+          return false; // Shouldn't happen because A1 is a varaible
+        ctxt->it++;
+        if ( ctxt->it == ctxt->int_info->cend() )
+        { return true; // Last result: no choice point
+        }
+        PL_retry_address(ctxt.release()); // Succeed with choice point
+      }
+      ctxt->it++;
+      fr.rewind();
+    }
+    return false;
+    break;
+  case PL_PRUNED:
+    return true;
+  default:
+    assert(0);
+    return false;
+  }
+}
 
 PREDICATE(type_error_string, 3)
 { PlException e(PlTypeError("foofoo", A1));

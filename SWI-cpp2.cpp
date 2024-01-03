@@ -408,7 +408,7 @@ PlRewindOnFail(std::function<bool()> f)
 { PlFrame frame;
   bool rc = f();
   if ( !rc )
-    frame.rewind();
+    frame.discard();  // Same as frame.rewind(); destructor's frame.close()
   return rc;
 }
 

@@ -166,7 +166,7 @@ inline void PlCheckFail(bool rc);
 template <typename C_t> class WrappedC
 {
 private:
-  C_t C_ = null; // The wrapped value - should always be accessed by unwrap() or PlUnwrap()
+  C_t C_ = null; // The wrapped value - access by unwrap(), unwrap_as_ptr(), or PlUnwrapAsPtr()
 
 public:
   static constexpr C_t null = C_t();
@@ -1228,14 +1228,16 @@ public:
 
   void discard()
   { if ( not_null() )
-      Plx_discard_foreign_frame(unwrap());
-    set_null();
+    { Plx_discard_foreign_frame(unwrap());
+      set_null();
+    }
   }
 
   void close()
   { if ( not_null() )
-      Plx_close_foreign_frame(unwrap());
-    set_null();
+    { Plx_close_foreign_frame(unwrap());
+      set_null();
+    }
   }
 
   ~PlFrame() noexcept(false)

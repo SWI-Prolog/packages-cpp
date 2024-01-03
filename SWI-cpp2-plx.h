@@ -82,7 +82,7 @@ PLX_ASIS(void *                 , foreign_context_address         , (control_t c
 PLX_ASIS(predicate_t            , foreign_context_predicate       , (control_t c), (c))
 
 PLX_VOID(void                   , register_extensions             , (const PL_extension *e), (e))
-PLX_VOID(void                   , register_extensions_in_module   , (const char *module, const PL_extension *e), (module, e));
+PLX_VOID(void                   , register_extensions_in_module   , (const char *module, const PL_extension *e), (module, e))
 
 // (skipped):: int PL_register_foreign(const char *name, int arity, pl_function_t func, int flags, ...);
 // (skipped):: int PL_register_foreign_in_module( const char *module , const char *name, int arity, pl_function_t func, int flags, ...);
@@ -348,7 +348,7 @@ PLX_WRAP(atom_t                  , new_blob                        , (void *blob
 PLX_EXCE(int                     , put_blob                        , (term_t t, void *blob, size_t len, PL_blob_t *type), (t, blob, len, type))
 PLX_WRAP(int                     , get_blob                        , (term_t t, void **blob, size_t *len, PL_blob_t **type), (t, blob, len, type))
 PLX_ASIS(void*                   , blob_data                       , (atom_t a, size_t *len, struct PL_blob_t **type), (a, len, type))
-PLX_ASIS(int                     , free_blob                       , (atom_t blob), (blob));
+PLX_ASIS(int                     , free_blob                       , (atom_t blob), (blob))
 // Should not call PL_register_blob_type, so it's not defined:
 // PLX_VOID(void                 , register_blob_type              , (PL_blob_t *type), (type))
 PLX_ASIS(PL_blob_t*              , find_blob_type                  , (const char* name), (name))
@@ -503,8 +503,8 @@ PLX_ASIS(int                     , raise                           , (int sig), 
 PLX_ASIS(int                     , handle_signals                  , (), ())
 PLX_ASIS(int                     , get_signum_ex                   , (term_t sig, int *n), (sig, n))
 // (skipped):: int PL_action(int, ...);
-PLX_VOID(void                    , on_halt                         , (int (*f)(int, void *), void *closure), (f, closure));
-PLX_VOID(void                    , exit_hook                       , (int (*f)(int, void *), void *closure), (f, closure));
+PLX_VOID(void                    , on_halt                         , (int (*f)(int, void *), void *closure), (f, closure))
+PLX_VOID(void                    , exit_hook                       , (int (*f)(int, void *), void *closure), (f, closure))
 PLX_VOID(void                    , backtrace                       , (int depth, int flags), (depth, flags))
 PLX_ASIS(char *                  , backtrace_string                , (int depth, int flags), (depth, flags))
 PLX_ASIS(int                     , check_data                      , (term_t data), (data))

@@ -920,7 +920,7 @@ PlStream::defn \
 }
 
 _SWI_CPP2_CPP_check_rc(int, set_timeout(int tmo), Sset_timeout(s_, tmo))
-_SWI_CPP2_CPP_check_rc(int, unit_size(), Sunit_size(s_));
+_SWI_CPP2_CPP_check_rc(int, unit_size(), Sunit_size(s_))
 _SWI_CPP2_CPP_nocheck(bool, canrepresent(int c), Scanrepresent(c, s_))
 _SWI_CPP2_CPP_check_rc(int, putcode(int c), Sputcode(c, s_))
 _SWI_CPP2_CPP_check_rc(int, getcode(), Sgetcode(s_))

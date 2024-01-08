@@ -1819,7 +1819,7 @@ class PlBlob
 {
 public:
   explicit PlBlob(const PL_blob_t* _blob_t)
-    : blob_t_(_blob_t) { }
+    : blob_t_(_blob_t), symbol_(PlAtom(PlAtom::null)) { }
   explicit PlBlob() = delete;
   explicit PlBlob(const PlBlob&) = delete;
   explicit PlBlob(PlBlob&&) = delete;
@@ -1853,11 +1853,11 @@ public:
 
   virtual PlAtom load(IOSTREAM *fd);
 
-  const PL_blob_t* blob_t_ = nullptr;
+  const PL_blob_t* blob_t_;
 
-  // Associated symbol (used for error terms) filed in by acquire()
+  // Associated symbol (used for error terms), filled in by acquire()
   // and usually accessed by the symbol_term() method
-  PlAtom symbol_ = PlAtom(PlAtom::null);
+  PlAtom symbol_;
 };
 
 

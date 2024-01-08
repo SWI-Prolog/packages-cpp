@@ -500,6 +500,7 @@ PREDICATE(delete_chars, 1)
   return true;
 }
 
+
 class MyClass
 {
 public:
@@ -524,6 +525,7 @@ PREDICATE(free_my_object, 1)
   delete myobj;
   return true;
 }
+
 
 PREDICATE(make_functor, 3)  // make_functor(foo, x, foo(x))
 { auto f = PlFunctor(A1.as_atom().as_string(), 1);
@@ -1486,7 +1488,7 @@ struct MyBlob : public PlBlob
   }
 };
 
-// %! create_my_blob(+Name: atom, -MyBlob) is semidet.
+// %! create_my_blob(+Name: atom, -MyBlob) is det.
 PREDICATE(create_my_blob, 2)
 { auto ref = std::unique_ptr<PlBlob>(new MyBlob(A1.as_atom().as_string()));
   return A2.unify_blob(&ref);
@@ -1558,4 +1560,166 @@ PREDICATE(atom_term_erase, 1)
 
 PREDICATE(atom_term_size, 1)
 { return A1.unify_integer(map_atom_term.size());
+}
+
+
+// ============  map_str_str blob (std::map<std::string,std::string> =====
+
+class MapStrStr;
+
+static PL_blob_t map_str_str_blob = PL_BLOB_DEFINITION(MapStrStr, "map_str_str");
+
+class MapStrStr : public PlBlob
+{
+public:
+  explicit MapStrStr()
+    : PlBlob(&map_str_str_blob), data(), ref_count(0)
+  { }
+
+  PL_BLOB_SIZE
+
+  typedef std::map<const std::string, std::string>::iterator iterator;
+  typedef std::map<const std::string, std::string>::const_iterator const_iterator;
+
+  iterator begin() { return data.begin(); }
+  const_iterator cbegin() { return data.cbegin(); }
+
+  iterator end() { return data.end(); }
+  const_iterator cend() { return data.cend(); }
+
+  void insert_or_assign(const std::string& key, const std::string& value)
+  { data[key] = value;
+    // C17: data.insert_or_assign(key, value);
+    // C11: auto [it, success] = data.insert({key, value});
+    //      if ( ! success )
+    //        it->second = value;
+  }
+
+  void erase_if_present(const std::string& key)
+  { auto it = data.find(key);
+    if ( it != data.end() )
+      data.erase(it);
+  }
+
+  iterator find(const std::string& key)
+  { return data.find(key);
+  }
+
+  const_iterator find(const std::string& key) const
+  { return data.find(key);
+  }
+
+  iterator lower_bound(const std::string& key)
+  { return data.lower_bound(key);
+  }
+
+  const_iterator lower_bound(const std::string& key) const
+  { return data.lower_bound(key);
+  }
+
+  void incr_ref() { ref_count++; }
+
+  void decr_ref() { ref_count--; }
+
+private:
+  std::map<const std::string, std::string> data;
+  int ref_count = 0;
+};
+
+class MapStrStrEnumState
+{
+public:
+  MapStrStrEnumState(MapStrStr* _ref, const std::string& _prefix)
+    : ref(_ref), prefix(_prefix), prefix_length(_prefix.length()),
+      it(prefix.empty() ? ref->begin() : ref->lower_bound(prefix))
+  { ref->incr_ref();
+  }
+
+  explicit MapStrStrEnumState() = delete;
+  explicit MapStrStrEnumState(const MapStrStrEnumState&) = delete;
+  explicit MapStrStrEnumState(MapStrStrEnumState&&) = delete;
+  MapStrStrEnumState& operator =(const MapStrStrEnumState&) = delete;
+
+  ~MapStrStrEnumState()
+  { ref->decr_ref();
+  }
+
+  bool key_starts_with_prefix() const
+  { return it != ref->end() &&
+      // TODO: C20 provides std::string::starts_with()
+      it->first.length() >= prefix_length &&
+      it->first.substr(0, prefix_length) == prefix;
+  }
+
+private:
+  MapStrStr *ref = nullptr;
+  std::string prefix;
+  size_t prefix_length = 0;
+
+public:
+  MapStrStr::iterator it;
+};
+
+// %! create_map_str_str(-Map) is det.
+PREDICATE(create_map_str_str, 1)
+{ auto ref = std::unique_ptr<PlBlob>(new MapStrStr());
+  return A1.unify_blob(&ref);
+}
+
+// %! insert_or_assign_map_str_str(+Map, +Key:string, +Value:string) is det.
+PREDICATE(insert_or_assign_map_str_str, 3)
+{ auto ref = PlBlobV<MapStrStr>::cast_ex(A1, map_str_str_blob);
+  ref->insert_or_assign(A2.as_string(), A3.as_string());
+  return true;
+}
+
+// %! erase_if_present_map_str_str(+Map, +Key:string) is det.
+PREDICATE(erase_if_present_map_str_str, 2)
+{ auto ref = PlBlobV<MapStrStr>::cast_ex(A1, map_str_str_blob);
+  ref->erase_if_present(A2.as_string());
+  return true;
+}
+
+// %! find_map_str_str(+Map, +Key:string, -Value:string) is semidet.
+PREDICATE(find_map_str_str, 3)
+{ auto ref = PlBlobV<MapStrStr>::cast_ex(A1, map_str_str_blob);
+  auto it = ref->find(A2.as_string());
+  if ( it == ref->end() )
+    return false;
+  return A3.unify_string(it->second);
+}
+
+// %! enum_map_str_str(+Map, +Prefix:string, -Key:string, -Value:string) is nodet.
+PREDICATE_NONDET(enum_map_str_str, 4)
+{ // "state" needs to be acquired so that automatic cleaup
+  // deletes it
+  auto state = handle.context_unique_ptr<MapStrStrEnumState>();
+  const auto control = handle.foreign_control();
+  if ( control == PL_PRUNED )
+    return true;
+  auto ref = PlBlobV<MapStrStr>::cast_ex(A1, map_str_str_blob);
+  PlTerm prefix(A2), key(A3), value(A4);
+  PlFrame fr;
+
+  switch ( control )
+  { case PL_FIRST_CALL:
+      state.reset(new MapStrStrEnumState(ref, prefix.as_string()));
+      [[fallthrough]];
+    case PL_REDO:
+      for ( ; state->key_starts_with_prefix() ; state->it++ )
+      { if ( key.unify_string(state->it->first ) &&
+             value.unify_string(state->it->second) )
+        { state->it++;
+          if ( state->key_starts_with_prefix() )
+            PL_retry_address(state.release());
+          else
+            return true;
+        }
+        fr.rewind();
+      }
+      fr.discard(); // TODO: not needed? see fr.rewind() above)
+    default:
+      assert(0);
+  }
+  return false;
 }

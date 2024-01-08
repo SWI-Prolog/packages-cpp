@@ -862,7 +862,7 @@ point in setting this flag for non-text blobs.}
 TL;DR: Use PL_BLOB_DEFINITION() to define the blob with the flag
 \const{PL_BLOB_NOCOPY} and the default \ctype{PlBlob} wrappers; define
 your struct as a subclass of \ctype{PlBlob} with no copy constructor,
-move constructor, or assignment operator; create blob using
+move constructor, or assignment operator; create a blob using
 \exam{std::unique_ptr<PlBlob>(new ...)}, call PlTerm::unify_blob().
 Optionally, define one or more of: compare_fields(), write_fields(),
 save(), load() methods (these are described after the sample code).
@@ -1062,7 +1062,7 @@ struct MyBlob : public PlBlob
 PREDICATE(create_my_blob, 2)
 { // Allocating the blob uses std::unique_ptr<MyBlob> so that it'll be
   // deleted if an error happens - the auto-deletion is disabled by
-  // ref.release() before returning success.
+  // ref.release() inside unify_blob() before returning success.
 
   auto ref = std::unique_ptr<PlBlob>(new MyBlob(A1.as_atom().as_string()));
   return A2.unify_blob(&ref);

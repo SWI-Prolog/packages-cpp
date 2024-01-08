@@ -59,7 +59,8 @@ user:portray(MyBlob) :-
 
 test_cpp :-
     run_tests([ cpp,
-                cpp_atommap
+                cpp_atommap,
+                cpp_map_str_str
 	      ]).
 
 % Some of the tests can result in crashes if there's a bug, so the
@@ -996,6 +997,33 @@ test(atom_term_map) :-
     assertion(Size == 0).
 
 :- end_tests(cpp_atommap).
+
+:- begin_tests(cpp_map_str_str).
+
+test(map, KVs == ["b"-"two","c"-"three"]) :-
+    create_map_str_str(Map),
+    insert_or_assign_map_str_str(Map, "a", "one"),
+    insert_or_assign_map_str_str(Map, "c", "three"),
+    insert_or_assign_map_str_str(Map, "b", "two"),
+    find_map_str_str(Map, "a", One),
+    assertion(One == "one"),
+    assertion(find_map_str_str(Map, "a", "one")),
+    erase_if_present_map_str_str(Map, "a"),
+    erase_if_present_map_str_str(Map, "axx"),
+    assertion(\+ find_map_str_str(Map, "a", _)),
+    findall(K-V, enum_map_str_str(Map, "", K, V), KVs).
+
+test(map, KVs = ["ab"-"two","ac"-"three"]) :-
+    create_map_str_str(Map),
+    maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d"], ["two","three","four"]),
+    findall(K-V, enum_map_str_str(Map, "a", K, V), KVs).
+
+test(map, [blocked(crash),K2-V2 == "ab"-"two"]) :-
+    create_map_str_str(Map),
+    maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d"], ["two","three","four"]),
+    enum_map_str_str(Map, "", K2, V2), !.
+
+:- end_tests(cpp_map_str_str).
 
 w_atom_cpp(Atom, String) :-
     with_output_to(string(String), w_atom_cpp_(current_output, Atom)).

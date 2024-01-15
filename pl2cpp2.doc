@@ -28,7 +28,7 @@ the exception term rather being a subclass of \ctype{PlTerm} as in
 version 1), where they can be caught and thrown using the usual C++
 mechanisms; and the subclasses that create exceptions have been
 changed to functions.  In addition, an exception type \ctype{PlFail}
-has been added, together with PlCheckFail(), to allow more compact
+has been added, together with \cfuncref{PlCheckFail}{}, to allow more compact
 code by "short circuit" return to Prolog on failure.
 
 A convenience class for creating blobs has been added, so that an
@@ -95,12 +95,12 @@ More specifically:
     \exam{t.as_string()}, \exam{t.as_int64_t()}).
   \item
     The overloaded assignment operator for unification is deprecated,
-    replaced by unify_term(), unify_atom(), etc., and the helper
-    PlCheckFail().
+    replaced by \cfuncref{PlTerm::unify_term}{}, \cfuncref{PlTerm::unify_atom}{},
+    etc., and the helper \cfuncref{PlCheckFail}{}.
   \item
     Many of the equality and inequality operators are deprecated;
-    replaced by the as_string() method and the associated
-    \ctype{std::string}, comparison operators. The as_string() method
+    replaced by the \cfuncref{PlTerm::as_string}{} method and the associated
+    \ctype{std::string}, comparison operators. The \cfuncref{PlTerm::as_string}{} method
     allows specifying the encoding to use whereas the \exam{==} and
     similar operators do not allow for this.
 \item
@@ -147,7 +147,7 @@ More specifically:
     the unwrap() and unwrap_as_ptr() methods.
     There is also a "friend" function PlUnwrapAsPtr().
   \item
-    A convenience function PlControl::context_unique_ptr<ContextType>()
+    A convenience function \exam{PlControl::context_unique_ptr<ContextType>()}
     has been added, to simplify dynamic memory allocation in
     non-deterministic predicates.
   \item
@@ -184,9 +184,9 @@ used for testing (called from
 \href{https://github.com/SWI-Prolog/packages-cpp/blob/master/test_cpp.pl}{test_cpp.pl}).
 Notable examples:
 \begin{itemize}
-  \item add_num(A1,A2,A3) - same as \exam{A3 is A1+A2}, converting the sum
+  \item add_num/3 - same as \exam{A3 is A1+A2}, converting the sum
      to an integer if possible.
-  \item name_arity/3 - same as functor/3.
+  \item name_arity/3 - C++ implementation of functor/3.
   \item average/3 - computes the average of all the solutions to \arg{Goal}
   \item can_unify/2 - tests whether the two arguments can unify with each
      other, without instantiating anything (similar to unifiable/3).
@@ -264,7 +264,7 @@ the function, register it with the SWI-Prolog runtime (where it will
 be picked up by the use_foreign_library/1 directive), and define the
 names \exam{A1}, \exam{A2}, etc. for the arguments.\footnote{You can
 define your own names for the arguments, for example:
-\exam{auto dir=A1, db=A2, options=A3;}.}
+\exam{auto dir=A1, db=A2;} or \exam{PlTerm options(A3);}.}
 If a non-deterministic predicate is being
 defined, an additional parameter \exam{handle} is defined (of type
 \ctype{PlControl}).
@@ -284,7 +284,7 @@ predicate). When a Prolog exception is raised, it is important that a
 return be made to the calling environment as soon as possible. In C
 code, this requires checking every call for failure, which can become
 cumbersome. C++ has exceptions, so instead the code can wrap calls to
-PL_*() functions with PlCheckFail() or
+PL_*() functions with \cfuncref{PlCheckFail}{} or
 PlCheckEx(), which will throw a PlException() to exit from
 the top level of the foreign predicate, and handle the failure or
 exception appropriately.
@@ -293,7 +293,7 @@ The following three snippets do essentially the same thing (for
 implementing the equivalent of =/2); however the forst option (with
 PlTerm::unify_term()) and third option (with Plx_unify()) throw a C++
 \ctype{PlExceptionFail} exception if there's an error and return
-\const{true} or \const{false}; the second option (with PlCheckFail())
+\const{true} or \const{false}; the second option (with \cfuncref{PlCheckFail}{})
 throws a \ctype{PlFail} exception for both failure and an error and
 otherwise returns \const{true} - the PREDICATE() wrapper handles all
 of these appropriately and reports the same result back to Prolog; but
@@ -321,14 +321,21 @@ PREDICATE(eq, 2)
 \section{Overview (version 2)}
 \label{sec:cpp2-overview}
 
-The most useful area for exploiting C++ features is type-conversion.
+One useful area for exploiting C++ features is type-conversion.
 Prolog variables are dynamically typed and all information is passed
 around using the C-interface type \ctype{term_t}. In C++, \ctype{term_t}
 is embedded in the \jargon{lightweight} class \ctype{PlTerm}.
 Constructors and operator definitions provide flexible operations and
 integration with important C-types (\ctype{char*}, \ctype{wchar_t*},
 \ctype{long} and \ctype{double}), plus the C++-types (\ctype{std::string},
-\ctype{std::wstring}).
+\ctype{std::wstring}). (\ctype{char*} and \ctype{wchar_t*} are deprecated
+in the C++ API; \ctype{std::string} and \ctype{std::wstring} are safer
+and should be used instead.
+
+Another useful area is in handling errors and cleanup. Prolog errors
+can be modeled using C++ exceptions; and C++'s destructors can be used
+to clean up error situations, to prevent memory and other resource
+leaks.
 
 \subsection{Design philosophy of the classes}
 \label{sec:cpp2-philosophy}
@@ -342,7 +349,7 @@ exception. This API tries to follow that philosophy, but there are
 some important exceptions and caveats. (For more on how the C++ and
 Prolog exceptions interrelate, see \secref{cpp2-exceptions}.)
 
-The various classes (\ctype{PlAtom}, \ctype{PlTerm}, etc.) are thin
+Many of the classes (\ctype{PlAtom}, \ctype{PlTerm}, etc.) are thin
 wrappers around the C interface's types (\ctype{atom_t},
 \ctype{term_t}, etc.). As such, they inherit the concept of "null"
 from these types (which is abstracted as \ctype{PlAtom::null},
@@ -358,7 +365,7 @@ PlAtom foo("foo");
 \end{code}
 will ensure that the object \exam{foo} is useable and will throw an
 exception if the atom can't be created. However, if you choose
-to create an \ctype{PlAtom} object from a \ctype{atom_t} value,
+to create a \ctype{PlAtom} object from a \ctype{atom_t} value,
 no checking is done (similarly, no checking is done if you
 create a \ctype{PlTerm} object from a \ctype{term_t}
 value).
@@ -369,7 +376,7 @@ default "empty" constructor. For example, if you with to create a
 \exam{PlAtom(PlAtom::null)}. This make some code a bit more cumbersome
 because you can't omit the default constructors in struct initalizers.
 
-Many of the classes have a as_string() method - this might be changed
+Many of the classes have an as_string() method - this might be changed
 in future to to_string(), to be consistent with
 \exam{std::to_string()}.  However, the method names such as
 as_int32_t() were chosen itnstead of to_int32_t() because they imply
@@ -726,7 +733,7 @@ PREDICATE(mypred, 2)
 \end{code}
 
 For functions in \file{SWI-Prolog.h} that don't have a C++ equivalent
-in \file{SWI-cpp2.h}, PlCheckFail() is a convenience
+in \file{SWI-cpp2.h}, \cfuncref{PlCheckFail}{} is a convenience
 function that checks the return code and throws a \ctype{PlFail}
 exception on failure or \ctype{PlException} if there was an
 exception. The PREDICATE() code catches \ctype{PlFail}
@@ -771,39 +778,59 @@ getters for integers.
 \subsection{Blobs}
 \label{sec:cpp2-blobs}
 
+\emph{Nomenclature warning:}
+
+There are two different \ctype{release()} functions:  % TOOD: \cfuncnoref
+\begin{itemize}
+   \item The release() callback for a blob (see the definition
+         of \ctype{PL_blob_t}).
+   \item std::unique_ptr::release(), which passes ownership of
+         a \ctype{unique_ptr}.
+\end{itemize}
+
 \emph{Disclaimer:}
 
 The blob API for C++ is not completely general, but is designed to
-make a specific use case easier to write. For other use cases, the
+make common use cases easy to write. For other use cases, the
 underlying C API can still be used. The use case is:
 
 \begin{itemize}
-\item The blob contains the foreign object (e.g., contains a
-      pointer to a database connection), plus optionally some
-      other data.
-\item The blob is created by a predicate that makes the foreign
-      object and stores it (or a pointer to it) within the blob -
-      for example, making a connection to a database or compiling
-      a regular expression into an internal form.
-\item Optionally, there is a predicate that deletes the foreign object,
-      such as a file or database connection close().
-\item The blob will not be subclassed.
 \item The blob is defined as a subclass of \ctype{PlBlob}, which
       provides a number of fields and methods, of which a few
       can be overridden in the blob (notably: write_fields(),
       compare_fields(), save(), load(), and the destructor).
+\item The blob will not be subclassed.
+\item The blob contains the foreign object or a pointer to it (e.g.,
+      a database connection or a pointer to a database connection),
+      plus optionally some other data.
+\item The blob is created by a predicate that makes the foreign
+      object and stores it (or a pointer to it) within the blob -
+      for example, making a connection to a database or compiling
+      a regular expression into an internal form. This "create" predicate
+      uses \ctype{std::unique_ptr} to manage the blob (that is,
+      the blob is created using the \op{new} operator and is not
+      created on the stack).
+\item Optionally, there can be a predicate that deletes the foreign object,
+      such as a file or database connection close.
+\item The blob can be garbage collected, althought this might require
+      calling the predicate that deletes the foreign object first.
+      There is no provision for handling "weak references" (e.g.,
+      a separate lookup table or cache for the foreign objects).
 \item The blob must have a default constructor that sets all the
       fields to appropriate initial values.\footnote{This is
-      used by the load() method, which by default throws an error.}
-\item The blob's constructor throws an exception and cleans up
-      any resources if it cannot create the blob.\footnote{This
-      is not a strong requirement, but
-      the code is simpler if this style is used.}
+      used by the load() callback; the default implementation
+      for a C++ blob is to throw an error.}
+\item The blob's constructor throws an exception and cleans up any
+      resources if it cannot create the blob.\footnote{This is not a
+      strong requirement, but the code is simpler if this style is
+      used.}
 \item The foreign object can be deleted when the blob is deleted.
       That is, the foreign object is created using the \const{new}
-      operator and passes ownership to the blob.
-\item The blob's allocation is controlled by Prolog and its
-      destructor is envoked when the blob is garbage collected.
+      operator and passes ownership to the blob. More complex
+      behavior is possible, using PlAtom::register_ref()
+      and PlAtom::unregister_ref().
+\item The blob's lifetime is controlled by Prolog and its
+      destructor is invoked when the blob is garbage collected.
       Optionally, the predicate that deletes the foreign object
       deletes the foreign object and the Prolog garbage collector
       only frees the blob.
@@ -812,49 +839,253 @@ underlying C API can still be used. The use case is:
 A Prolog blob consists of five parts:
 \begin{itemize}
 \item A \ctype{PL_blob_t} structure that defines the callbacks.
-\item A structure that contains the blob data.
+      The PL_BLOB_DEFINITION() macro is typically used to create this,
+      with the callbacks pointing to methods in the C++ blob.
+\item A structure that contains the blob data. This must have
+      a constructor that references the \ctype{PL_blob_t} structure,
+      and optionally a virtual destructor. The \const{PL_BLOB_SIZE}
+      macro is used to define some required methods.
 \item A "create" or "open" predicate that unifies one of its arguments
       with a newly created blob that contains the foreign object.
+      The blob is created using the \op{new} operator (not on the
+      stack) and managed with \ctype{std::unique_ptr}.
 \item (Optionally) a "close" predicate that does the opposite of the
       "create" or "open" predicate.
 \item Predicates that manipulate the foreign object (e.g., for a
       file-like object, these could be read, write, seek, etc.).
 \end{itemize}
 
-For the \ctype{PL_blob_t} structure, the C++ API provides a set of
-template functions that allow easily setting up the callbacks, and
-defining the corresponding methods in the blob "contents" class.
-The C interface allows more flexibility by allowing some of the
-callbacks to default; however, the C++ API for blobs provides suitable
-callbacks for all of them, so usually the programmer will specify all
-the template callbacks using the
-PL_BLOB_DEFINITION(blob_class,blob_name) macro.
+For the \ctype{PL_blob_t} structure, the C++ API provides the
+PL_BLOB_DEFINITION(blob_class,blob_name) macro, which references a set
+of template functions that allow easily setting up the callbacks. The
+C interface allows more flexibility by allowing some of the callbacks
+to default; however, the C++ API for blobs provides suitable callbacks
+for all of them, using the PL_BLOB_DEFINITION() macro.
 
 For the data, which is subclassed from \ctype{PlBlob}, the programmer
 defines the various fields, a constructor that initializes them, and a
-destructor.  Optionally, methods can be defined for one of more of
-blob compare_fields(), write_fields(), save(), load().
-More details on these are given later.
+destructor.  Optionally, override methods can be defined for one of
+more of the methods compare_fields(), write_fields(), save(), load(),
+pre_delete(). More details on these are given later.
 
 There is a mismatch between how Prolog does memory management (and
 garbage collection) and how C++ does it. In particular, Prolog assumes
-that cleanup will be done in the release() function
+that cleanup will be done in the release() callback     function
 associated with the blob whereas C++ typically does cleanup in a
 destructor. The blob interface gets around this mismatch by providing
-a default release() function that assumes that the blob was
+a default release() callback that assumes that the blob was
 created using \const{PL_BLOB_NOCOPY} and manages memory using a
-\ctype{std::unique_ptr}.
+\ctype{std::unique_ptr}.\footnote{This release() function has nothing
+to do with std::unique_ptr::release().} More details on this are in
+\secref{cpp2-c++-features}.
 
 The C blob interface has a flag that determines how memory is managed:
 \const{PL_BLOB_NOCOPY}. The PL_BLOB_DEFINITION() macro sets this, so
-Prolog does not do a call to free() when the blob is garbage
-collected; instead, it lets the blob's release() free the memory,
-which is done by calling the C++ destructor.
+Prolog will call the C++ destructor when the blob is garbage
+collected.  (This call is done indirectly, using a callback that is
+registeered with Prolog.)
 
 The C++ API for blobs only supports blobs with
 \const{PL_BLOB_NOCOPY}.\footnote{The API can probably also support
 blobs with \const{PL_BLOB_UNIQUE}, but there seems to be little
 point in setting this flag for non-text blobs.}
+
+\subsubsection{A review of C++ features used by the Blob API}
+\label{sec:cpp2-c++-features}
+
+Some slightly obscure features of C++ are used with \ctype{PlBlob} and
+\ctype{ContextType}, and can easily cause subtle bugs or memory leaks
+if not used carefully.
+
+When a C++ object is created, its memory is allocated (either on the
+stack or on the heap using \op{new}), and the constructors are called
+in this order:
+\begin{itemize}
+  \item the base class's constructor (possibly specified in
+     the intialization list)
+  \item the constructors for all the fields (possibly specified
+     by an initial value and/or being in the initialization list)
+  \item the object's constructor.
+\end{itemize}
+When the object is deleted (either by stack pop or the \op{delete}
+operator), the destructors are called in the reverse order.
+
+There are special forms of the constructor for copying, moving, and
+assigning. The "copy constructor" has a signature \ctype{Type(const
+Type&)} and is used when an object is created by copying, for example
+by assignment or passing the object on the stack in a function
+call. The "move constructor" has the signature \ctype{Type(Type\&\&)}
+and is equivalent to the copy constructor for the new object followed
+by the destructor for the old object. (Assignment is usually allowed
+to default but can also be specified).
+
+Currently, the copy and move constructors are not used, so it is best
+to explicitly mark them as not existing:
+\begin{code}
+Type(const Type&) = delete;
+Type(Type&&) = delete;
+Type& operator =(const Type&) = delete;
+Type& operator =(Type&&) = delete;
+\end{code}
+
+A constructor may throw an exception - good programming style is to
+not leave a "half constructed" object but to throw an
+exception. Destructors are not allowed to throw
+exceptions,\footnote{because the destructor might be invoked by
+another exception, and C++ has no mechanism for dealing with a second
+exception.} which complicates the API somewhat.
+
+More details about constructors and destructors can be found in
+the FAQs for \href{https://isocpp.org/wiki/faq/ctors}{constructors}
+and \href{https://isocpp.org/wiki/faq/dtors}{destructors}.
+
+Many classes or types have a constructor that simply assigns a default
+value (e.g., 0 for \ctype{int}) and the destructor does nothing.  In
+particular, the destructor for a pointer does nothing, which can lead
+to memory leaks. To avoid memory leaks, the smart pointer
+\ctype{std::unique_ptr}\footnote{The name "unique" is to distinguish
+this from a "shared" pointer. A shared pointer can share ownership
+with multiple pointers and the pointed-to object is deleted only when
+all pointers to the object have been deleted. A unique pointer allows
+only a single pointer, so the pointed-to object is deleted when the
+unique pointer is deleted.}  can be used, whose destructor deletes its
+managed object. Note that \ctype{std::unique_ptr} does not enforce
+single ownership; it merely makes single ownership easy to manage and
+it detects most common mistakes, for example by not having copy
+constructor or assignment operator.
+
+For example, in the following, the implicit destructor for \exam{p}
+does nothing, so there will be a memory leak when a \ctype{Ex1} object
+is deleted:
+\begin{code}
+class Ex1 {
+public:
+  Ex1() : p(new int) { }
+  int *p;
+};
+\end{code}
+To avoid a memory leak, the code could be changed to this:
+\begin{code}
+class Ex1 {
+public:
+  Ex1() p(new int) { }
+  ~Ex1() { delete p; }
+  int *p;
+};
+\end{code}
+but it is easier to do the following, where the destructor for
+\ctype{std::unique_ptr} will free the memory:
+\begin{code}
+class Ex1 {
+public:
+  Ex1() p(new int) { }
+  std::unique_ptr<int> p;
+};
+\end{code}
+
+The same concept applies to objects that are created in code - if a
+C++ object is created using \op{new}, the programmer must manage when
+its destructor is called. In the following, if the call to
+\exam{data->validate()} fails, there will be a memory leak:
+\begin{code}
+MyData *foo(int some_value) {
+  MyData *data = new MyData(...);
+  data->some_field = some_value;
+  if (! data->validate() )
+    throw std::runtime_error("Failed to validate data");
+  return data;
+}
+\end{code}
+
+Ths could fixed by adding \exam{delete data} before
+throwing the \const{runtime_error}; but this doesn't handle the
+situation of \exam{data->validate()} throwing an exception (which
+would require a catch/throw).
+Instead, it's easiser to use \ctype{std::unique_ptr}, which takes
+care of every return or exception path:
+\begin{code}
+MyData *foo(int some_value) {
+  std::unique_ptr<MyData> data(new MyData(...));
+  data->some_field = some_value;
+  if (! data->validate() )
+    throw std::runtime_error("Failed to validate data");
+  return data.release(); // don't delete the new MyData
+}
+\end{code}
+
+The destructor for \ctype{std::unique_ptr} will delete the data when
+it goes out of scope (in this case, by return or throw) unless the
+std::unique_ptr::release() method is called.\footnote{The call to
+\exam{unique_ptr<MYData>::release}{} doesn't call the destructor;
+it can be called using std::unique_ptr::get_deleter().}
+
+In the code above, the \exam{throw} will cause the
+\ctype{unique_ptr}'s destructor to be called, which will free the
+data; but the data will not be freed in the \exam{return} statement
+because of the unique_ptr::release(). Using this style, a pointer to
+data on the heap can be managed as easily as data on the stack. The
+current C++ API for blobs takes advantage of this - in particular,
+there are two methods for unifying a blob:
+\begin{itemize}
+\item PlTerm::unify_blob(const PlBlob* blob) - does no memory management
+\item PlTerm::unify_blob(std::unique_std<PlBlob>* blob) - if
+    unification fails or raises an error, the memory is automatically freed;
+    otherwise the memory's ownership is transferred to Prolog, which may
+    garbage collect the blob by calling the blob's destructor.
+    Note that this uses a pointer to the pointer, so that
+    PlTerm::unify_blob() can modify it.
+\end{itemize}
+
+The current C++ API assumes that the C++ blob is allocated on the
+heap. If the programmer wishes to use the stack,
+they can use \ctype{std::unique_ptr} to automatically delete the
+object if an error is thrown -
+PlTerm::unify_blob(std::unique_ptr<PlBlob>*) prevents the automatic
+deletion if unification succeeds.
+
+A \ctype{unique_ptr} needs a bit of care when it is passed as an
+argument. The unique_ptr::get() method can be used to get the "raw"
+pointer; the \op{delete} must not be used with this pointer.
+Or, the unique_ptr::release() method can be used to transfer
+ownership without calling the object's destructor.
+
+Using unique_ptr::release() is a bit incovenient, so instead the
+\ctype{unique_ptr} can be passed as a pointer (or a reference).  This
+does not create a new scope, so the pointer must be assigned to a
+local variable. For example, the code for unify_blob() is something
+like:
+
+\begin{code}
+bool PlTerm::unify_blob(std::unique_ptr<PlBlob>* b) const
+{ std::unique_ptr<PlBlob> blob(std::move(*b));
+  if ( !unify_blob(blob.get()) )
+    return false;
+  (void)blob.release();
+  return true;
+}
+\end{code}
+
+The line declaration for \exam{blob} uses the "move constructor" to
+set the value of a newly scoped variable (\exam{std::move(*b)} is a
+cast, so \ctype{unique_ptr}'s move constructor is used). This has the
+same effect as calling \exam{b->reset()}, so from this point on,
+\exam{b} has the value \const{nullptr}.
+
+Alternatively, the local \ctype{unique_ptr} could be set by
+\begin{code}
+std::unique_ptr<PlBlob> blob(b->release());
+\end{code}
+or
+\begin{code}
+std::unique_ptr<PlBlob> blob;
+blob.swap(*b);
+\end{code}
+
+If the call to PlTerm::unify_blob() fails or throws an exception, the
+virtual destructor for \exam{blob} is called.
+Otherwise, the call to \exam{blob.release()} prevents the destructor
+from being called - Prolog now owns the blob object and can call its
+destructor when the garbage collector reclaims it.
 
 \subsubsection{How to define a blob using C++}
 \label{sec:cpp2-blobs-howto}
@@ -871,43 +1102,53 @@ save(), load() methods (these are described after the sample code).
 \label{sec:cpp2-blobs-life}
 
 In this section, the blob is of type \ctype{MyBlob}, a subclass
-of \ctype{PlBlob}.
+of \ctype{PlBlob}. (Example code is given in \secref{cpp2-blobs-sample-code})
 
 A blob is typically created by calling a predicate that does
 the following:
 \begin{itemize}
 \item Creates the blob using
-      \exam{auto ref = std::unique_ptr<PlBlob>(new MyBlob>(...))}
-      (std::make_unique() can't be used because it returns type
-      \ctype{std::unique_ptr<MyBlob>} but PlTerm::unify_blob() requires a
-      \ctype{std::unique_ptr<PlBlob>} and C++'s type inferencing can't figure
-      out that this is a covariant type).
-
-\item Calls PlTerm::unify_blob(ref), using PlCheckFail() to throw
-      an exception if it fails.
-      This, in turn, calls:
-      \begin{itemize}
-      \item PlBlobV<MyBlob>acquire(), which calls
-      \item MyBlob::acquire(), which sets \arg{MyBlob::symbol_}
-      (\arg{MyBlob::symbol_} is usually accessed using the
-      method MyBlob::symbol_term()).
-      If this all succeeds, PlTerm::unify_blob(ref) calls
-      \exam{ref.release()} to pass ownership to the Prolog blob. If
-      you wish to use std::make_unique<MyBlob>(), you could instead do:
-      \begin{code}
-      auto ref = std::make_unique<MyBlob>(...);
-         ... // code that accesses fields in *ref
-      std::unique_ptr<PlBlob> refb(ref.release()); // transfer ownership of ptr
-         // from here on, can't access fields in *ref
-      return A2.unify_blob(refb);
+     \begin{code}
+auto ref = std::unique_ptr<PlBlob>(new MyBlob>(...))}
       \end{code}
+      or
+      \begin{code}
+auto ref = std::make_unique<MyBlob>(...);
+      \end{code}
+
+\item After the fields of the blob are filled in:
+      \begin{code}
+return PlTerm::unify_blob(&ref);
+      \end{code}
+      If unification fails or throws an exception, the object is automatically
+      freed and its destructor is called.
+
+      If make_unique() was used to create the pointer, you need to call
+      PlTerm::unify_blob() as follows, because C++'s type inferencing can't figure
+      out that this is a covariant type:
+      \begin{code}
+std::unique_ptr<PlBlob> refb(ref.release());
+// refb now "owns" the ptr - from here on, ref == nullptr
+return A2.unify_blob(&refb);
+      \end{code}
+
+      If unification succeeds, Prolog calls:
+      \begin{itemize}
+        \item PlBlobV<MyBlob>acquire(), which calls
+        \item MyBlob::acquire(), which sets the field \arg{MyBlob::symbol_},
+          which is usually accessed using the method MyBlob::symbol_term().
+          If this all succeeds, PlTerm::unify_blob(ref) calls
+          \exam{ref->release()} to pass ownership of the blob to Prolog
+          (when the blob is eventually garbage collected, the blob's destructor
+          will be called).
       \end{itemize}
+
 \end{itemize}
 
-At this point, the blob is owned by Prolog and will be freed by
+At this point, the blob is owned by Prolog and may be freed by
 its atom garbage collector, which will call the blob's destructor
 (if the blob shouldn't be deleted, it can have an override for
-the pre_delete() method which returns \const{false}).
+the PlBlob::pre_delete() method which returns \const{false}).
 
 Whenever a predicate is called with the blob as an argument (e.g.,
 as \arg{A1}), the blob can be accessed by
@@ -921,7 +1162,7 @@ PlTerm::unify_blob(), MyBlob::symbol_term() returns a
 \ctype{PlTerm_var}.
 
 When the atom garbage collector runs, it frees the blob by first
-calling the release() callback, which does \const{delete}, which calls
+calling the release() callback, which does \op{delete}, which calls
 the destructor MyBlob::~MyBlob(). Note that C++ destructors are not
 supposed to raise exception; they also should not cause a Prolog
 error, which could cause deadlock unless the real work is done in
@@ -929,7 +1170,7 @@ another thread.
 
 Often it is desired to release the resources before the garbage
 collector runs. To do this, the programmer can provide a "close"
-predicate which is the inverse of the "open" predicate that created
+predicate that is the inverse of the "open" predicate that created
 the blob. This typically has the same logic as the destructor, except
 that it can raise a Prolog error.
 
@@ -938,8 +1179,8 @@ that it can raise a Prolog error.
 
 When a blob is used in the context of a PREDICATE() macro, it can
 raise a C++ exception (\ctype{PlFail} or \ctype{PlException}) and the
-PREDICATE() code will convert it to the appropriate Prolog failure or
-error; memory allocation exceptions are also handled.
+PREDICATE() code will convert the exception to the appropriate Prolog
+failure or error; memory allocation exceptions are also handled.
 
 Blobs have callbacks, which can run outside the context of a
 PREDICATE(). Their exception handling is as follows:
@@ -953,7 +1194,7 @@ PREDICATE(). Their exception handling is as follows:
       exception will upset the system.
 \item write_fields(), which is called from PlBlobV<MyBlob>::write(),
       can throw an exception, just like code inside a PREDICATE().
-      In particular, you can wrap calls to Sfprintf() in PlCheckFail(),
+      In particular, you can wrap calls to Sfprintf() in \cfuncref{PlCheckFail}{},
       although the calling context will check for errors on the stream,
       so checking the Sfprintf() result isn't necessary.
 \item save() can throw a C++ exception, including PlFail().
@@ -961,14 +1202,15 @@ PREDICATE(). Their exception handling is as follows:
       a return value of \const{PlAtom::null}, which is interpreted by
       Prolog as failure.
 \item pre_delete(), which is called from PlBLobV<MyBLOB>::release(),
-      can throw a C++ exception, which will be interpreted as
-      a return value of \const{false}, resulting in the blob not
-      being garbage collected, and the destructor not being called.
-      Note that this doesn't work well with final clean-up atom
-      garbage collection, which disregards the return value and also
-      doesn't respect the ordering of blob dependencies (e.g., if an
-      iterator blob refers to a file-like blob, the file-like blob
-      might be deleted before the iterator is deleted).
+      can return \const{false} (or throw a \ctype{PlException} or
+      \ctype{PlExceptinFailBase}, which will be interpreted as a
+      return value of \const{false}), resulting in the blob not being
+      garbage collected, and the destructor not being called.  Note
+      that this doesn't work well with final clean-up atom garbage
+      collection, which disregards the return value and also doesn't
+      respect the ordering of blob dependencies (e.g., if an iterator
+      blob refers to a file-like blob, the file-like blob might be
+      deleted before the iterator is deleted).
 \end{itemize}
 
 \subsubsection{Sample PlBlob code}
@@ -1120,7 +1362,7 @@ PREDICATE(portray_my_blob, 2)
 
   \item The \ctype{MyBlob} class must not provide a copy or move
         constructor, nor an assignment operator (PlBlob has these as
-        \const{delete}, so if you try to use one of these, you will
+        \op{delete}, so if you try to use one of these, you will
         get a compile-time error).
 
   \item \ctype{PlBlob}'s constructor sets \exam{blob_t_} to a pointer
@@ -1129,14 +1371,16 @@ PREDICATE(portray_my_blob, 2)
         constructing error terms (see PlBlob::symbol_term()).
 
   \item \ctype{PlBlob}'s acquire() is called by
-        PlBlobV<MyBlob>::awcuire() and fills in the \exam{symbol}
+        PlBlobV<MyBlob>::acquire() and fills in the \exam{symbol_}
         field. \ctype{MyBlob} must not override this - it is not a
         virtual method.
+        The \exam{symbol_} field can be accessed by PlBlob::symbol_term().
 
   \item PlBlob::symbol_term() Creates a term from the blob, for use in
         error terms. It is always safe to use this; if the symbol
         hasn't been set (because acquire() hasn't been called),
-        symbol_term() returns a "var" term.
+        symbol_term() returns a "var" term - this can be checked
+        with PlTerm::is_null().
 
   \item The MyBlob(connection_name) constructor creates a
       \ctype{MyConnection} object. If this fails, an exception is
@@ -1163,8 +1407,8 @@ PREDICATE(portray_my_blob, 2)
       only Prolog function that can be called is
       PlAtom::unregister_ref(); and the MyBlob::close() method must
       not throw an exception.\footnote{It isn't enough to just catch
-      exceptions; for example, if the code does \exam{throw
-      PlUnknownError("...")}, that will try to create a Prolog term,
+      exceptions; for example, if the code throws \exam{PlUnknownError("...")},
+      that will try to create a Prolog term,
       which will crash because the environment for creating terms is
       not available.}  Because there is no mechanism for reporting an
       error, the destructor prints a message on failure (calling
@@ -1217,9 +1461,10 @@ PREDICATE(portray_my_blob, 2)
 
   \item PlBlob::save() and PlBlob::load() are not defined, so the
       defaults are used - they throw an error on an attempt to save
-      the blob (e.g., by using \qsave_program/[1,2]).\footnote{If
-      these weren't specified, the defaults would save the internal
-      form of the blob, which is probably not what you want.}
+      the blob (e.g., by using qsave_program/[1,2]).\footnote{The C
+      API defaults would save the internal form of the blob, which is
+      probably not what you want, so the C++ API throws an error as
+      its default.}
 
   \end{itemize}
 
@@ -1233,20 +1478,21 @@ PREDICATE(portray_my_blob, 2)
       fails, the pointer will be automatically freed (and the
       \ctype{MyBlob} destructor will be called).
 
-      If PlTerm::unify_blob() is called with a pointer to a
-      \ctype{std::unique_ptr}, it takes ownership of the object by
-      calling std::unique_ptr<PlBlob>::release().  This sets \arg{ref}
-      to \const{nullptr}, so any attempt to use \arg{ref} after a
-      successful call to PlTerm::unify_blob() will be an error.
+      PlTerm::unify_blob() is called with a pointer to a
+      \ctype{std::unique_ptr}, which takes ownership of the object by
+      calling std::unique_ptr<PlBlob>::release() and passes the
+      pointer to Prolog, which then owns it.  This also sets \arg{ref}
+      to \const{nullptr}, so any attempt to use \arg{ref} after a call
+      to PlTerm::unify_blob() will be an error.
 
       If you wish to create a \ctype{MyBlob} object instead of a
       \ctype{PlBlob} object, a slightly different form is used:
       \begin{code}
-      auto ref = std::make_unique<MyBlob>(...);
-        ...
-      std::unique_ptr<PlBlob> refb(ref.release());
-      PlCheckFail(A2.unify_blob(&refb));
-      return true;
+auto ref = std::make_unique<MyBlob>(...);
+  ...
+std::unique_ptr<PlBlob> refb(ref.release());
+PlCheckFail(A2.unify_blob(&refb));
+return true;
       \end{code}
 
   \end{itemize}
@@ -1270,9 +1516,9 @@ PREDICATE(portray_my_blob, 2)
 \subsubsection{Identifying blobs by atoms}
 \label{sec:cpp2-atom-blob}
 
-Passing a blob around can be inconvenient; there is an easy way to
-identify a blob by an atom. An example of this is with streams, which
-are identified by atoms such as \exam{user_input}.
+Passing a Prolog blob around can be inconvenient; it is easier if a
+blob can be identified an atom. An example of this is with streams,
+which are identified by atoms such as \exam{user_input}.
 
 A utility class \ctype{AtomMap} is provided for this situation.
 See \secref{cpp2-atom-map}.
@@ -1334,7 +1580,7 @@ The methods are:
      Throws a C++ exception on error.
   \item \destructor{PlStream} - calls PlStream::release().
     See below for caveats if there are exceptions.
-  \item \cfunction{void}{release}{} - calls PL_release_stream(),
+  \item \cfunction{void}{PlStream::release}{} - calls PL_release_stream(),
     throwing an exception if there has been an I/O error on
     the stream, and sets the \ctype{PlStream} object to an
     invalid stream (see PlStream::check_stream()).
@@ -1564,7 +1810,7 @@ binds \arg{Var} and will unify \arg{Average} with average of the
 
 \ctype{PlQuery} takes the name of a predicate and the goal-argument
 vector as arguments. From this information it deduces the arity and
-locates the predicate. The method next_solution() yields
+locates the predicate. The method PlQuery::next_solution() yields
 \const{true} if there was a solution and \const{false} otherwise. If
 the goal yields a Prolog exception, it is mapped into a C++ exception.
 A return to Prolog does an implicit "cut" (PL_cut_query()); this
@@ -1607,12 +1853,12 @@ The original version of the C++ interface heavily used implicit
 constructors and conversion operators. This allowed, for example:
 \begin{code}
 PREDICATE(hello, 1)
-{ cout << "Hello " << (char *)A1 << endl;
+{ cout << "Hello " << (char *)A1 << endl; // Deprecated
   return true;
 }
 
 PREDICATE(add, 3)
-{ return A3 = (long)A1 + (long)A2;
+{ return A3 = (long)A1 + (long)A2; // Deprecated
 }
 \end{code}
 
@@ -1646,7 +1892,7 @@ There are a few reasons for this:
     the result of unification should always be checked (e.g., an
     "always succeed" unification could fail due to an out-of-memory
     error); the unify_XXX() methods return
-    a \ctype{bool} and they can be wrapped inside a PlCheckFail()
+    a \ctype{bool} and they can be wrapped inside a \cfuncref{PlCheckFail}{}
     to raise an exception on unification failure.
   \item
     The C-style of casts is deprecated in C++, so the expression
@@ -1850,7 +2096,7 @@ failure, this can be either a Prolog-style failure (e.g. from
 PL_unify() or PL_next_solution()) or an error. If the failure is due
 to an error, it's usually best to immediately return to Prolog - and
 this can be done with the PlCheckEx() function, which turns
-a Prolog error into a C++ \ctype{PlException}.  PlCheckFail()
+a Prolog error into a C++ \ctype{PlException}.  \cfuncref{PlCheckFail}{}
 calls PlCheckEx() and additionally throws PlFail() if the failure is
 for Prolog failure.
 
@@ -2054,9 +2300,11 @@ See also \secref{cpp2-plframe}.
     \nodescription
     \cfunction{bool}{PlTerm::unify_blob}{PlBlob* blob}
     \nodescription
-    \cfunction{bool}{PlTerm::unify_blob}{std::unique_ptr<PlBlob> blob}
+    \cfunction{bool}{PlTerm::unify_blob}{std::unique_ptr<PlBlob>* blob}
     Does a call to PL_unify_blob() and, if successful, calls
-    std::unique_ptr<PlBlob>::release() to pass ownership to the Prolog blob.
+    std::unique_ptr<PlBlob>::release() to pass ownership to the Prolog blob;
+    on failure or error, deletes the pointer (ad calls its destructor).
+    After either success and failure, \exam{*blob==nullptr}.
     \cfunction{bool}{PlTerm::unify_blob}{void *blob, size_t len, PL_blob_t *type}
     \nodescription
     \cfunction{bool}{PlTerm::unify_chars}{int flags, size_t len, const char *s}
@@ -2081,7 +2329,7 @@ PREDICATE(hostname, 1)
   return false;
 }
 \end{code}
-An alternative way of writing this would use the PlCheckFail()
+An alternative way of writing this would use the \cfuncref{PlCheckFail}{}
 to raise an exception if the unification fails.
 \begin{code}
 PREDICATE(hostname2, 1)
@@ -2374,8 +2622,9 @@ PREDICATE(write_list, 1)
 
 The class \ctype{PlTermv} represents an array of term-references.  This
 type is used to pass the arguments to a foreignly defined predicate,
-construct compound terms (see \cfuncref{PlTerm::PlTerm}{const char *name,
-PlTermv arguments}) and to create queries (see \ctype{PlQuery}).
+construct compound terms (see
+\cfuncref{PlTerm::PlTerm}{const char *name}{PlTermv arguments})
+and to create queries (see \ctype{PlQuery}).
 
 The only useful member function is the overloading of \const{[]},
 providing (0-based) access to the elements.  Range checking is performed
@@ -2693,7 +2942,7 @@ Same, but performs the predicate lookup in the indicated module.
 Provide the next solution to the query.  Yields \const{true} if
 successful and \const{false} if there are no (more) solutions.
 Prolog exceptions are mapped to C++ exceptions.
-    \cfunction{void}{PlQuery::cut()}{}
+    \cfunction{void}{PlQuery::cut}{}
 Discards the query, but does not delete an of the data created
 by the query. If there is any pending Prolog exception, it is
 mapped to a C++ exception and thrown.
@@ -3180,7 +3429,7 @@ Not all functionality of the C-interface is provided, but as
 type-conversion between the two (using the unwrap() method), this interface
 can be freely mixed with the functions defined for plain C.
 For checking return codes from C functions, it is recommended to
-use PlCheckFail() or PlCheck_PL().
+use \cfuncref{PlCheckFail}{} or PlCheck_PL().
 
 Using this interface rather than the plain C-interface requires a little
 more resources. More term-references are wasted (but reclaimed on return
@@ -3235,7 +3484,7 @@ In order to always preserve Prolog exceptions and return as quickly as
 possible to Prolog on an exception, some of the C++ classes can throw
 an exception in their destructor. This is theoretically a dangerous
 thing to do, and can lead to a crash or program termination if the
-destructor is envoked as part of handling another exception.
+destructor is invoked as part of handling another exception.
 
 \subsection{Global terms, atoms, and functors}
 \label{sec:cpp2-global}

@@ -57,11 +57,14 @@ user:portray(MyBlob) :-
     blob(MyBlob, my_blob), !,
     portray_my_blob(current_output, MyBlob).
 
+% test_cpp :-
+%     run_tests([ cpp,
+%                 cpp_atommap,
+%                 cpp_map_str_str
+% 	      ]).
+
 test_cpp :-
-    run_tests([ cpp,
-                cpp_atommap,
-                cpp_map_str_str
-	      ]).
+    run_tests.
 
 % Some of the tests can result in crashes if there's a bug, so the
 % `output(on_failure)` option results in nothing being written.

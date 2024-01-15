@@ -1853,6 +1853,14 @@ public:
 
   virtual PlAtom load(IOSTREAM *fd);
 
+  void register_ref()
+  { symbol_.register_ref();
+  }
+
+  void unregister_ref()
+  { symbol_.unregister_ref();
+  }
+
   const PL_blob_t* blob_t_;
 
   // Associated symbol (used for error terms), filled in by acquire()

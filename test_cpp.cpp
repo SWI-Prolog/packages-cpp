@@ -182,7 +182,7 @@ PREDICATE(name_arity, 3)		/* name_arity(+Term, -Name, -Arity) */
 }
 
 PREDICATE(name_arity_bool, 3)  // like name_arity/3 but doesn't throw
-{ auto term = A1; auto name = A2; auto arity = A3;
+{ PlTerm term(A1), name(A2), arity(A3);
   PlAtom name_a(PlAtom::null);
   size_t arity_a;
   if ( !term.name_arity(&name_a, &arity_a) )
@@ -1437,7 +1437,7 @@ struct MyBlob : public PlBlob
 
   PL_BLOB_SIZE
 
-  ~MyBlob() noexcept
+  virtual ~MyBlob() noexcept
   { if ( !close() )
       Sdprintf("***ERROR: Close MyBlob failed: %s\n", name().c_str()); // Can't use PL_warning()
   }
@@ -1573,8 +1573,13 @@ class MapStrStr : public PlBlob
 {
 public:
   explicit MapStrStr()
-    : PlBlob(&map_str_str_blob), data(), ref_count(0)
-  { }
+    : PlBlob(&map_str_str_blob) { }
+  virtual ~MapStrStr() = default;
+
+  MapStrStr(const MapStrStr&) = delete;
+  MapStrStr(MapStrStr&&) = delete;
+  MapStrStr& operator =(const MapStrStr&) = delete;
+  MapStrStr& operator =(MapStrStr&&) = delete;
 
   PL_BLOB_SIZE
 
@@ -1617,13 +1622,22 @@ public:
   { return data.lower_bound(key);
   }
 
-  void incr_ref() { ref_count++; }
+  void incr_ref()
+  { std::lock_guard<std::mutex> lock_(refcount_lock);
+    refcount++;
+    register_ref();
+  }
 
-  void decr_ref() { ref_count--; }
+  void decr_ref() {
+    std::lock_guard<std::mutex> lock_(refcount_lock);
+    refcount--;
+    unregister_ref();
+  }
 
 private:
+  std::mutex refcount_lock;
+  long int refcount = 0;
   std::map<const std::string, std::string> data;
-  int ref_count = 0;
 };
 
 class MapStrStrEnumState

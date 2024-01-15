@@ -279,10 +279,14 @@ bool PlTerm::unify_blob(const PlBlob* blob) const
 }
 
 _SWI_CPP2_CPP_inline
-bool PlTerm::unify_blob(std::unique_ptr<PlBlob>* blob) const
-{ if ( !PlTerm::unify_blob(blob->get()) )
+bool PlTerm::unify_blob(std::unique_ptr<PlBlob>* b) const
+{ std::unique_ptr<PlBlob> blob(std::move(*b));
+  // if std::move is not supported, the above can be replaced by:
+  //   std:unique_ptr<PlBlob> blob;
+  //   blob.swap(*b);
+  if ( !unify_blob(blob.get()) )
     return false;
-  (void)blob->release(); // Pass ownership to the Prolog blob (`this`)
+  (void)blob.release(); // Pass ownership to the Prolog blob (`this`)
   return true;
 }
 

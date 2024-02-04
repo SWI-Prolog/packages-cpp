@@ -534,7 +534,7 @@ PLX_EXCE(LRESULT                 , win_message_proc                , (HWND hwnd,
 PLX_ASIS(PL_engine_t             , create_engine                   , (PL_thread_attr_t *attributes), (attributes))
 PLX_ASIS(int                     , set_engine                      , (PL_engine_t engine, PL_engine_t *old), (engine, old))
 PLX_ASIS(int                     , destroy_engine                  , (PL_engine_t engine), (engine))
-PLX_ASIS(hash_table_t            , new_hash_table                  , (int size, void (*free_symbol)(void *n, void *v)), (size, free_symbol))
+PLX_ASIS(hash_table_t            , new_hash_table                  , (int size, void (*free_symbol)(table_key_t n, table_value_t v)), (size, free_symbol))
 PLX_ASIS(int                     , register_profile_type           , (PL_prof_type_t *type), (type))
 PLX_ASIS(void*                   , prof_call                       , (void *handle, PL_prof_type_t *type), (handle, type))
 PLX_VOID(void                    , prof_exit                       , (void *node), (node))

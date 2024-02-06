@@ -912,7 +912,7 @@ operator), the destructors are called in the reverse order.
 
 There are special forms of the constructor for copying, moving, and
 assigning. The "copy constructor" has a signature \ctype{Type(const
-Type&)} and is used when an object is created by copying, for example
+Type\&)} and is used when an object is created by copying, for example
 by assignment or passing the object on the stack in a function
 call. The "move constructor" has the signature \ctype{Type(Type\&\&)}
 and is equivalent to the copy constructor for the new object followed

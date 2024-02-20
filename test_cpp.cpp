@@ -591,11 +591,19 @@ PREDICATE(hostname2, 1)
 }
 
 PREDICATE(eq_int64, 2)
-{ return A1 == A2.as_int64_t();
+{
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return A1 == A2.as_int64_t();
+  #pragma GCC diagnostic pop
 }
 
 PREDICATE(lt_int64, 2)
-{ return A1 < A2.as_int64_t();
+{
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return A1 < A2.as_int64_t();
+  #pragma GCC diagnostic pop
 }
 
 PREDICATE(get_atom_ex, 2)

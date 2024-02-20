@@ -139,7 +139,7 @@ PlGeneralError(PlTerm inside)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlTypeError(const std::string& expected, const PlTerm& actual)
+PlTypeError(const std::string& expected, PlTerm actual)
 { // See PL_type_error()
   return PlGeneralError(PlCompound("type_error",
                                    PlTermv(PlTerm_atom(expected), actual)));
@@ -147,7 +147,7 @@ PlTypeError(const std::string& expected, const PlTerm& actual)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlDomainError(const std::string& expected, const PlTerm& actual)
+PlDomainError(const std::string& expected, PlTerm actual)
 { // See PL_domain_error()
   return PlGeneralError(PlCompound("domain_error",
                                    PlTermv(PlTerm_atom(expected), actual)));
@@ -155,7 +155,7 @@ PlDomainError(const std::string& expected, const PlTerm& actual)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlDomainError(const PlTerm& expected, const PlTerm& actual)
+PlDomainError(PlTerm expected, PlTerm actual)
 { // See PL_domain_error()
   // This is used by
   //    PlDomainError(PlCompound("argv", PlTermv(PlTerm_integer(size_))), ...)
@@ -166,14 +166,14 @@ PlDomainError(const PlTerm& expected, const PlTerm& actual)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlInstantiationError(const PlTerm& t)
+PlInstantiationError(PlTerm t)
 { // See PL_instantiation_error()
   return PlGeneralError(PlCompound("instantiation_error", PlTermv(t)));
 }
 
 _SWI_CPP2_CPP_inline
 PlException
-PlUninstantiationError(const PlTerm& t)
+PlUninstantiationError(PlTerm t)
 { // See PL_uninstantiation_error()
   return PlGeneralError(PlCompound("uninstantiation_error", PlTermv(t)));
 }
@@ -196,7 +196,7 @@ PlExistenceError(const std::string& type, PlTerm actual)
 
 _SWI_CPP2_CPP_inline
 PlException
-PlPermissionError(const std::string& op, const std::string& type, const PlTerm& obj)
+PlPermissionError(const std::string& op, const std::string& type, PlTerm obj)
 { // See: Use PL_permission_error()
   return PlGeneralError(PlCompound("permission_error",
                                    PlTermv(PlTerm_atom(op), PlTerm_atom(type), obj)));
@@ -375,7 +375,7 @@ PlTerm::PlTerm(const PlRecord& r)
 		 *******************************/
 
 _SWI_CPP2_CPP_inline
-PlTerm_tail::PlTerm_tail(const PlTerm& l)
+PlTerm_tail::PlTerm_tail(PlTerm l)
 { if ( l.is_variable() || l.is_list() )
     reset(l.copy_term_ref());
   else
@@ -600,7 +600,7 @@ PlTerm::eq(const std::string& s) const
 
 _SWI_CPP2_CPP_inline
 bool
-PlTerm::eq(const PlAtom& a) const
+PlTerm::eq(PlAtom a) const
 { atom_t v;
 
   if ( Plx_get_atom(unwrap(), &v) )
@@ -674,21 +674,21 @@ PlCompound::PlCompound(const std::wstring& functor, const PlTermv& args)
 		 *******************************/
 
 _SWI_CPP2_CPP_inline
-PlTermv::PlTermv(const PlAtom& a)
+PlTermv::PlTermv(PlAtom a)
   : size_(1),
     a0_(PlTerm_atom(a).unwrap())
 { PlEx<bool>(a0_ != (term_t)0);
 }
 
 _SWI_CPP2_CPP_inline
-PlTermv::PlTermv(const PlTerm& m0)
+PlTermv::PlTermv(PlTerm m0)
   : size_(1),
     a0_(m0.unwrap())
 { // Assume that m0 is valid
 }
 
 _SWI_CPP2_CPP_inline
-PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1)
+PlTermv::PlTermv(PlTerm m0, PlTerm m1)
   : size_(2),
     a0_(Plx_new_term_refs(2))
 { PlEx<bool>(a0_ != (term_t)0);
@@ -697,7 +697,7 @@ PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1)
 }
 
 _SWI_CPP2_CPP_inline
-PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2)
+PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2)
   : size_(3),
     a0_(Plx_new_term_refs(3))
 { PlEx<bool>(a0_ != (term_t)0);
@@ -707,7 +707,7 @@ PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2)
 }
 
 _SWI_CPP2_CPP_inline
-PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2, const PlTerm& m3)
+PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2, PlTerm m3)
   : size_(4),
     a0_(Plx_new_term_refs(4))
 { PlEx<bool>(a0_ != (term_t)0);
@@ -718,8 +718,7 @@ PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2, const PlT
 }
 
 _SWI_CPP2_CPP_inline
-PlTermv::PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2,
-                 const PlTerm& m3, const PlTerm& m4)
+PlTermv::PlTermv(PlTerm m0, PlTerm m1, PlTerm m2, PlTerm m3, PlTerm m4)
   : size_(5),
     a0_(Plx_new_term_refs(5))
 { PlEx<bool>(a0_ != (term_t)0);

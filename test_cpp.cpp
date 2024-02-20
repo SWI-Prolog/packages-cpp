@@ -1034,23 +1034,24 @@ static const std::map<const std::string, std::pair<PlRecord, PlRecord>> name_to_
   };
 
 PREDICATE(name_to_terms, 3)
-{ PlTerm key(A1), term1(A2), term2(A3);
-  const auto it = name_to_term.find(key.as_string());
+{ A1.must_be_atom_or_string();
+  const auto it = name_to_term.find(A1.as_string());
   return it != name_to_term.cend() &&
-    PlRewindOnFail([term1,term2,it]() -> bool
-                   { return term1.unify_term(it->second.first.term()) &&
-                            term2.unify_term(it->second.second.term()); });
+    PlRewindOnFail([t1=A2,t2=A3,&it]()
+                   { return t1.unify_term(it->second.first.term()) &&
+                            t2.unify_term(it->second.second.term()); });
 }
 
 PREDICATE(name_to_terms2, 3)
-{ PlTerm key(A1), term1(A2), term2(A3);
+{ PlTerm key(A1), t1(A2), t2(A3);
+  key.must_be_atom_or_string();
   const auto it = name_to_term.find(key.as_string());
   if ( it == name_to_term.cend() )
     return false;
-  if ( !term1.unify_term(it->second.first.term()) )
+  if ( !t1.unify_term(it->second.first.term()) )
     return false;
   PlFrame fr;
-  if ( !term2.unify_term(it->second.second.term()) )
+  if ( !t2.unify_term(it->second.second.term()) )
   { fr.discard();
     return false;
   }

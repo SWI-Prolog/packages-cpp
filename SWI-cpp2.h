@@ -503,6 +503,10 @@ public:
   bool is_atom()     const { return Plx_is_atom(unwrap()); }
   bool is_integer()  const { return Plx_is_integer(unwrap()); }
   bool is_string()   const { return Plx_is_string(unwrap()); }
+  bool is_atom_or_string() const
+  { int t = type();
+    return t == PL_ATOM || t == PL_STRING;
+  }
   bool is_float()    const { return Plx_is_float(unwrap()); }
   bool is_rational() const { return Plx_is_rational(unwrap()); }
   bool is_compound() const { return Plx_is_compound(unwrap()); }
@@ -515,6 +519,27 @@ public:
   bool is_acyclic()  const { return Plx_is_acyclic(unwrap()); }
   bool is_functor(PlFunctor f) const { return Plx_is_functor(unwrap(), f.unwrap()); }
   bool is_blob(PL_blob_t **type) const { return Plx_is_blob(unwrap(), type); }
+
+  void must_be_attvar()   const;
+  void must_be_variable() const;
+  void must_be_ground()   const;
+  void must_be_atom()     const;
+  void must_be_integer()  const;
+  void must_be_string()   const;
+  void must_be_atom_or_string() const;
+  void must_be_float()    const;
+  void must_be_rational() const;
+  void must_be_compound() const;
+  void must_be_callable() const;
+  void must_be_list()     const;
+  void must_be_dict()     const;
+  void must_be_pair()     const;
+  void must_be_atomic()   const;
+  void must_be_number()   const;
+  void must_be_acyclic()  const;
+  // TODO: if needed
+  // void must_be_functor(PlFunctor f) const;
+  // void must_be_blob(PL_blob_t **type) const;
 
   void put_variable()                                      { Plx_put_variable(unwrap()); }
   void put_atom(PlAtom a)                                  { Plx_put_atom(unwrap(), a.unwrap()); }

@@ -124,6 +124,33 @@ PlTerm::get_nchars(unsigned int flags) const
   return std::string(s, len);
 }
 
+#define _MUST_BE_TYPE(must_be_name, is_test, type_name)  \
+_SWI_CPP2_CPP_inline \
+void \
+PlTerm::must_be_name() const \
+{ if ( !is_test() ) \
+    throw PlTypeError(type_name, *this); \
+}
+
+_MUST_BE_TYPE(must_be_attvar,         is_attvar,         "attvar")
+_MUST_BE_TYPE(must_be_variable,       is_variable,       "variable")
+_MUST_BE_TYPE(must_be_ground,         is_ground,         "ground")
+_MUST_BE_TYPE(must_be_atom,           is_atom,           "atom")
+_MUST_BE_TYPE(must_be_integer,        is_integer,        "integer")
+_MUST_BE_TYPE(must_be_string,         is_string,         "string")
+_MUST_BE_TYPE(must_be_atom_or_string, is_atom_or_string, "atom or string")
+_MUST_BE_TYPE(must_be_float,          is_float,          "float")
+_MUST_BE_TYPE(must_be_rational,       is_rational,       "rational")
+_MUST_BE_TYPE(must_be_compound,       is_compound,       "compound")
+_MUST_BE_TYPE(must_be_callable,       is_callable,       "callable")
+_MUST_BE_TYPE(must_be_list,           is_list,           "list")
+_MUST_BE_TYPE(must_be_dict,           is_dict,           "dict")
+_MUST_BE_TYPE(must_be_pair,           is_pair,           "pair")
+_MUST_BE_TYPE(must_be_atomic,         is_atomic,         "atomic")
+_MUST_BE_TYPE(must_be_number,         is_number,         "number")
+_MUST_BE_TYPE(must_be_acyclic,        is_acyclic,        "acyclic")
+
+#undef _MUST_BE_TYPE
 
 _SWI_CPP2_CPP_inline
 PlModule

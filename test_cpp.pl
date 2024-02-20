@@ -624,6 +624,8 @@ test(name_to_terms, fail) :-
     name_to_terms("foo", _, _).
 test(name_to_terms, fail) :-
     name_to_terms("two", _, "deux").
+test(name_to_terms, error(type_error('atom or string',A))) :-
+     name_to_terms(A, 1, 2).
 
 test(name_to_terms2, [T1,T2] = [1,"eins"]) :-
     name_to_terms2("one", T1, T2).

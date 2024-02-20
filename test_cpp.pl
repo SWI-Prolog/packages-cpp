@@ -190,6 +190,14 @@ test(can_unify) :-
 test(can_unify, fail) :-
     can_unify(a(1), a(2)).
 
+test(can_unify_ffi, [true(X\==Y)]) :-
+    can_unify_ffi(f(X), f(Y)).
+test(can_unify_ffi) :-
+    can_unify_ffi(a(X), a(1)),
+    assertion(var(X)).
+test(can_unify_ffi, fail) :-
+    can_unify_ffi(a(1), a(2)).
+
 test(call_chars, Out=="1") :-
     with_output_to(string(Out), call_chars("X=1, write(X)")).
 test(call_chars, Out=="1") :-
@@ -887,6 +895,50 @@ test(blob_portray, S == "MyBlob(closed)") :-
     create_my_blob(foo, B),
     close_my_blob(B),
     with_output_to(string(S), print(B)).
+
+test(nchars_flags, F-S == 0x43f-"xinteger,all") :-
+    nchars_flags([xinteger,all,atomic,number], F),
+    nchars_flags_string(F, S).
+test(nchars_flags, F-S == 0x3f-"all") :-
+    nchars_flags([all,atomic,number], F),
+    nchars_flags_string(F, S).
+test(nchars_flags, F-S == 0x7ff-"xinteger,all,variable,write,write_canonical,writeq") :-
+    nchars_flags([atom,string,integer,list,rational,float,variable,number,atomic,write,write_canonical,writeq,all,xinteger], F),
+    nchars_flags_string(F, S).
+test(nchars_flags, F-S == 0x3f-"all") :-
+    nchars_flags([atomic,list], F),
+    nchars_flags_string(F, S).
+test(nchars_flags, F-S == 0x3b-"atomic") :-
+    nchars_flags([number,atom,string], F),
+    nchars_flags_string(F, S).
+
+test(nchars, S-FS-FS2 == "123"-"atomic"-"atomic") :-
+    nchars_flags([atomic], F),
+    nchars_flags_string(F, FS),
+    get_nchars_string(123, F, S, FS2).
+test(nchars, S-F == "123"-"atomic") :-
+    get_nchars_string(123, [atomic], S, F).
+test(nchars, error(type_error(atomic,f(a)))) :-
+    get_nchars_string(f(a), [atomic], _, _).
+test(nchars, S-F == "+(a,b)"-"all,write_canonical") :-
+    get_nchars_string(a+b, [write_canonical,all], S, F).
+
+% The flags to PlTerm::as_string are [all,writeq,variable].
+% TODO: try more flag combinations
+
+test(nchars, [blocked('Should be quoted'), S-F == "'a b'"-"all,writeq,variable"]) :-
+    get_nchars_string('a b', [all,writeq,variable], S, F).
+test(nchars, [blocked('Should be quoted'), S-F == "\"a b\""-"all,writeq,variable"]) :-
+    get_nchars_string("a b", [all,writeq,variable], S, F).
+test(nchars, S-F == "f('a b')"-"all,variable,writeq") :-
+    get_nchars_string(f('a b'), [all,writeq,variable], S, F).
+test(nchars, S-F == "f(\"a b\")"-"all,variable,writeq") :-
+    get_nchars_string(f("a b"), [all,writeq,variable], S, F).
+
+test(#, S == "abc") :-
+    #(abc, S).
+test(#, S == "foo(abc)") :-
+    #(foo(abc), S).
 
 compare_write_form(Compare, A, B) :-
     with_output_to(string(Astr), write(A)),

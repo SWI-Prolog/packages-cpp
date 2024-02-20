@@ -283,6 +283,9 @@ public:
   explicit PlAtom(const std::wstring& text)
     : WrappedC<atom_t>(Plx_new_atom_wchars(text.size(), text.data()))
   { }
+  explicit PlAtom(const pl_wchar_t *text)
+    : WrappedC<atom_t>(Plx_new_atom_wchars(static_cast<size_t>(-1), text))
+  { }
   explicit PlAtom(const char *text)
     : WrappedC<atom_t>(Plx_new_atom_nchars(static_cast<size_t>(-1), text))
   { }
@@ -293,18 +296,17 @@ public:
     : WrappedC<atom_t>(Plx_new_atom_mbchars(static_cast<int>(rep), text.size(), text.data()))
   { }
 
-  const std::string mbchars(unsigned int flags) const
-  { PlStringBuffers _string_buffers;
-    size_t len;
-    char *s;
-    Plx_atom_mbchars(unwrap(), &len, &s, CVT_EXCEPTION|flags);
-    return std::string(s, len);
-  }
+  const std::string mbchars(unsigned int flags) const;
+
+  const std::wstring wchars() const;
 
   const std::string as_string(PlEncoding enc=ENC_OUTPUT) const
   { return mbchars(static_cast<unsigned int>(enc));
   }
-  const std::wstring as_wstring() const;
+
+  const std::wstring as_wstring() const
+  { return wchars();
+  }
 
   [[nodiscard]] int write(IOSTREAM *s, int flags) const;
 
@@ -400,7 +402,7 @@ public:
 class PlModule : public WrappedC<module_t>
 {
 public:
-  explicit PlModule(module_t m)
+  explicit PlModule(module_t m = 0)
     : WrappedC<module_t>(m) { }
   explicit PlModule(const std::string& name)
     : WrappedC<module_t>(Plx_new_module(PlAtom(name).unwrap()))
@@ -453,8 +455,12 @@ public:
   [[nodiscard]] bool get_list_chars(char **s, unsigned int flags) const { return Plx_get_list_chars(unwrap(), s, flags); }
   [[nodiscard]] bool get_atom_nchars(size_t *len, char **a) const { return Plx_get_atom_nchars(unwrap(), len, a); }
   [[nodiscard]] bool get_list_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_list_nchars(unwrap(), len, s, flags); }
-  [[nodiscard]] bool get_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_nchars(unwrap(), len, s, flags); }
-  [[nodiscard]] bool get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return Plx_get_wchars(unwrap(), length, s, flags); }
+  [[deprecated("use get_nchars(flags) returning std::string")]]
+  [[nodiscard]] bool get_nchars(size_t *len, char **s, unsigned int flags) const { return _get_nchars(len, s, flags); }
+  const std::string get_nchars(unsigned int flags) const;
+  [[deprecated("use get_wchars(flags) returning std::string")]]
+  [[nodiscard]] bool get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return _get_wchars(length, s, flags); }
+  const std::wstring get_wchars(unsigned int flags) const;
   [[nodiscard]] bool get_integer(int *i) const { return Plx_get_integer(unwrap(), i); }
   [[nodiscard]] bool get_long(long *i) const { return Plx_get_long(unwrap(), i); }
   [[nodiscard]] bool get_intptr(intptr_t *i) const { return Plx_get_intptr(unwrap(), i); }
@@ -599,8 +605,14 @@ public:
   // they fail (because of the wrong Prolog type). If you want to be
   // safe, use is_XXX() first to verify the type.
 
-  const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
-  const std::wstring as_wstring() const;
+  const std::string as_string(PlEncoding enc=ENC_OUTPUT) const
+  { return get_nchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|static_cast<unsigned int>(enc));
+  }
+
+  const std::wstring as_wstring() const
+  { return get_wchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE);
+  }
+
   long          as_long()     const { long          v; integer(&v); return v; }
   int32_t       as_int32_t()  const { int32_t       v; integer(&v); return v; }
   uint32_t      as_uint32_t() const { uint32_t      v; integer(&v); return v; }
@@ -617,10 +629,6 @@ public:
   void *        as_pointer()  const; // TODO: replace with C++ interface to blobs
 
   // TODO: PL_get_mpz(), PL_getr_mpq()
-
-  const std::string get_nchars(unsigned int flags) const;
-
-  // TODO: std::wstring get_wchars(unsigned int flags) const;
 
   PlAtom as_atom() const;
   [[nodiscard]] bool eq_if_atom(PlAtom a) const;
@@ -701,7 +709,6 @@ public:
   bool operator <=(PlTerm t2) const { return compare(t2) <= 0; }
   bool operator >=(PlTerm t2) const { return compare(t2) >= 0; }
 					/* comparison (long) */
-  /* TODO: uint64_t; but that requires adding a lot of overloaded methods */
   [[deprecated("use as_int64_t()")]] bool operator ==(int64_t v) const;
   [[deprecated("use as_int64_t()")]] bool operator !=(int64_t v) const;
   [[deprecated("use as_int64_t()")]] bool operator < (int64_t v) const;
@@ -710,14 +717,14 @@ public:
   [[deprecated("use as_int64_t()")]] bool operator >=(int64_t v) const;
 
 					/* comparison (atom, string) */
-  [[deprecated("use as_string()")]]  bool operator ==(const char *s) const { return eq(s); }
-  [[deprecated("use as_string()")]]  bool operator ==(const wchar_t *s) const { return eq(s); }
-  [[deprecated("use as_wstring()")]] bool operator ==(const std::string& s) const { return eq(s); }
+  [[deprecated("use as_string()")]]  bool operator ==(const char *s)         const { return eq(s); }
+  [[deprecated("use as_string()")]]  bool operator ==(const wchar_t *s)      const { return eq(s); }
+  [[deprecated("use as_wstring()")]] bool operator ==(const std::string& s)  const { return eq(s); }
   [[deprecated("use as_wstring()")]] bool operator ==(const std::wstring& s) const { return eq(s); }
-  [[deprecated("use as_atom()")]]    bool operator ==(PlAtom a) const { return eq(a); }
+  [[deprecated("use as_atom()")]]    bool operator ==(PlAtom a)              const { return eq(a); }
 
   [[deprecated("use as_string()")]]  bool operator !=(const char *s)         const { return !eq(s); }
-  [[deprecated("use as_wstring()")]] bool operator !=(const wchar_t *s)      const { return !(eq(s)); }
+  [[deprecated("use as_wstring()")]] bool operator !=(const wchar_t *s)      const { return !eq(s); }
   [[deprecated("use as_string()")]]  bool operator !=(const std::string& s)  const { return !eq(s); }
   [[deprecated("use as_wstring()")]] bool operator !=(const std::wstring& s) const { return !eq(s); }
   [[deprecated("use as_atom()")]]    bool operator !=(PlAtom a)              const { return !eq(a); }
@@ -730,12 +737,18 @@ public:
 
   void reset_term_refs() { Plx_reset_term_refs(unwrap()); }
 
+  int call(PlModule module = PlModule()) const { return Plx_call(unwrap(), module.unwrap()); }
+
 private:
   bool eq(const char *s) const;
   bool eq(const wchar_t *s) const;
   bool eq(const std::string& s) const;
   bool eq(const std::wstring& s) const;
   bool eq(PlAtom a) const;
+
+  // _get_nchars(), _get_wchars() are deprecated but are used internally (and safely):
+  [[nodiscard]] bool _get_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_nchars(unwrap(), len, s, flags); }
+  [[nodiscard]] bool _get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return Plx_get_wchars(unwrap(), length, s, flags); }
 };
 
 
@@ -1141,7 +1154,7 @@ PlWrap(C_t rc, qid_t qid)
   return rc;
 }
 
-void PlEx_fail(qid_t qid);
+void PlEx_fail(qid_t qid = 0);
 
 template<typename C_t> void
 PlEx(C_t rc, qid_t qid)

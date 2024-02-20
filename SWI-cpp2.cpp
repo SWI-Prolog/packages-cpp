@@ -105,23 +105,33 @@ PlEx_fail(qid_t qid)
 }
 
 
+// TODO: add unit test for unrepresentable string - should throw error
 _SWI_CPP2_CPP_inline
 const std::string
 PlTerm::get_nchars(unsigned int flags) const
-{ if ( is_null() )
-    return "<null-term>";
+{ flags &= ~(BUF_STACK|BUF_MALLOC|BUF_ALLOW_STACK);
+  flags |= BUF_DISCARDABLE|CVT_EXCEPTION;
+  char *s = nullptr;
+  size_t len = 0;
   PlStringBuffers _string_buffers;
-  char  *s;
+  if ( _get_nchars(&len, &s, flags) )
+    return std::string(s, len);
+  PlEx_fail();
+  return "<---get_nchars error --->"; // Should never get here
+}
+
+_SWI_CPP2_CPP_inline
+const std::wstring
+PlTerm::get_wchars(unsigned int flags) const
+{ flags &= ~(BUF_STACK|BUF_MALLOC|BUF_ALLOW_STACK);
+  flags |= BUF_DISCARDABLE|CVT_EXCEPTION;
+  pl_wchar_t *s;
   size_t len;
-  if ( ! (flags&BUF_MALLOC) )
-    flags |= BUF_STACK;
-  PlEx<int>(get_nchars(&len, &s, flags|CVT_EXCEPTION));
-  if ( flags&BUF_MALLOC )
-    { std::string result(s, len);
-      Plx_free(s);
-      return result;
-    }
-  return std::string(s, len);
+  PlStringBuffers _string_buffers;
+  if ( _get_wchars(&len, &s, flags) )
+    return std::wstring(s, len);
+  PlEx_fail();
+  return L"<---get_wchars error --->"; // Should never get here
 }
 
 #define _MUST_BE_TYPE(must_be_name, is_test, type_name)  \
@@ -253,8 +263,18 @@ PlUnknownError(const std::string& description)
 		 *******************************/
 
 _SWI_CPP2_CPP_inline
+const std::string
+PlAtom::mbchars(unsigned int flags) const
+{ PlStringBuffers _string_buffers;
+  size_t len;
+  char *s;
+  Plx_atom_mbchars(unwrap(), &len, &s, CVT_EXCEPTION|flags);
+  return std::string(s, len);
+}
+
+_SWI_CPP2_CPP_inline
 const std::wstring
-PlAtom::as_wstring() const
+PlAtom::wchars() const
 { PlStringBuffers _string_buffers;
   size_t len;
   const wchar_t *s = Plx_atom_wchars(unwrap(), &len);
@@ -331,22 +351,6 @@ PlTerm::copy_term_ref() const
 { return PlTerm(Plx_copy_term_ref(unwrap()));
 }
 
-_SWI_CPP2_CPP_inline
-const std::string
-PlTerm::as_string(PlEncoding enc) const
-{ return get_nchars(CVT_ALL|CVT_WRITEQ|static_cast<unsigned int>(enc));
-}
-
-_SWI_CPP2_CPP_inline
-const std::wstring
-PlTerm::as_wstring() const
-{ wchar_t *s;
-  size_t len;
-  PlStringBuffers _string_buffers;
-  // TODO: split out get_wchars(), similar to get_nchars()
-  PlEx<int>(get_wchars(&len, &s, CVT_ALL|CVT_WRITEQ|BUF_STACK|CVT_EXCEPTION));
-  return std::wstring(s, len);
-}
 
 _SWI_CPP2_CPP_inline
 void
@@ -619,8 +623,18 @@ bool
 PlTerm::eq(const std::string& s) const
 { char *s0;
 
+  // Doesn't handle non-NUL terminated - but it's only used by deprecated operator ==
   if ( get_chars(&s0, CVT_ALL) )
-    return s.compare(s0) == 0; // Doesn't handle non-NUL terminated - but it's a deprecated method
+    return s.compare(s0) == 0; 
+
+  throw PlTypeError("text", *this);
+}
+
+_SWI_CPP2_CPP_inline
+bool
+PlTerm::eq(const std::wstring& s) const
+{ // Doesn't handle non-NUL terminated - but it's only used by deprecated operator ==
+  return s.compare(get_wchars(CVT_ALL)) == 0;
 
   throw PlTypeError("text", *this);
 }

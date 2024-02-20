@@ -253,7 +253,7 @@ test(wchar, % Same as wchar_2, but uses atom_codes
         w_atom_ffi(A, Result0), string_codes(Result0, Result)
     ).
 
-test(char_1, all(Result == ["//", "/ /", "/abC/", "/Hello World!/"])) :-
+test(char_1, all(Result == ["//0", "/ /1", "/abC/3", "/Hello World!/12"])) :-
     (   atom_ffi('',               Result)
     ;   atom_ffi(' ',              Result)
     ;   atom_ffi('abC',            Result)

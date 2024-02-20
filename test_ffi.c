@@ -140,7 +140,7 @@ static foreign_t
 w_atom_ffi_(term_t stream, term_t t)
 { IOSTREAM* s;
   atom_t a;
-  if ( !PL_get_stream(stream, &s, SIO_INPUT) ||
+  if ( !PL_get_stream(stream, &s, SIO_OUTPUT) ||
        !PL_get_atom_ex(t, &a) )
     return FALSE;
   PL_STRINGS_MARK();
@@ -151,7 +151,8 @@ w_atom_ffi_(term_t stream, term_t t)
   return TRUE;
 }
 
-// Regression test forhttps://github.com/SWI-Prolog/packages-pcre/issues/20
+/* Regression test for https://github.com/SWI-Prolog/packages-pcre/issues/20
+ * (big-endian, little-endian issues). */
 static foreign_t
 atom_ffi_(term_t stream, term_t t)
 { IOSTREAM* s;
@@ -160,8 +161,9 @@ atom_ffi_(term_t stream, term_t t)
        !PL_get_atom_ex(t, &a) )
     return FALSE;
   PL_STRINGS_MARK();
-    const char *sa = PL_atom_nchars(a, NULL);
-    Sfprintf(s, "/%s/", sa);
+    size_t len;
+    const char *sa = PL_atom_nchars(a, &len);
+    Sfprintf(s, "/%s/%zd", sa, len);
   PL_STRINGS_RELEASE();
   return TRUE;
 }
@@ -510,7 +512,7 @@ ffi_read_int32_(term_t Stream, term_t i)
 static foreign_t
 ffi_write_int64_(term_t Stream, term_t i)
 { int64_t v;
-  if ( ! PL_get_int64_ex(i, &v) ) // TODO: PL_cvt_i_int64
+  if ( ! PL_cvt_i_int64(i, &v) )
     return FALSE;
 
   IOSTREAM* stream;

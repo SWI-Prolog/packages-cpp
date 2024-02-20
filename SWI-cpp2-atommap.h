@@ -93,7 +93,7 @@ public:
   }
 
   size_t
-  size() // TODO: make this logically "const"
+  size()
   { std::lock_guard<std::mutex> lock__(lock_);
     return size_inside_lock();
   }

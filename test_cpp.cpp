@@ -143,6 +143,16 @@ PREDICATE(hello3, 2)
   return false;
 }
 
+// TODO: add tests
+PREDICATE(as_string, 2)
+{ return A2.unify_string(A1.as_string());
+}
+
+// TODO: add tests
+PREDICATE(as_wstring, 2)
+{ return A2.unify_wstring(A1.as_wstring());
+}
+
 PREDICATE(add, 3)
 { // as_long() converts integral floats to integers
   return A3.unify_integer(A1.as_long() + A2.as_long());
@@ -245,6 +255,10 @@ PREDICATE(call_cpp, 1)
   return true;
 }
 
+PREDICATE(call_cpp_obj, 1)
+{ return A1.call();
+}
+
 PREDICATE(call_cpp_ex, 2)
 { try
   { PlCheckFail(PlCall(A1, PL_Q_CATCH_EXCEPTION));
@@ -292,22 +306,66 @@ PREDICATE(term, 2)
 PREDICATE(call_chars_discard, 1)
 { PlFrame fr;
   PlCompound goal(A1.as_string());
-  bool rval = Plx_call(goal.unwrap(), (module_t)0);
+  bool rval = goal.call();
   fr.discard();
   return rval;
 }
 
 PREDICATE(call_chars, 1)
-{ PlCompound goal(A1.as_string());
-  return Plx_call(goal.unwrap(), (module_t)0);
+{ A1.must_be_atom_or_string();
+  PlCompound goal(A1.as_string());
+  return goal.call();
 }
 
+/* can_unify(A1, A2) :- unifiable(A1, A2, _) */
 PREDICATE(can_unify, 2)
 { PlFrame fr;
 
   bool rval = A1.unify_term(A2);
   fr.discard(); // or: PL.rewind()
   return rval;
+}
+
+PREDICATE(can_unify_ffi, 2)
+{ fid_t fid = PL_open_foreign_frame();
+
+  int rval = PL_unify(A1.unwrap(), A2.unwrap());
+  PL_discard_foreign_frame(fid);
+  return rval;
+}
+
+/* if_then(A1,A2,A3,A4) :- A1 = A2 -> once(A3) ; once(A4) */
+PREDICATE(if_then_a, 4)
+{ PlFrame fr;
+  bool t1_t2_unified = A1.unify_term(A2);
+  if ( ! t1_t2_unified )
+    fr.rewind();
+  return PlCall(t1_t2_unified ? A3 : A4);
+}
+
+/* if_then(A1,A2,A3,A4) :- A1 = A2 -> once(A3) ; once(A4) */
+PREDICATE(if_then_b, 4)
+{ return PlCall(PlRewindOnFail([t1=A1,t2=A2]()->bool
+                { return t1.unify_term(t2); }) ? A3 : A4);
+}
+
+
+PREDICATE(if_then_ffi, 4)
+{ fid_t fid = PL_open_foreign_frame();
+  term_t t1 = A1.unwrap(), t2 = A2.unwrap();
+  int t1_t2_unified = PL_unify(t1, t2);
+  if ( !t1_t2_unified )
+  { if ( PL_exception(0) )
+      { PL_close_foreign_frame(fid);
+        return FALSE;
+      }
+    PL_rewind_foreign_frame(fid);
+  }
+  int rc;
+  rc = PL_call((t1_t2_unified ? A3 : A4).unwrap(), (module_t)0);
+
+  PL_close_foreign_frame(fid);
+  return rc;
 }
 
 PREDICATE(eq1, 2)
@@ -338,6 +396,7 @@ PREDICATE(write_list, 1)
   { while( tail.next(e) )
       strm.printf("%s\n", e.as_string().c_str());
   } PREDICATE_CATCH({strm.release(); return false;})
+  PlCheckFail(tail.unify_nil());
   return true;
 }
 
@@ -591,11 +650,19 @@ PREDICATE(hostname2, 1)
 }
 
 PREDICATE(eq_int64, 2)
-{ return A1 == A2.as_int64_t();
+{
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return A1 == A2.as_int64_t();
+  #pragma GCC diagnostic pop
 }
 
 PREDICATE(lt_int64, 2)
-{ return A1 < A2.as_int64_t();
+{
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return A1 < A2.as_int64_t();
+  #pragma GCC diagnostic pop
 }
 
 PREDICATE(get_atom_ex, 2)
@@ -1026,23 +1093,24 @@ static const std::map<const std::string, std::pair<PlRecord, PlRecord>> name_to_
   };
 
 PREDICATE(name_to_terms, 3)
-{ PlTerm key(A1), term1(A2), term2(A3);
-  const auto it = name_to_term.find(key.as_string());
+{ A1.must_be_atom_or_string();
+  const auto it = name_to_term.find(A1.as_string());
   return it != name_to_term.cend() &&
-    PlRewindOnFail([term1,term2,it]() -> bool
-                   { return term1.unify_term(it->second.first.term()) &&
-                            term2.unify_term(it->second.second.term()); });
+    PlRewindOnFail([t1=A2,t2=A3,&it]()
+                   { return t1.unify_term(it->second.first.term()) &&
+                            t2.unify_term(it->second.second.term()); });
 }
 
 PREDICATE(name_to_terms2, 3)
-{ PlTerm key(A1), term1(A2), term2(A3);
+{ PlTerm key(A1), t1(A2), t2(A3);
+  key.must_be_atom_or_string();
   const auto it = name_to_term.find(key.as_string());
   if ( it == name_to_term.cend() )
     return false;
-  if ( !term1.unify_term(it->second.first.term()) )
+  if ( !t1.unify_term(it->second.first.term()) )
     return false;
   PlFrame fr;
-  if ( !term2.unify_term(it->second.second.term()) )
+  if ( !t2.unify_term(it->second.second.term()) )
   { fr.discard();
     return false;
   }
@@ -1128,7 +1196,7 @@ int_info_RewindOnFail(const std::string name, PlTerm result, IntInfoCtxt *ctxt)
   if ( it == ctxt->int_info->cend() )
     return false;
 
-  return PlRewindOnFail([&result,&it]() -> bool
+  return PlRewindOnFail([&result,&it]()
                         { return result.unify_term(it->second.term()); });
 }
 
@@ -1227,13 +1295,11 @@ PREDICATE(type_error_string, 3)
 // Re-implementing w_atom_ffi_/2:
 
 PREDICATE(w_atom_cpp_, 2)
-{ auto stream = A1, t = A2;
-  IOSTREAM* s;
-  Plx_get_stream(stream.unwrap(), &s, SIO_INPUT);
-  PlStream strm(Scurrent_output);
+{ auto stream(A1), term(A2);
+  PlStream strm(stream, SIO_OUTPUT);
   PlStringBuffers _string_buffers;
-  size_t len;
-  const pl_wchar_t *sa = Plx_atom_wchars(t.as_atom().unwrap(), &len);
+  size_t len; // Documentation sample code omits this
+  const pl_wchar_t *sa = Plx_atom_wchars(term.as_atom().unwrap(), &len);
   strm.printfX("/%Ws/%zd", sa, len);
   return true;
 }
@@ -1736,4 +1802,145 @@ PREDICATE_NONDET(enum_map_str_str, 4)
       assert(0);
   }
   return false;
+}
+
+static
+void append_sep(std::string *str, unsigned int *flags,
+                const std::string& app, unsigned int one_flag)
+{ if ( (*flags & one_flag) == one_flag )
+  { str->append(",");
+    str->append(app);
+    *flags &= ~one_flag;
+  }
+}
+
+static
+std::string nchars_flags_string(unsigned int flags)
+{ std::string result;
+
+  // "Compound" flags are first - they change `flags`,
+  // so that, e.g. "number" doesn't also output "rational,float,integer".
+  // But "xinteger" is special.
+  unsigned int flags_o = flags;
+  if( (flags & CVT_XINTEGER) == CVT_XINTEGER )
+  { result.append(",xinteger");
+    flags &= ~CVT_XINTEGER;
+    flags |= CVT_INTEGER;
+  }
+  append_sep(&result, &flags, "all",             CVT_ALL);
+  append_sep(&result, &flags, "atomic",          CVT_ATOMIC);
+  append_sep(&result, &flags, "number",          CVT_NUMBER);
+
+  append_sep(&result, &flags, "atom",            CVT_ATOM);
+  append_sep(&result, &flags, "string",          CVT_STRING);
+  if ( !((flags_o & CVT_XINTEGER) == CVT_XINTEGER ) )
+    append_sep(&result, &flags, "integer",         CVT_INTEGER);
+  append_sep(&result, &flags, "list",            CVT_LIST);
+  append_sep(&result, &flags, "rational",        CVT_RATIONAL);
+  append_sep(&result, &flags, "float",           CVT_FLOAT);
+  append_sep(&result, &flags, "variable",        CVT_VARIABLE);
+  append_sep(&result, &flags, "write",           CVT_WRITE);
+  append_sep(&result, &flags, "write_canonical", CVT_WRITE_CANONICAL);
+  append_sep(&result, &flags, "writeq",          CVT_WRITEQ);
+
+  append_sep(&result, &flags, "exception",       CVT_EXCEPTION);
+  append_sep(&result, &flags, "varnofail",       CVT_VARNOFAIL);
+
+  append_sep(&result, &flags, "stack",           BUF_STACK);
+  append_sep(&result, &flags, "malloc",          BUF_MALLOC);
+  append_sep(&result, &flags, "allow_stack",     BUF_ALLOW_STACK);
+
+  append_sep(&result, &flags, "utf8",            REP_UTF8);
+  append_sep(&result, &flags, "mb",              REP_MB);
+  append_sep(&result, &flags, "diff_list",       PL_DIFF_LIST);
+
+  if ( flags )
+    throw PlDomainError("write-options-flag", PlTerm_integer(flags));
+
+  return result.empty() ? "" : result.substr(1);
+}
+
+static const std::map<const std::string, unsigned int> write_option_to_flag =
+{ { "atom",            CVT_ATOM },
+  { "string",          CVT_STRING },
+  { "list",            CVT_LIST },
+  { "integer",         CVT_INTEGER },
+  { "rational",        CVT_RATIONAL },
+  { "float",           CVT_FLOAT },
+  { "variable",        CVT_VARIABLE },
+  { "write",           CVT_WRITE },
+  { "write_canonical", CVT_WRITE_CANONICAL },
+  { "writeq",          CVT_WRITEQ },
+
+  { "exception",       CVT_EXCEPTION },
+  { "varnofail",       CVT_VARNOFAIL },
+
+  { "stack",           BUF_STACK },
+  { "malloc",          BUF_MALLOC },
+  { "allow_stack",     BUF_ALLOW_STACK },
+
+  { "utf8",            REP_UTF8 },
+  { "mb",              REP_MB },
+  { "diff_list",       PL_DIFF_LIST },
+
+  // combination flags:
+  { "number",          CVT_NUMBER },
+  { "atomic",          CVT_ATOMIC },
+  { "all",             CVT_ALL },
+  { "xinteger",        CVT_XINTEGER },
+};
+
+// For verifying the test_cpp.pl values:
+// PREDICATE(p_flags, 0)
+// { Sdprintf("%x\n", CVT_XINTEGER|CVT_ALL|CVT_ATOMIC|CVT_NUMBER);
+//   Sdprintf("%x\n", CVT_ALL|CVT_ATOMIC|CVT_NUMBER);
+//   Sdprintf("%x\n", CVT_ATOM|CVT_STRING|CVT_INTEGER|CVT_LIST|CVT_RATIONAL|CVT_FLOAT|CVT_VARIABLE|CVT_NUMBER|CVT_ATOMIC|CVT_WRITE|CVT_WRITE_CANONICAL|CVT_WRITEQ|CVT_ALL|CVT_XINTEGER);
+//   Sdprintf("%x\n", CVT_ATOMIC|CVT_LIST);
+//   Sdprintf("%x\n", CVT_NUMBER|CVT_ATOM|CVT_STRING);
+//   return true;
+// }
+
+static
+unsigned int nchars_flag(PlTerm list)
+{ PlTerm_tail tail(list);
+  PlTerm_var e;
+  unsigned int flags = 0;
+  while ( tail.next(e) )
+  { e.must_be_atomic();
+    const auto it = write_option_to_flag.find(e.as_string());
+    if ( it == write_option_to_flag.cend() )
+      throw PlDomainError("write-option", e);
+    flags |= it->second;
+  }
+  return flags;
+}
+
+PREDICATE(nchars_flags, 2)
+{ return A2.unify_integer(nchars_flag(A1));
+}
+
+PREDICATE(nchars_flags_string, 2)
+{ return A2.unify_string(nchars_flags_string(A1.as_uint()));
+}
+
+PREDICATE(get_nchars_string, 4)
+{ unsigned int flags =
+    A2.is_integer() ? A2.as_uint() : nchars_flag(A2);
+  return A3.unify_string(A1.get_nchars(flags)) &&
+    A4.unify_string(nchars_flags_string(flags));
+}
+
+NAMED_PREDICATE("#", hash, 2)
+{ return A2.unify_string(A1.as_string());
+}
+
+PREDICATE(malloc_free, 2)
+{ // For verifying that example code of unique_ptr with PLfree() compiles
+  std::unique_ptr<void, decltype(&PL_free)> ptr(PL_malloc(100), &PL_free);
+
+  size_t len;
+  char *str = nullptr;
+  int rc = Plx_get_nchars(A1.unwrap(), &len, &str, BUF_MALLOC|CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|REP_UTF8|CVT_EXCEPTION);
+  std::unique_ptr<char, decltype(&PL_free)> _str(str, &PL_free);
+  return rc && A2.unify_string(std::string(str, len));
 }

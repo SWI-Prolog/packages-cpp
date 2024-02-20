@@ -189,8 +189,8 @@ public:
   ~WrappedC<C_t>() { }
 
   operator bool() const = delete; // Use not_null(), is_null() instead
-  bool operator ==(const WrappedC<C_t>& o) const { return C_ == o.C_; }
-  bool operator !=(const WrappedC<C_t>& o) const { return C_ != o.C_; }
+  bool operator ==(WrappedC<C_t> o) const { return C_ == o.C_; }
+  bool operator !=(WrappedC<C_t> o) const { return C_ != o.C_; }
 
   // reset() is common with "smart pointers"; wrapped atom_t, term_t,
   // etc. aren't "smart" in the same sense, but the objects they refer
@@ -283,6 +283,9 @@ public:
   explicit PlAtom(const std::wstring& text)
     : WrappedC<atom_t>(Plx_new_atom_wchars(text.size(), text.data()))
   { }
+  explicit PlAtom(const pl_wchar_t *text)
+    : WrappedC<atom_t>(Plx_new_atom_wchars(static_cast<size_t>(-1), text))
+  { }
   explicit PlAtom(const char *text)
     : WrappedC<atom_t>(Plx_new_atom_nchars(static_cast<size_t>(-1), text))
   { }
@@ -293,32 +296,33 @@ public:
     : WrappedC<atom_t>(Plx_new_atom_mbchars(static_cast<int>(rep), text.size(), text.data()))
   { }
 
-  const std::string mbchars(unsigned int flags) const
-  { PlStringBuffers _string_buffers;
-    size_t len;
-    char *s;
-    Plx_atom_mbchars(unwrap(), &len, &s, CVT_EXCEPTION|flags);
-    return std::string(s, len);
-  }
+  const std::string mbchars(unsigned int flags) const;
+
+  const std::wstring wchars() const;
 
   const std::string as_string(PlEncoding enc=ENC_OUTPUT) const
   { return mbchars(static_cast<unsigned int>(enc));
   }
-  const std::wstring as_wstring() const;
+
+  const std::wstring as_wstring() const
+  { return wchars();
+  }
 
   [[nodiscard]] int write(IOSTREAM *s, int flags) const;
 
-  // TODO: operator == should be `override`
-  bool operator ==(const PlAtom& to) const /*override*/ { return unwrap() == to.unwrap(); }
-  bool operator !=(const PlAtom& to) const /*override*/ { return unwrap() != to.unwrap(); }
+  // TODO: operator ==(PlAtom) is defined by WrappedC<C_t> but
+  //       the following is needed to avoid amiguous overload:
+  bool operator ==(PlAtom to) const { return unwrap() == to.unwrap(); }
+  bool operator !=(PlAtom to) const { return unwrap() != to.unwrap(); }
+
   [[deprecated("use as_string() or ==PlAtom")]] bool operator ==(const char *s) const { return eq(s); }
-  bool operator ==(const wchar_t *s) const { return eq(s); }
+  [[deprecated("use as_string() or ==PlAtom")]]  bool operator ==(const wchar_t *s)      const { return eq(s); }
   [[deprecated("use as_string() or ==PlAtom")]] bool operator ==(const std::string& s) const { return eq(s); }
-  bool operator ==(const std::wstring& s) const { return eq(s); }
-  [[deprecated("use PlAtom instead of atomt_t")]] bool operator ==(atom_t to) const { return unwrap() == to; }
+  [[deprecated("use as_string() or ==PlAtom")]]  bool operator ==(const std::wstring& s) const { return eq(s); }
+  [[deprecated("use PlAtom instead of atom_t")]] bool operator ==(atom_t to)             const { return unwrap() == to; }
 
   [[deprecated("use as_string() or !=PlAtom")]] bool operator !=(const char *s) const { return !eq(s); }
-  bool operator !=(const wchar_t *s) const { return !eq(s); }
+  [[deprecated("use as_string() or !=PlAtom")]]  bool operator !=(const wchar_t *s)      const { return !eq(s); }
   [[deprecated("use PlAtom instead of atom_t")]] bool operator !=(atom_t to) const { return unwrap() != to; }
 
   // TODO: when C++17 becomes standard, rename register_ref() to register().
@@ -398,7 +402,7 @@ public:
 class PlModule : public WrappedC<module_t>
 {
 public:
-  explicit PlModule(module_t m)
+  explicit PlModule(module_t m = 0)
     : WrappedC<module_t>(m) { }
   explicit PlModule(const std::string& name)
     : WrappedC<module_t>(Plx_new_module(PlAtom(name).unwrap()))
@@ -426,7 +430,7 @@ protected:
   { }
 
 public:
-  explicit PlTerm(const PlAtom& a)
+  explicit PlTerm(PlAtom a)
     : WrappedC<term_t>(Plx_new_term_ref())
   { Plx_put_atom(unwrap(), a.unwrap());
   }
@@ -445,14 +449,18 @@ public:
 
   // TODO: PlTerm& operator =(const PlTerm&) = delete; // TODO: when the deprecated items below are removed
 
-  [[nodiscard]] bool get_atom(PlAtom *A) const { return Plx_get_atom(unwrap(), PlUnwrapAsPtr(A)); }
+  [[nodiscard]] bool get_atom(PlAtom *a) const { return Plx_get_atom(unwrap(), PlUnwrapAsPtr(a)); }
   [[nodiscard]] bool get_bool(int *value) const { return Plx_get_bool(unwrap(), value); }
   [[nodiscard]] bool get_chars(char **s, unsigned int flags) const { return Plx_get_chars(unwrap(), s, flags); }
   [[nodiscard]] bool get_list_chars(char **s, unsigned int flags) const { return Plx_get_list_chars(unwrap(), s, flags); }
   [[nodiscard]] bool get_atom_nchars(size_t *len, char **a) const { return Plx_get_atom_nchars(unwrap(), len, a); }
   [[nodiscard]] bool get_list_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_list_nchars(unwrap(), len, s, flags); }
-  [[nodiscard]] bool get_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_nchars(unwrap(), len, s, flags); }
-  [[nodiscard]] bool get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return Plx_get_wchars(unwrap(), length, s, flags); }
+  [[deprecated("use get_nchars(flags) returning std::string")]]
+  [[nodiscard]] bool get_nchars(size_t *len, char **s, unsigned int flags) const { return _get_nchars(len, s, flags); }
+  const std::string get_nchars(unsigned int flags) const;
+  [[deprecated("use get_wchars(flags) returning std::string")]]
+  [[nodiscard]] bool get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return _get_wchars(length, s, flags); }
+  const std::wstring get_wchars(unsigned int flags) const;
   [[nodiscard]] bool get_integer(int *i) const { return Plx_get_integer(unwrap(), i); }
   [[nodiscard]] bool get_long(long *i) const { return Plx_get_long(unwrap(), i); }
   [[nodiscard]] bool get_intptr(intptr_t *i) const { return Plx_get_intptr(unwrap(), i); }
@@ -501,6 +509,10 @@ public:
   bool is_atom()     const { return Plx_is_atom(unwrap()); }
   bool is_integer()  const { return Plx_is_integer(unwrap()); }
   bool is_string()   const { return Plx_is_string(unwrap()); }
+  bool is_atom_or_string() const
+  { int t = type();
+    return t == PL_ATOM || t == PL_STRING;
+  }
   bool is_float()    const { return Plx_is_float(unwrap()); }
   bool is_rational() const { return Plx_is_rational(unwrap()); }
   bool is_compound() const { return Plx_is_compound(unwrap()); }
@@ -511,8 +523,29 @@ public:
   bool is_atomic()   const { return Plx_is_atomic(unwrap()); }
   bool is_number()   const { return Plx_is_number(unwrap()); }
   bool is_acyclic()  const { return Plx_is_acyclic(unwrap()); }
-  bool is_functor(const PlFunctor& f) const { return Plx_is_functor(unwrap(), f.unwrap()); }
+  bool is_functor(PlFunctor f) const { return Plx_is_functor(unwrap(), f.unwrap()); }
   bool is_blob(PL_blob_t **type) const { return Plx_is_blob(unwrap(), type); }
+
+  void must_be_attvar()   const;
+  void must_be_variable() const;
+  void must_be_ground()   const;
+  void must_be_atom()     const;
+  void must_be_integer()  const;
+  void must_be_string()   const;
+  void must_be_atom_or_string() const;
+  void must_be_float()    const;
+  void must_be_rational() const;
+  void must_be_compound() const;
+  void must_be_callable() const;
+  void must_be_list()     const;
+  void must_be_dict()     const;
+  void must_be_pair()     const;
+  void must_be_atomic()   const;
+  void must_be_number()   const;
+  void must_be_acyclic()  const;
+  // TODO: if needed
+  // void must_be_functor(PlFunctor f) const;
+  // void must_be_blob(PL_blob_t **type) const;
 
   void put_variable()                                      { Plx_put_variable(unwrap()); }
   void put_atom(PlAtom a)                                  { Plx_put_atom(unwrap(), a.unwrap()); }
@@ -572,8 +605,14 @@ public:
   // they fail (because of the wrong Prolog type). If you want to be
   // safe, use is_XXX() first to verify the type.
 
-  const std::string as_string(PlEncoding enc=ENC_OUTPUT) const;
-  const std::wstring as_wstring() const;
+  const std::string as_string(PlEncoding enc=ENC_OUTPUT) const
+  { return get_nchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|static_cast<unsigned int>(enc));
+  }
+
+  const std::wstring as_wstring() const
+  { return get_wchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE);
+  }
+
   long          as_long()     const { long          v; integer(&v); return v; }
   int32_t       as_int32_t()  const { int32_t       v; integer(&v); return v; }
   uint32_t      as_uint32_t() const { uint32_t      v; integer(&v); return v; }
@@ -590,10 +629,6 @@ public:
   void *        as_pointer()  const; // TODO: replace with C++ interface to blobs
 
   // TODO: PL_get_mpz(), PL_getr_mpq()
-
-  const std::string get_nchars(unsigned int flags) const;
-
-  // TODO: std::wstring get_wchars(unsigned int flags) const;
 
   PlAtom as_atom() const;
   [[nodiscard]] bool eq_if_atom(PlAtom a) const;
@@ -613,20 +648,20 @@ public:
   // with implicit or explicit cast from, e.g. PlAtom to PlTerm
 
 						/* UNIFY */
-  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(const PlTerm& t2)   const { return unify_term(t2); }
-  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(const PlAtom& a)    const { return unify_atom(a); }
-  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(const char *v)      const { return unify_atom(v); }
-  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(const wchar_t *v)   const { return unify_atom(v); }
-  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(intptr_t v)         const { return unify_integer(v); }
-  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(double v)           const { return unify_float(v); }
-  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(const PlFunctor& f) const { return unify_functor(f); }
+  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(PlTerm t2)        const { return unify_term(t2); }
+  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(PlAtom a)         const { return unify_atom(a); }
+  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(const char *v)    const { return unify_atom(v); }
+  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(const wchar_t *v) const { return unify_atom(v); }
+  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(intptr_t v)       const { return unify_integer(v); }
+  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(double v)         const { return unify_float(v); }
+  [[deprecated("use unify_*()")]] [[nodiscard]] bool operator =(PlFunctor f)      const { return unify_functor(f); }
 
   // All the unify_*() methods check for an exception (and throw), so
   // the return code is whether the unification succeeded or not.
   // TODO: replace PL_unify_*() with PL_unify_string() and flags, where appropriate
   // TODO: encodings for char*, std::string
-  [[nodiscard]] bool unify_term(const PlTerm& t2)        const { return Plx_unify(unwrap(), t2.unwrap()); }
-  [[nodiscard]] bool unify_atom(const PlAtom& a)         const { return Plx_unify_atom(unwrap(), a.unwrap()); }
+  [[nodiscard]] bool unify_term(PlTerm t2) const { return Plx_unify(unwrap(), t2.unwrap()); }
+  [[nodiscard]] bool unify_atom(PlAtom a)  const { return Plx_unify_atom(unwrap(), a.unwrap()); }
   [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s) const { return Plx_unify_chars(unwrap(), flags, len, s); }
   [[nodiscard]] bool unify_chars(int flags, const std::string& s) const { return Plx_unify_chars(unwrap(), flags, s.size(), s.data()); }
   [[nodiscard]] bool unify_atom(const char*           v) const { return Plx_unify_atom_chars(unwrap(), v); }
@@ -650,8 +685,8 @@ public:
   [[nodiscard]] bool unify_integer(unsigned short     v) const { return Plx_unify_uint64(unwrap(), v); }
   [[nodiscard]] bool unify_float(double               v) const { return Plx_unify_float(unwrap(), v); }
   [[nodiscard]] bool unify_string(const std::string&  v) const { return Plx_unify_string_nchars(unwrap(), v.size(), v.data()); }
-  [[nodiscard]] bool unify_string(const std::wstring& v) const { return Plx_unify_wchars(unwrap(), PL_STRING, v.size(), v.data()); }
-  [[nodiscard]] bool unify_functor(const PlFunctor&   f) const { return Plx_unify_functor(unwrap(), f.unwrap()); }
+  [[nodiscard]] bool unify_wstring(const std::wstring& v) const { return Plx_unify_wchars(unwrap(), PL_STRING, v.size(), v.data()); }
+  [[nodiscard]] bool unify_functor(PlFunctor          f) const { return Plx_unify_functor(unwrap(), f.unwrap()); }
   [[nodiscard]] bool unify_pointer(void *ptr)            const { return Plx_unify_pointer(unwrap(), ptr); } // TODO: replace with C++ interface to blobs
   [[nodiscard]] bool unify_nil()                         const { return Plx_unify_nil(unwrap()); }
   [[nodiscard]] bool unify_list(PlTerm h, PlTerm t)      const { return Plx_unify_list(unwrap(), h.unwrap(), t.unwrap()); }
@@ -666,35 +701,33 @@ public:
   // TODO: PL_unify_mpz(), PL_unify_mpq()
 
 					/* Comparison standard order terms */
-  [[nodiscard]] int compare(const PlTerm& t2) const { return Plx_compare(unwrap(), t2.unwrap()); }
-  // TODO: operator == should be `override`
-  bool operator ==(const PlTerm& t2) const /*override*/ { return compare(t2) == 0; }
-  bool operator !=(const PlTerm& t2) const /*override*/ { return compare(t2) != 0; }
-  bool operator < (const PlTerm& t2) const { return compare(t2) <  0; }
-  bool operator > (const PlTerm& t2) const { return compare(t2) >  0; }
-  bool operator <=(const PlTerm& t2) const { return compare(t2) <= 0; }
-  bool operator >=(const PlTerm& t2) const { return compare(t2) >= 0; }
+  [[nodiscard]] int compare(PlTerm t2) const { return Plx_compare(unwrap(), t2.unwrap()); }
+  bool operator ==(PlTerm t2) const { return compare(t2) == 0; }
+  bool operator !=(PlTerm t2) const { return compare(t2) != 0; }
+  bool operator < (PlTerm t2) const { return compare(t2) <  0; }
+  bool operator > (PlTerm t2) const { return compare(t2) >  0; }
+  bool operator <=(PlTerm t2) const { return compare(t2) <= 0; }
+  bool operator >=(PlTerm t2) const { return compare(t2) >= 0; }
 					/* comparison (long) */
-  /* TODO: uint64_t; but that requires adding a lot of overloaded methods */
-  bool operator ==(int64_t v) const;
-  bool operator !=(int64_t v) const;
-  bool operator < (int64_t v) const;
-  bool operator > (int64_t v) const;
-  bool operator <=(int64_t v) const;
-  bool operator >=(int64_t v) const;
+  [[deprecated("use as_int64_t()")]] bool operator ==(int64_t v) const;
+  [[deprecated("use as_int64_t()")]] bool operator !=(int64_t v) const;
+  [[deprecated("use as_int64_t()")]] bool operator < (int64_t v) const;
+  [[deprecated("use as_int64_t()")]] bool operator > (int64_t v) const;
+  [[deprecated("use as_int64_t()")]] bool operator <=(int64_t v) const;
+  [[deprecated("use as_int64_t()")]] bool operator >=(int64_t v) const;
 
 					/* comparison (atom, string) */
-  [[deprecated("use as_string()")]] bool operator ==(const char *s) const { return eq(s); }
-  [[deprecated("use as_string()")]] bool operator ==(const wchar_t *s) const { return eq(s); }
-  [[deprecated("use as_string()")]] bool operator ==(const std::string& s) const { return eq(s); }
-  bool operator ==(const std::wstring& s) const { return eq(s); }
-  bool operator ==(const PlAtom& a) const { return eq(a); }
+  [[deprecated("use as_string()")]] bool operator ==(const char *s)         const { return eq(s); }
+  [[deprecated("use as_string()")]] bool operator ==(const wchar_t *s)      const { return eq(s); }
+  [[deprecated("use as_wstring()")]] bool operator ==(const std::string& s) const { return eq(s); }
+  [[deprecated("use as_wstring()")]] bool operator ==(const std::wstring& s) const { return eq(s); }
+  [[deprecated("use as_atom()")]]   bool operator ==(PlAtom a)              const { return eq(a); }
 
-  [[deprecated("use as_string()")]] bool operator !=(const char *s)         const { return !eq(s); }
-  bool operator !=(const wchar_t *s)      const { return !(eq(s)); }
-  [[deprecated("use as_string()")]] bool operator !=(const std::string& s)  const { return !eq(s); }
-  bool operator !=(const std::wstring& s) const { return !eq(s); }
-  bool operator !=(const PlAtom& a)       const { return !eq(a); }
+  [[deprecated("use as_string()")]]  bool operator !=(const char *s)         const { return !eq(s); }
+  [[deprecated("use as_wstring()")]] bool operator !=(const wchar_t *s)      const { return !(eq(s)); }
+  [[deprecated("use as_string()")]]  bool operator !=(const std::string& s)  const { return !eq(s); }
+  [[deprecated("use as_wstring()")]] bool operator !=(const std::wstring& s) const { return !eq(s); }
+  [[deprecated("use as_atom()")]]    bool operator !=(PlAtom a)              const { return !eq(a); }
 
   // E.g.: t.write(Serror, 1200, PL_WRT_QUOTED);
   [[nodiscard]] int write(IOSTREAM *s, int precedence, int flags) const
@@ -704,12 +737,18 @@ public:
 
   void reset_term_refs() { Plx_reset_term_refs(unwrap()); }
 
+  int call(PlModule module = PlModule()) const { return Plx_call(unwrap(), module.unwrap()); }
+
 private:
   bool eq(const char *s) const;
   bool eq(const wchar_t *s) const;
   bool eq(const std::string& s) const;
   bool eq(const std::wstring& s) const;
-  bool eq(const PlAtom& a) const;
+  bool eq(PlAtom a) const;
+
+  // _get_nchars(), _get_wchars() are deprecated but are used internally (and safely):
+  [[nodiscard]] bool _get_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_nchars(unwrap(), len, s, flags); }
+  [[nodiscard]] bool _get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return Plx_get_wchars(unwrap(), length, s, flags); }
 };
 
 
@@ -719,7 +758,7 @@ public:
   // TODO: Add encoding for char*, std::string.
   //       For now, these are safe only with ASCII (PlEncoding::Latin1):
   explicit PlTerm_atom(atom_t a)                 { Plx_put_atom(unwrap(), a); }
-  explicit PlTerm_atom(const PlAtom& a)          { Plx_put_atom(unwrap(), a.unwrap()); }
+  explicit PlTerm_atom(PlAtom a)                 { Plx_put_atom(unwrap(), a.unwrap()); }
   explicit PlTerm_atom(const char *text)         { Plx_put_atom_chars(unwrap(), text); } // TODO: add encoding
   explicit PlTerm_atom(const wchar_t *text)      { PlEx<bool>(Plx_unify_wchars(unwrap(), PL_ATOM, static_cast<size_t>(-1), text)); }
   explicit PlTerm_atom(const std::string& text)  { Plx_put_atom_nchars(unwrap(), text.size(), text.data()); } // TODO: add encoding
@@ -822,7 +861,7 @@ public:
   { if ( size_  )
       PlEx<bool>(a0_ != (term_t)0);
   }
-  explicit PlTermv(size_t n, const PlTerm& t0)
+  explicit PlTermv(size_t n, PlTerm t0)
     : size_(n),
       a0_(t0.unwrap())
   { // Assume that t0 is valid - it can be if 0 if PREDICATE_NONDET is
@@ -846,12 +885,12 @@ public:
   // TODO: PlTermv copy_term_ref() const
 
 					/* create from args */
-  explicit PlTermv(const PlAtom& a);
-  explicit PlTermv(const PlTerm& m0);
-  explicit PlTermv(const PlTerm& m0, const PlTerm& m1);
-  explicit PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2);
-  explicit PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2, const PlTerm& m3);
-  explicit PlTermv(const PlTerm& m0, const PlTerm& m1, const PlTerm& m2, const PlTerm& m3, const PlTerm& m4);
+  explicit PlTermv(PlAtom a);
+  explicit PlTermv(PlTerm m0);
+  explicit PlTermv(PlTerm m0, PlTerm m1);
+  explicit PlTermv(PlTerm m0, PlTerm m1, PlTerm m2);
+  explicit PlTermv(PlTerm m0, PlTerm m1, PlTerm m2, PlTerm m3);
+  explicit PlTermv(PlTerm m0, PlTerm m1, PlTerm m2, PlTerm m3, PlTerm m4);
 
   PlTerm operator [](size_t n) const;
 };
@@ -918,8 +957,10 @@ public:
   PlRecord(const PlRecord& r)
     : WrappedC<record_t>(r)
   { }
+
   PlRecord& operator =(const PlRecord& r)
-  { reset(r);
+  { if ( this != &r )
+      reset(r);
     return *this;
   }
 
@@ -955,7 +996,7 @@ public:
 };
 
 
-class PlRecordExternalCopy // TODO: public WrappedC<std::string>
+class PlRecordExternalCopy
 {
 private:
   std::string C_ = "";
@@ -1016,10 +1057,10 @@ private:
 class PlException : public PlExceptionBase
 {
 public:
-  explicit PlException(const PlTerm& t)
+  explicit PlException(PlTerm t)
     : term_rec_(t) { }
 
-  explicit PlException(const PlAtom& a)
+  explicit PlException(PlAtom a)
     : term_rec_(PlTerm_atom(a)) { }
 
   PlException(const PlException& e)
@@ -1084,21 +1125,21 @@ protected:
 
 PlException PlGeneralError(PlTerm inside);
 
-PlException PlTypeError(const std::string& expected, const PlTerm& actual);
+PlException PlTypeError(const std::string& expected, PlTerm actual);
 
-PlException PlDomainError(const std::string& expected, const PlTerm& actual);
+PlException PlDomainError(const std::string& expected, PlTerm actual);
 
-PlException PlDomainError(const PlTerm& expected, const PlTerm& actual);
+PlException PlDomainError(PlTerm expected, PlTerm actual);
 
-PlException PlInstantiationError(const PlTerm& t);
+PlException PlInstantiationError(PlTerm t);
 
-PlException PlUninstantiationError(const PlTerm& t);
+PlException PlUninstantiationError(PlTerm t);
 
 PlException PlRepresentationError(const std::string& resource);
 
 PlException PlExistenceError(const std::string& type, PlTerm actual);
 
-PlException PlPermissionError(const std::string& op, const std::string& type, const PlTerm& obj);
+PlException PlPermissionError(const std::string& op, const std::string& type, PlTerm obj);
 
 PlException PlResourceError(const std::string& resource);
 
@@ -1113,7 +1154,7 @@ PlWrap(C_t rc, qid_t qid)
   return rc;
 }
 
-void PlEx_fail(qid_t qid);
+void PlEx_fail(qid_t qid = 0);
 
 template<typename C_t> void
 PlEx(C_t rc, qid_t qid)
@@ -1135,7 +1176,7 @@ PlCheckFail(bool rc)
 class PlTerm_tail : public PlTerm
 {
 public:
-  explicit PlTerm_tail(const PlTerm& l);
+  explicit PlTerm_tail(PlTerm l);
 
 					/* building */
   [[nodiscard]] bool append(PlTerm e);
@@ -1357,6 +1398,7 @@ int PlCall(const std::string& module, const std::string& predicate, const PlTerm
 int PlCall(const std::string& goal, int flags = PL_Q_PASS_EXCEPTION);
 int PlCall(const std::wstring& goal, int flags = PL_Q_PASS_EXCEPTION);
 int PlCall(PlTerm goal, int flags = PL_Q_PASS_EXCEPTION);
+
 		 /*******************************
 		 *	      ENGINE		*
 		 *******************************/

@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker and Peter Ludemann
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2022-2023, SWI-Prolog Solutions b.v.
+    Copyright (c)  2022-2024, SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -1954,9 +1954,8 @@ static std::vector<std::string> lookup_unifies =
 
 PREDICATE(lookup_unify, 1)
 { PlFrame fr;
-  for (auto& s : lookup_unifies )
-  { PlCompound t(s);
-    if ( A1.unify_term(t) )
+  for ( auto& s : lookup_unifies )
+  { if ( A1.unify_term(PlCompound(s)) )
       return true;
     fr.rewind();
   }

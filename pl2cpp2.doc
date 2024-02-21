@@ -25,7 +25,7 @@ Prolog errors are now converted to C++ exceptions (which contain
 the exception term rather being a subclass of \ctype{PlTerm} as in
 version 1), where they can be caught and thrown using the usual C++
 mechanisms; and the subclasses that create exceptions have been
-changed to functions.  In addition, an exception type \ctype{PlFail}
+changed to functions.  In addition, an exception type \except{PlFail}
 has been added, together with \ctype{PlCheckFail}, to allow more compact
 code by ``short circuit’’ return to Prolog on failure.
 
@@ -66,19 +66,19 @@ More specifically:
     convenience function PlCheckFail(rc) can be used to
     throw PlFail() if \const{false} is returned from a function in
     \file{SWI-Prolog.h}.  If the wrapper functions or class methods
-    are used, Prolog errors result in a C++ \ctype{PlException}
+    are used, Prolog errors result in a C++ \except{PlException}
     exception.\footnote{If a ``Plx_’’ wrapper is used to call a
     \file{SWI-Prolog.h} function, a Prolog error will have already
-    resulted in throwing \ctype{PlException}};
+    resulted in throwing \except{PlException}};
     PlCheckFail(rc) is used to additionally throw
-    \ctype{PlFail}, similar to returning \const{false} from the
+    \except{PlFail}, similar to returning \const{false} from the
     top-level of a foreign predicate - Prolog will check for an error
     and call throw/1 if appropriate.
 \item
-    The \ctype{PlException} class is now a subclass of \ctype{std::exception}
+    The \except{PlException} class is now a subclass of \except{std::exception}
     and encapsulates a Prolog error.
     Prolog errors are converted into \exam{throw PlException(...)}.
-    If the user code does not catch the \ctype{PlException}, the PREDICATE()
+    If the user code does not catch the \except{PlException}, the PREDICATE()
     macro converts the error to a Prolog error upon return to the
     Prolog caller.
 \item
@@ -90,7 +90,7 @@ More specifically:
     The ``cast’’ operators (e.g., \exam{(char*)t}, \exam{(int64_t)t},
     \exam{static_cast<char*>(t)})
     have been deprecated, replaced by ``getters’’ (e.g.,
-    \exam{t.as_string()}, \exam{t.as_int64_t()}.
+    \exam{t.as_string()}, \exam{t.as_int64_t()}).
   \item
     The overloaded assignment operator for unification is deprecated,
     replaced by \cfuncref{PlTerm::unify_term}{}, \cfuncref{PlTerm::unify_atom}{},
@@ -291,16 +291,16 @@ functions except that where appropriate they check for exceptions and
 thrown a PlException().
 
 Addditionally, the function PlCheckFail() can be used to
-check for failure and throw a \ctype{PlFail} exception that
+check for failure and throw a \except{PlFail} exception that
 is handled before returning to Prolog with failure.
 
 The following three snippets do essentially the same thing (for
 implementing the equivalent of =/2); however the first version (with
 PlTerm::unify_term()) and second version (with Plx_unify()) throw a
-C++ \ctype{PlExceptionFail} exception if there's an error and
+C++ \except{PlExceptionFail} exception if there's an error and
 otherwise return \const{true} or \const{false}; the third version
-(with \cfuncref{PlCheckFail}{}) throws a \ctype{PlFail} exception for
-failure (and \ctype{PlExceptionFail} for an error) and otherwise
+(with \cfuncref{PlCheckFail}{}) throws a \except{PlFail} exception for
+failure (and \except{PlExceptionFail} for an error) and otherwise
 returns \const{true} - the PREDICATE() wrapper handles all of these
 appropriately and reports the same result back to Prolog; but you
 might wish to distinguish the two situations in more complex code.
@@ -370,7 +370,7 @@ Some functions return \const{false} to indicate either failure or an
 error, for example PlTerm::unify_term(); for such methods, a check is
 made for an error and an exception is thrown, so the return value of
 \const{false} only means failure. (The whole thing can be wrapped in
-PlCheckFail(), in which case a \ctype{PlFail} exception is thrown,
+PlCheckFail(), in which case a \except{PlFail} exception is thrown,
 which is converted to failure in Prolog.)  For more on this, see
 \secref{cpp2-wrapper-functions}, and for handling failure, see
 \secref{cpp2-plframe}.
@@ -407,8 +407,8 @@ value).
 In many situations, you will be using a term; for these, there are
 special constructors. For example:
 \begin{code}
-PlTerm_atom foo(’’foo’’); // Same as PlTerm(PlAtom(’’foo’’)
-PlTerm_string str(’’a string’’);
+PlTerm_atom foo("foo"); // Same as PlTerm(PlAtom("foo"))
+PlTerm_string str("a string");
 \end{code}
 
 To help avoid programming errors, some of the classes do not have a
@@ -554,11 +554,11 @@ representation of a Prolog module.
 Represents opening and enumerating the solutions to a Prolog query.
     \classitem{PlException}
 If a call to Prolog results in an error, the C++ interface converts
-the error into a \ctype{PlException} object and throws it. If the
-enclosing code doesn't intercept the exception, the \ctype{PlException}
+the error into a \except{PlException} object and throws it. If the
+enclosing code doesn't intercept the exception, the \except{PlException}
 object is turned back into a Prolog error when control returns to Prolog
-from the PREDICATE() macros. This is a subclass of \ctype{PlExceptionBase},
-which is a subclass of \ctype{std::exception}.
+from the PREDICATE() macros. This is a subclass of \except{PlExceptionBase},
+which is a subclass of \except{std::exception}.
     \classitem{PlFrame}
 This utility-class can be used to discard unused term-references as well
 as to do `\jargon{data-backtracking}'.
@@ -575,27 +575,27 @@ Can be thrown to short-circuit processing and return failure to
 Prolog.  Performance-critical code should use \exam{return false}
 instead if failure is expected. An error can be signaled by calling
 Plx_raise_exception() or one of the PL_*_error() functions and then
-throwing \ctype{PlFail}; but it's better style to create the error
-throwing one of the subclasses of \ctype{PlException} e.g.,
+throwing \except{PlFail}; but it's better style to create the error
+throwing one of the subclasses of \except{PlException} e.g.,
 \exam{throw PlTypeError("int", t)}.
-Subclass of \ctype{PlExceptionFailBase}.
+Subclass of \except{PlExceptionFailBase}.
 
     \classitem{PlExceptionFail}
 In some situations, a Prolog error cannot be turned into a
-\ctype{PlException} object, so a \ctype{PlExceptionFail} object
+\except{PlException} object, so a \except{PlExceptionFail} object
 is thrown. This is turned into failure by the PREDICATE()
 macro, resulting in normal Prolog error handling.
-Subclass of \ctype{PlExceptionFailBase}.
+Subclass of \except{PlExceptionFailBase}.
 
     \classitem{PlExceptionBase}
-A ``do nothing’’ subclass of \ctype{std::exception}, to allow catching
-\ctype{PlException}, \ctype{PlExceptionFail} or \ctype{PlFail}
+A ``do nothing’’ subclass of \except{std::exception}, to allow catching
+\except{PlException}, \except{PlExceptionFail} or \except{PlFail}
 in a single ``catch’’ clause.
 
     \classitem{PlExceptionFailBase}
-A ``do nothing’’ subclass of \ctype{PlExceptionBase}, to allow catching
-\ctype{PlExceptionFail} or \ctype{PlFail}
-in a single ``catch’’ clause, excluding \ctype{PlException}.
+A ``do nothing’’ subclass of \except{PlExceptionBase}, to allow catching
+\except{PlExceptionFail} or \except{PlFail}
+in a single ``catch’’ clause, excluding \except{PlException}.
 
 \end{description}
 
@@ -615,7 +615,7 @@ the wrapped function:
   \item
     ``exception wrapper’’ - the PL_*() function can return \const{false},
     indicating an error. The Plx_*() function checks for this and
-    throws a \ctype{PlException} object containing the error.  The
+    throws a \except{PlException} object containing the error.  The
     wrapper uses \exam{template<typename C_t> C_t PlEx(C_t rc)},
     where \exam{C_t} is the return type of the PL_*() function.
 
@@ -623,7 +623,7 @@ the wrapped function:
     ``success, failure, or error’’ - the PL_*() function can return
     \const{true} if it succeeds and \const{false} if it fails or has a
     runtime error. If it fails, the wrapper checks for a Prolog error
-    and throws a \ctype{PlException} object containing the error.  The
+    and throws a \except{PlException} object containing the error.  The
     wrapper uses \exam{template<typename C_t> C_t PlWrap(C_t rc)},
     where \exam{C_t} is the return type of the PL_*() function.
 
@@ -728,9 +728,9 @@ PREDICATE(mypred, 2)
 
 For functions in \file{SWI-Prolog.h} that don't have a C++ equivalent
 in \file{SWI-cpp2.h}, \cfuncref{PlCheckFail}{} is a convenience
-function that checks the return code and throws a \ctype{PlFail}
-exception on failure or \ctype{PlException} if there was an
-exception. The enclosing PREDICATE() code catches \ctype{PlFail}
+function that checks the return code and throws a \except{PlFail}
+exception on failure or \except{PlException} if there was an
+exception. The enclosing PREDICATE() code catches \except{PlFail}
 exceptions and converts them to the \ctype{foreign_t} return code for
 failure.  If the failure from the C function was due to an exception
 (e.g., unification failed because of an out-of-memory condition), the
@@ -790,7 +790,7 @@ PlTerm(), PlTerm_atom(), and PlTerm_integer.  All of the constructors
 are ``explicit’’ because implicit creation of \ctype{PlTerm} objects
 can lead to subtle and difficult to debug errors.
 
-If a constructor fails (e.g., out of memory), a \ctype{PlException} is
+If a constructor fails (e.g., out of memory), a \except{PlException} is
 thrown.  The class and subclass constructors are as follows.
 
 \begin{description}
@@ -870,6 +870,8 @@ PREDICATE(free_my_object, 1)
     \constructor{PlTerm_string}{}
 Subclass of \ctype{PlTerm} with constructors for building
 a term that contains a Prolog string object.
+For constructing a term from the text form, see
+\ctype{PlCompound}.
     \constructor{PlTerm_list_codes}{}
 Subclass of \ctype{PlTerm} with constructors for building
 Prolog lists of character integer values.
@@ -953,23 +955,23 @@ The methods are:
   \cfunction{bool}{PlTerm::is_functor}{PlFunctor f} Wrappper of PL_is_functor(), throwing an exception on Prolog error.
   \cfunction{bool}{PlTerm::is_blob}{PL_blob_t **type} Wrappper of PL_is_blob(), throwing an exception on Prolog error.
 
-  \cfunction{void}{PlTerm::must_be_attvar}{}   Throw \ctype{PlTypeError} if PlTerm::is_attvar() fails.
-  \cfunction{void}{PlTerm::must_be_variable}{} Throw \ctype{PlTypeError} if PlTerm::is_variable() fails.
-  \cfunction{void}{PlTerm::must_be_ground}{}   Throw \ctype{PlTypeError} if PlTerm::is_ground() fails.
-  \cfunction{void}{PlTerm::must_be_atom}{}     Throw \ctype{PlTypeError} if PlTerm::is_atom() fails.
-  \cfunction{void}{PlTerm::must_be_integer}{}  Throw \ctype{PlTypeError} if PlTerm::is_integer() fails.
-  \cfunction{void}{PlTerm::must_be_string}{}   Throw \ctype{PlTypeError} if PlTerm::is_string() fails.
-  \cfunction{void}{PlTerm::must_be_atom_or_string}{} Throw \ctype{PlTypeError} if PlTerm::is_atom_or_string() fails.
-  \cfunction{void}{PlTerm::must_be_float}{}    Throw \ctype{PlTypeError} if PlTerm::is_float() fails.
-  \cfunction{void}{PlTerm::must_be_rational}{} Throw \ctype{PlTypeError} if PlTerm::is_rational() fails.
-  \cfunction{void}{PlTerm::must_be_compound}{} Throw \ctype{PlTypeError} if PlTerm::is_compound() fails.
-  \cfunction{void}{PlTerm::must_be_callable}{} Throw \ctype{PlTypeError} if PlTerm::is_callable() fails.
-  \cfunction{void}{PlTerm::must_be_list}{}     Throw \ctype{PlTypeError} if PlTerm::is_list() fails.
-  \cfunction{void}{PlTerm::must_be_dict}{}     Throw \ctype{PlTypeError} if PlTerm::is_dict() fails.
-  \cfunction{void}{PlTerm::must_be_pair}{}     Throw \ctype{PlTypeError} if PlTerm::is_pair() fails.
-  \cfunction{void}{PlTerm::must_be_atomic}{}   Throw \ctype{PlTypeError} if PlTerm::is_atomic() fails.
-  \cfunction{void}{PlTerm::must_be_number}{}   Throw \ctype{PlTypeError} if PlTerm::is_number() fails.
-  \cfunction{void}{PlTerm::must_be_acyclic}{}  Throw \ctype{PlTypeError} if PlTerm::is_acyclic() fails.
+  \cfunction{void}{PlTerm::must_be_attvar}{}   Throw \except{PlTypeError} if PlTerm::is_attvar() fails.
+  \cfunction{void}{PlTerm::must_be_variable}{} Throw \except{PlTypeError} if PlTerm::is_variable() fails.
+  \cfunction{void}{PlTerm::must_be_ground}{}   Throw \except{PlTypeError} if PlTerm::is_ground() fails.
+  \cfunction{void}{PlTerm::must_be_atom}{}     Throw \except{PlTypeError} if PlTerm::is_atom() fails.
+  \cfunction{void}{PlTerm::must_be_integer}{}  Throw \except{PlTypeError} if PlTerm::is_integer() fails.
+  \cfunction{void}{PlTerm::must_be_string}{}   Throw \except{PlTypeError} if PlTerm::is_string() fails.
+  \cfunction{void}{PlTerm::must_be_atom_or_string}{} Throw \except{PlTypeError} if PlTerm::is_atom_or_string() fails.
+  \cfunction{void}{PlTerm::must_be_float}{}    Throw \except{PlTypeError} if PlTerm::is_float() fails.
+  \cfunction{void}{PlTerm::must_be_rational}{} Throw \except{PlTypeError} if PlTerm::is_rational() fails.
+  \cfunction{void}{PlTerm::must_be_compound}{} Throw \except{PlTypeError} if PlTerm::is_compound() fails.
+  \cfunction{void}{PlTerm::must_be_callable}{} Throw \except{PlTypeError} if PlTerm::is_callable() fails.
+  \cfunction{void}{PlTerm::must_be_list}{}     Throw \except{PlTypeError} if PlTerm::is_list() fails.
+  \cfunction{void}{PlTerm::must_be_dict}{}     Throw \except{PlTypeError} if PlTerm::is_dict() fails.
+  \cfunction{void}{PlTerm::must_be_pair}{}     Throw \except{PlTypeError} if PlTerm::is_pair() fails.
+  \cfunction{void}{PlTerm::must_be_atomic}{}   Throw \except{PlTypeError} if PlTerm::is_atomic() fails.
+  \cfunction{void}{PlTerm::must_be_number}{}   Throw \except{PlTypeError} if PlTerm::is_number() fails.
+  \cfunction{void}{PlTerm::must_be_acyclic}{}  Throw \except{PlTypeError} if PlTerm::is_acyclic() fails.
 
   \cfunction{void}{PlTerm::put_variable}{}                                      Wrapper of PL_put_variable(), throwing an exception on Prolog error.
   \cfunction{void}{PlTerm::put_atom}{PlAtom a}                                  Wrapper of PL_put_atom(), throwing an exception on Prolog error.
@@ -1051,12 +1053,12 @@ The methods are:
   \cfunction{PlTerm::operator []}{size_t index} Wrapper for PL_get_arg(),
     throwing an exception if the term isn't a compound or the index is
     out of range.
-  \cfunction{size_t}{PlTerm::arity}{} Gets the arity of the term; throws \ctype{PlTypeError} if not a "compound" or atom.
-  \cfunction{PlAtom}{PlTerm::name}{} Gets the name of the term; \ctype{PlTypeError} if not a "compound" or atom.
+  \cfunction{size_t}{PlTerm::arity}{} Gets the arity of the term; throws \except{PlTypeError} if not a "compound" or atom.
+  \cfunction{PlAtom}{PlTerm::name}{} Gets the name of the term; \except{PlTypeError} if not a "compound" or atom.
   \cfunction{bool}{name_arity}{PlAtom *name, size_t *arity} Wrapper of PL_get_name_arity(); \arg{name} and/or \arg{arity} can be \const{nullptr}. Returns \const{false} if the term
   isn't a compound or atom.
   \cfunction{PlTerm}{PlTerm::copy_term_ref}{} Wrapper of PL_copy_term_ref(). Throws
-    an exception error (e.g., \ctype{PlResourceError}).
+    an exception error (e.g., \except{PlResourceError}).
   \cfunction{bool}{nify_term}{PlTerm t2} Wrapper of PL_unify(). Throws an exception
     on error and returns \const{false} if unification fails. If on failure, there
     isn't an immediate return to Prolog (e.g., by wrapping the call with
@@ -1531,7 +1533,7 @@ that it can raise a Prolog error.
 \label{sec:cpp2-blobs-exceptions}
 
 When a blob is used in the context of a PREDICATE() macro, it can
-raise a C++ exception (\ctype{PlFail} or \ctype{PlException}) and the
+raise a C++ exception (\except{PlFail} or \except{PlException}) and the
 PREDICATE() code will convert the exception to the appropriate Prolog
 failure or error; memory allocation exceptions are also handled.
 
@@ -1555,8 +1557,8 @@ PREDICATE(). Their exception handling is as follows:
       a return value of \const{PlAtom::null}, which is interpreted by
       Prolog as failure.
 \item pre_delete(), which is called from PlBLobV<MyBLOB>::release(),
-      can return \const{false} (or throw a \ctype{PlException} or
-      \ctype{PlExceptinFailBase}, which will be interpreted as a
+      can return \const{false} (or throw a \except{PlException} or
+      \except{PlExceptinFailBase}, which will be interpreted as a
       return value of \const{false}), resulting in the blob not being
       garbage collected, and the destructor not being called.  Note
       that this doesn't work well with final clean-up atom garbage
@@ -1984,8 +1986,8 @@ PL_release_stream() creates the error term. The
 \ctype{PlStream} destructor calls PL_release_stream(); but
 it's a fatal error in C++ to raise an exception in a destructor if the
 destructor is invoked by stack-unwinding due to another exception,
-including the pseudo-exceptions \ctype{PlFail} and
-\ctype{PlExceptionFail}.
+including the pseudo-exceptions \except{PlFail} and
+\except{PlExceptionFail}.
 
 To get around this, the various stream I/O functions have wrapper
 methods in the \ctype{PlStream} class that check for an error
@@ -2388,9 +2390,9 @@ Here is a list of typical changes:
 
   \item
     You can use the \cfuncref{PlCheck_PL}{rc} to check the return code
-    from a function in \file{SWI-Prolog} and throw a \ctype{PlFail}
+    from a function in \file{SWI-Prolog} and throw a \except{PlFail}
     exception to short-circuit execution and return failure (\const{false})
-    to Prolog (or throw a \ctype{PlException} if there was a Prolog error.
+    to Prolog (or throw a \except{PlException} if there was a Prolog error.
 
   \item
     \exam{PlAtom::handle} has been replaced by \exam{PlAtom::C_},
@@ -2428,7 +2430,7 @@ Here is a list of typical changes:
 \section{The class PlFail (version 2)}
 \label{sec:cpp2-plfail}
 
-The \ctype{PlFail} class is used for short-circuiting a function when
+The \except{PlFail} class is used for short-circuiting a function when
 failure or an exception occurs and any errors will be handled in the
 code generated by the PREDICATE() macro. See also
 \secref{cpp2-exceptions-notes}).
@@ -2477,24 +2479,24 @@ failure, this can be either a Prolog-style failure (e.g. from
 PL_unify() or PL_next_solution()) or an error. If the failure is due
 to an error, it's usually best to immediately return to Prolog - and
 this can be done with the PlCheckEx() function, which turns
-a Prolog error into a C++ \ctype{PlException}.  \cfuncref{PlCheckFail}{}
+a Prolog error into a C++ \except{PlException}.  \cfuncref{PlCheckFail}{}
 calls PlCheckEx() and additionally throws PlFail() if the failure is
 for Prolog failure.
 
 PlCheckEx() calls PL_exception() to see if there is a
 Prolog exception; if so, the Prolog exception is converted to a
-\ctype{PlException} object, which is then thrown.  For more details on
+\except{PlException} object, which is then thrown.  For more details on
 the C++ exceptions, see \secref{cpp2-exceptions}.
 
 \begin{description}
 \cfunction{void}{PlCheckFail}{bool rc}
-  If \arg{rc} is \const{false}, throw \ctype{PlFail} to return control
+  If \arg{rc} is \const{false}, throw \except{PlFail} to return control
   to Prolog with failure.
 \cfunction{C_t}{PlWrap}{C_t rc, qid_t qid = 0}
   If \arg{rc} indicates failure or an error, check for an error and throw
-  a \ctype{PlException} if there was one; otherwise, return the \arg{rc}.
+  a \except{PlException} if there was one; otherwise, return the \arg{rc}.
 \cfunction{void}{PlEx}{C_t rc, qid_t qid = 0}
-  If \arg{rc} is ``false’’ (non-zero), throw \ctype{PlFail} to return control
+  If \arg{rc} is ``false’’ (non-zero), throw \except{PlFail} to return control
   to Prolog with failure.
   This is the same as PlCheckFail() except it can also specify a
   \ctype{qid_t} query ID.
@@ -2535,7 +2537,7 @@ Each of these is communicated to Prolog by returning \const{false}
 from the top level; exceptions also set a ``global’’ exception term
 (using PL_raise_exception()). The C++ programmer usually doesn't have
 to worry about this; instead they can \exam{throw PlFail()} for
-failure or \exam{throw PlException()} (or one of \ctype{PlException}'s
+failure or \exam{throw PlException()} (or one of \except{PlException}'s
 subclasses) and the C++ API will take care of everything.
 
 \subsection{Converting PlTerm to native C and C++ types (version 2)}
@@ -2814,7 +2816,7 @@ possible undesirable effects a number of subclasses of \ctype{PlTerm}
 have been defined that provide constructors for creating special Prolog
 terms.  These subclasses are defined below.
 
-\subsection{The class PlTermString (version 2)}
+\subsection{The class PlTerm_string (version 2)}
 \label{sec:cpp2-plstring}
 
 A SWI-Prolog string represents a byte-string on the global stack.  Its
@@ -2827,15 +2829,15 @@ generally preferred to use blobs for storing arbitrary C-data structures
 
 
 \begin{description}
-    \constructor{PlString}{const wchar_t *text}
+    \constructor{PlTerm_string}{const wchar_t *text}
     \nodescription
-    \constructor{PlString}{const char *text}
+    \constructor{PlTerm_string}{const char *text}
 Create a SWI-Prolog string object from a 0-terminated C-string.  The
 \arg{text} is copied.
 
-    \constructor{PlString}{const wchar_t *text, size_t len}
+    \constructor{PlTerm_string}{const wchar_t *text, size_t len}
     \nodescription
-    \constructor{PlString}{const char *text, size_t len}
+    \constructor{PlTerm_string}{const char *text, size_t len}
 Create a SWI-Prolog string object from a C-string with specified length.
 The \arg{text} may contain 0-characters and is copied.
 \end{description}
@@ -2868,10 +2870,17 @@ C-string.
 \subsection{The class PlCompound (version 2)}
 \label{sec:cpp2-plcompound}
 
+The \ctype{PlCompound} class is a convenience class for creating
+a term from a string; it is similar to (=..)/2 
+
 \begin{description}
     \constructor{PlCompound}{const wchar_t *text}
     \nodescription
     \constructor{PlCompound}{const char *text}
+    \nodescription
+    \constructor{PlCompound}{const std::wstring\& text}
+    \nodescription
+    \constructor{PlCompound}{const std::string\& text}{PlEncoding enc=ENC_INPUT}
 Create a term by parsing (as read/1) the \arg{text}.  If the \arg{text}
 is not valid Prolog syntax, a \except{syntax_error} exception is raised.
 Otherwise a new term-reference holding the parsed text is created.
@@ -2994,7 +3003,6 @@ construction should be used:
 }
 \end{code}
 \end{description}
-
 
 \subsection{The class PlAtom - Supporting Prolog constants (version 2)}
 \label{sec:cpp2-prolog-constants}
@@ -3359,15 +3367,18 @@ PREDICATE(can_unify_ffi, 2)
 }
 \end{code}
 
-\begin{code}
-static std::vector<std::string> lookup_unifies =
-  { "item(one, 1)", "item(two, 2)", "item(three, 3)" };
+The following is C++ version of the code example for
+PL_open_foreign_frame(). The calls to PL_close_foreign_frame() and the
+check for PL_exception(0) in the C code aren't needed in the C++ code:
 
-PREDICATE(lookup_unify, 1)
+\begin{code}
+static foreign_t
+find_in_db(PlTerm target)
 { PlFrame fr;
-  for (auto& s : lookup_unifies )
-  { PlCompound t(s);
-    if ( A1.unify_term(t) )
+  PlTerm_var candidate;
+
+  while ( get_from_my_database(candidate) )
+  { if ( A1.unify_term(candidate, target)
       return true;
     fr.rewind();
   }
@@ -3670,7 +3681,7 @@ X = 3.14159
 See also \href{https://www.swi-prolog.org/pldoc/man?section=foreign-exceptions}{Prolog exceptions in foreign code}.
 
 Prolog exceptions are mapped to C++ exceptions using the class
-\ctype{PlException} (a subclass of \ctype{PlExceptionBase} to
+\except{PlException} (a subclass of \except{PlExceptionBase} to
 represent the Prolog exception term. All type-conversion functions of
 the interface raise Prolog-compliant exceptions, providing decent
 error-handling support at no extra work for the programmer.
@@ -3678,7 +3689,7 @@ error-handling support at no extra work for the programmer.
 For some commonly used exceptions, convenience functions have been
 created to exploit both their constructors for easy creation of these
 exceptions. If you wish to trap these, you should use
-\ctype{PlException} or \ctype{PlExceptionBase} and then look for the
+\except{PlException} or \except{PlExceptionBase} and then look for the
 appropriate error name. For example, the following code catches
 \exam{"type_error"} and passes all other exceptions:
 
@@ -3702,7 +3713,7 @@ PlPermissionError(), PlResourceError(), PlUnknownError(). There is
 also a PlGeneralError(inside) that creates \exam{error(inside,_)}
 terms and is used by the other error convience functions.
 
-To throw an exception, create an instance of \ctype{PlException} and
+To throw an exception, create an instance of \except{PlException} and
 use \exam{throw}. This is intercepted by the PREDICATE macro and
 turned into a Prolog exception. See \secref{cpp2-exceptions-notes}.
 
@@ -3715,7 +3726,7 @@ turned into a Prolog exception. See \secref{cpp2-exceptions-notes}.
 \subsection{The class PlException (version 2)}
 \label{sec:cpp2-plexception}
 
-This subclass of \ctype{PlExceptionBase} is used to represent
+This subclass of \except{PlExceptionBase} is used to represent
 exceptions.  Currently defined methods are:
 
 \begin{description}
@@ -3742,7 +3753,7 @@ PL_raise_exeption().
 
 
 
-\subsection{The class PlTypeError (version 2)}
+\subsubsection{The function PlTypeError (version 2)}
 \label{sec:cpp2-pl-type-error}
 
 A \jargon{type error} expresses that a term does not satisfy the
@@ -3756,7 +3767,7 @@ type.
 \end{description}
 
 
-\subsection{The class PlDomainError (version 2)}
+\subsubsection{The function PlDomainError (version 2)}
 \label{sec:cpp2-pl-domain-error}
 
 A \jargon{domain error} expresses that a term satisfies the basic
@@ -4019,7 +4030,7 @@ The Plx_*() wrappers may require small adjustments in whether their
 return values require \exam{[[nodiscard]]} or whether their return
 values should be treated as an error.
 
-The implementation of \ctype{PlException} is likely to change somewhat
+The implementation of \except{PlException} is likely to change somewhat
 in the future. Currently, to ensure that the exception term has a
 sufficient lifetime, it is serialized using PL_record_external(). In
 future, if this proves unnecessary, the term will be stored as-is.

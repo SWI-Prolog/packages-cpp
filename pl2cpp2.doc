@@ -2488,8 +2488,16 @@ the C++ exceptions, see \secref{cpp2-exceptions}.
 
 \begin{description}
 \cfunction{void}{PlCheckFail}{bool rc}
+  If \arg{rc} is \const{false}, throw \ctype{PlFail} to return control
+  to Prolog with failure.
 \cfunction{C_t}{PlWrap}{C_t rc, qid_t qid = 0}
+  If \arg{rc} indicates failure or an error, check for an error and throw
+  a \ctype{PlException} if there was one; otherwise, return the \arg{rc}.
 \cfunction{void}{PlEx}{C_t rc, qid_t qid = 0}
+  If \arg{rc} is ``false’’ (non-zero), throw \ctype{PlFail} to return control
+  to Prolog with failure.
+  This is the same as PlCheckFail() except it can also specify a
+  \ctype{qid_t} query ID.
 \end{description}
 
 \section{Overview of accessing and changing values (version 2)}
@@ -3348,6 +3356,22 @@ PREDICATE(can_unify_ffi, 2)
       do_one_thing(...);
     else
       do_another_thing(...);
+}
+\end{code}
+
+\begin{code}
+static std::vector<std::string> lookup_unifies =
+  { "item(one, 1)", "item(two, 2)", "item(three, 3)" };
+
+PREDICATE(lookup_unify, 1)
+{ PlFrame fr;
+  for (auto& s : lookup_unifies )
+  { PlCompound t(s);
+    if ( A1.unify_term(t) )
+      return true;
+    fr.rewind();
+  }
+  return false;
 }
 \end{code}
 

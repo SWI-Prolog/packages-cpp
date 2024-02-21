@@ -935,6 +935,13 @@ test(nchars, S-F == "f('a b')"-"all,variable,writeq") :-
 test(nchars, S-F == "f(\"a b\")"-"all,variable,writeq") :-
     get_nchars_string(f("a b"), [all,writeq,variable], S, F).
 
+test(lookup_unify, N == 1) :-
+    lookup_unify(item(one, N)).
+test(lookup_unify, S == three) :-
+    lookup_unify(item(S, 3)).
+test(lookup_unify, fail) :-
+    lookup_unify(xxx).
+
 test(#, S == "abc") :-
     #(abc, S).
 test(#, S == "foo(abc)") :-

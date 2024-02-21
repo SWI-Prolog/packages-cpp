@@ -68,6 +68,7 @@ how the various predicates can be called from Prolog.
 #include <limits>
 #include <string>
 #include <map>
+#include <vector>
 using namespace std;
 
 #ifdef _MSC_VER
@@ -1943,4 +1944,21 @@ PREDICATE(malloc_free, 2)
   int rc = Plx_get_nchars(A1.unwrap(), &len, &str, BUF_MALLOC|CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|REP_UTF8|CVT_EXCEPTION);
   std::unique_ptr<char, decltype(&PL_free)> _str(str, &PL_free);
   return rc && A2.unify_string(std::string(str, len));
+}
+
+static std::vector<std::string> lookup_unifies =
+  { "item(one, 1)",
+    "item(two, 2)",
+    "item(three, 3)",
+  };
+
+PREDICATE(lookup_unify, 1)
+{ PlFrame fr;
+  for (auto& s : lookup_unifies )
+  { PlCompound t(s);
+    if ( A1.unify_term(t) )
+      return true;
+    fr.rewind();
+  }
+  return false;
 }

@@ -896,6 +896,8 @@ test(blob_portray, S == "MyBlob(closed)") :-
     close_my_blob(B),
     with_output_to(string(S), print(B)).
 
+:- if(false).  % TODO: depends on CVT_NUMBER flag in SWI-Prolog.h
+
 test(nchars_flags, F-S == 0x43f-"xinteger,all") :-
     nchars_flags([xinteger,all,atomic,number], F),
     nchars_flags_string(F, S).
@@ -934,6 +936,8 @@ test(nchars, S-F == "f('a b')"-"all,variable,writeq") :-
     get_nchars_string(f('a b'), [all,writeq,variable], S, F).
 test(nchars, S-F == "f(\"a b\")"-"all,variable,writeq") :-
     get_nchars_string(f("a b"), [all,writeq,variable], S, F).
+
+:- endif.
 
 test(lookup_unify, N == 1) :-
     lookup_unify(item(one, N)).

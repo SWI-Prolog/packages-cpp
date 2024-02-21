@@ -5,7 +5,7 @@
     Author:        Jan Wielemaker and Peter Ludemann
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2022-2023, SWI-Prolog Solutions b.v.
+    Copyright (c)  2022-2024, SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -61,7 +61,7 @@ user:portray(MyBlob) :-
 %     run_tests([ cpp,
 %                 cpp_atommap,
 %                 cpp_map_str_str
-% 	      ]).
+%	      ]).
 
 test_cpp :-
     run_tests.

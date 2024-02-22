@@ -1826,7 +1826,6 @@ std::string nchars_flags_string(unsigned int flags)
   if( (flags & CVT_XINTEGER) == CVT_XINTEGER )
   { result.append(",xinteger");
     flags &= ~CVT_XINTEGER;
-    flags |= CVT_INTEGER;
   }
   append_sep(&result, &flags, "all",             CVT_ALL);
   append_sep(&result, &flags, "atomic",          CVT_ATOMIC);
@@ -1954,9 +1953,8 @@ static std::vector<std::string> lookup_unifies =
 
 PREDICATE(lookup_unify, 1)
 { PlFrame fr;
-  for (auto& s : lookup_unifies )
-  { PlCompound t(s);
-    if ( A1.unify_term(t) )
+  for ( auto& s : lookup_unifies )
+  { if ( A1.unify_term(PlCompound(s)) )
       return true;
     fr.rewind();
   }

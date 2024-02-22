@@ -90,7 +90,7 @@ More specifically:
     The ``cast’’ operators (e.g., \exam{(char*)t}, \exam{(int64_t)t},
     \exam{static_cast<char*>(t)})
     have been deprecated, replaced by ``getters’’ (e.g.,
-    \exam{t.as_string()}, \exam{t.as_int64_t()}.
+    \exam{t.as_string()}, \exam{t.as_int64_t()}).
   \item
     The overloaded assignment operator for unification is deprecated,
     replaced by \cfuncref{PlTerm::unify_term}{}, \cfuncref{PlTerm::unify_atom}{},
@@ -407,8 +407,8 @@ value).
 In many situations, you will be using a term; for these, there are
 special constructors. For example:
 \begin{code}
-PlTerm_atom foo(’’foo’’); // Same as PlTerm(PlAtom(’’foo’’)
-PlTerm_string str(’’a string’’);
+PlTerm_atom foo("foo"); // Same as PlTerm(PlAtom("foo"))
+PlTerm_string str("a string");
 \end{code}
 
 To help avoid programming errors, some of the classes do not have a
@@ -870,6 +870,8 @@ PREDICATE(free_my_object, 1)
     \constructor{PlTerm_string}{}
 Subclass of \ctype{PlTerm} with constructors for building
 a term that contains a Prolog string object.
+For constructing a term from the text form, see
+\ctype{PlCompound}.
     \constructor{PlTerm_list_codes}{}
 Subclass of \ctype{PlTerm} with constructors for building
 Prolog lists of character integer values.
@@ -1856,7 +1858,7 @@ return true;
 
   \item The argument is turned into a \ctype{MyBlob} pointer using the
       PlBlobV<MyBlob>::cast_ex() function, which will throw a
-      \const{type_error} if the argument isn't a blob of the expected
+      \except{type_error} if the argument isn't a blob of the expected
       type.
 
   \item The MyBlob::close() method is called - if it fails,
@@ -2550,7 +2552,7 @@ These are \emph{deprecated} and replaced by the various \exam{as_*()} methods.
 This cast is used for integration with the C-interface primitives.
     \cppcast{PlTerm}{long}
 Yields a \ctype{long} if the \ctype{PlTerm} is a Prolog integer or
-float that can be converted without loss to a long.  throws a
+float that can be converted without loss to a long.  Throws a
 \except{type_error} exception otherwise.
     \cppcast{PlTerm}{int}
 Same as for \ctype{long}, but might represent fewer bits.
@@ -2814,7 +2816,7 @@ possible undesirable effects a number of subclasses of \ctype{PlTerm}
 have been defined that provide constructors for creating special Prolog
 terms.  These subclasses are defined below.
 
-\subsection{The class PlTermString (version 2)}
+\subsection{The class PlTerm_string (version 2)}
 \label{sec:cpp2-plstring}
 
 A SWI-Prolog string represents a byte-string on the global stack.  Its
@@ -2825,17 +2827,16 @@ can be used to contain arbitrary C-data structures. However, it is
 generally preferred to use blobs for storing arbitrary C-data structures
 (see also \exam{PlTerm_pointer(void *ptr)}).
 
-
 \begin{description}
-    \constructor{PlString}{const wchar_t *text}
+    \constructor{PlTerm_string}{const wchar_t *text}
     \nodescription
-    \constructor{PlString}{const char *text}
+    \constructor{PlTerm_string}{const char *text}
 Create a SWI-Prolog string object from a 0-terminated C-string.  The
 \arg{text} is copied.
 
-    \constructor{PlString}{const wchar_t *text, size_t len}
+    \constructor{PlTerm_string}{const wchar_t *text, size_t len}
     \nodescription
-    \constructor{PlString}{const char *text, size_t len}
+    \constructor{PlTerm_string}{const char *text, size_t len}
 Create a SWI-Prolog string object from a C-string with specified length.
 The \arg{text} may contain 0-characters and is copied.
 \end{description}
@@ -2868,10 +2869,17 @@ C-string.
 \subsection{The class PlCompound (version 2)}
 \label{sec:cpp2-plcompound}
 
+The \ctype{PlCompound} class is a convenience class for creating
+a term from a string; it is similar to (=..)/2 
+
 \begin{description}
     \constructor{PlCompound}{const wchar_t *text}
     \nodescription
     \constructor{PlCompound}{const char *text}
+    \nodescription
+    \constructor{PlCompound}{const std::wstring\& text}
+    \nodescription
+    \constructor{PlCompound}{const std::string\& text}{PlEncoding enc=ENC_INPUT}
 Create a term by parsing (as read/1) the \arg{text}.  If the \arg{text}
 is not valid Prolog syntax, a \except{syntax_error} exception is raised.
 Otherwise a new term-reference holding the parsed text is created.
@@ -3359,6 +3367,10 @@ PREDICATE(can_unify_ffi, 2)
 }
 \end{code}
 
+The following is C++ version of the code example for
+PL_open_foreign_frame(). The calls to PL_close_foreign_frame() and the
+check for PL_exception(0) in the C code aren't needed in the C++ code:
+
 \begin{code}
 static std::vector<std::string> lookup_unifies =
   { "item(one, 1)", "item(two, 2)", "item(three, 3)" };
@@ -3742,7 +3754,7 @@ PL_raise_exeption().
 
 
 
-\subsection{The class PlTypeError (version 2)}
+\subsubsection{The function PlTypeError (version 2)}
 \label{sec:cpp2-pl-type-error}
 
 A \jargon{type error} expresses that a term does not satisfy the
@@ -3756,7 +3768,7 @@ type.
 \end{description}
 
 
-\subsection{The class PlDomainError (version 2)}
+\subsubsection{The function PlDomainError (version 2)}
 \label{sec:cpp2-pl-domain-error}
 
 A \jargon{domain error} expresses that a term satisfies the basic

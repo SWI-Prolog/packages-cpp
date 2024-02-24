@@ -606,11 +606,11 @@ public:
   // safe, use is_XXX() first to verify the type.
 
   const std::string as_string(PlEncoding enc=ENC_OUTPUT) const
-  { return get_nchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|static_cast<unsigned int>(enc));
+  { return get_nchars(CVT_ALL|CVT_WRITEQ|static_cast<unsigned int>(enc));
   }
 
   const std::wstring as_wstring() const
-  { return get_wchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE);
+  { return get_wchars(CVT_ALL|CVT_WRITEQ);
   }
 
   long          as_long()     const { long          v; integer(&v); return v; }

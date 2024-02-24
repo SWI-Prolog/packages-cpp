@@ -896,21 +896,19 @@ test(blob_portray, S == "MyBlob(closed)") :-
     close_my_blob(B),
     with_output_to(string(S), print(B)).
 
-:- if(false).  % TODO: depends on CVT_NUMBER flag in SWI-Prolog.h
-
 test(nchars_flags, F-S == 0x43f-"xinteger,all") :-
     nchars_flags([xinteger,all,atomic,number], F),
     nchars_flags_string(F, S).
-test(nchars_flags, F-S == 0x3f-"all") :-
+test(nchars_flags, F-S == 0x37-"all") :-
     nchars_flags([all,atomic,number], F),
     nchars_flags_string(F, S).
 test(nchars_flags, F-S == 0x7ff-"xinteger,all,variable,write,write_canonical,writeq") :-
     nchars_flags([atom,string,integer,list,rational,float,variable,number,atomic,write,write_canonical,writeq,all,xinteger], F),
     nchars_flags_string(F, S).
-test(nchars_flags, F-S == 0x3f-"all") :-
+test(nchars_flags, F-S == 0x37-"all") :-
     nchars_flags([atomic,list], F),
     nchars_flags_string(F, S).
-test(nchars_flags, F-S == 0x3b-"atomic") :-
+test(nchars_flags, F-S == 0x33-"atomic") :-
     nchars_flags([number,atom,string], F),
     nchars_flags_string(F, S).
 
@@ -925,19 +923,47 @@ test(nchars, error(type_error(atomic,f(a)))) :-
 test(nchars, S-F == "+(a,b)"-"all,write_canonical") :-
     get_nchars_string(a+b, [write_canonical,all], S, F).
 
-% The flags to PlTerm::as_string are [all,writeq,variable].
+% The flags to PlTerm::as_string are [all,writeq].
 % TODO: try more flag combinations
 
-test(nchars, [blocked('Should be quoted'), S-F == "'a b'"-"all,writeq,variable"]) :-
-    get_nchars_string('a b', [all,writeq,variable], S, F).
-test(nchars, [blocked('Should be quoted'), S-F == "\"a b\""-"all,writeq,variable"]) :-
-    get_nchars_string("a b", [all,writeq,variable], S, F).
-test(nchars, S-F == "f('a b')"-"all,variable,writeq") :-
-    get_nchars_string(f('a b'), [all,writeq,variable], S, F).
-test(nchars, S-F == "f(\"a b\")"-"all,variable,writeq") :-
-    get_nchars_string(f("a b"), [all,writeq,variable], S, F).
+test(nchars, [S-F == "a b"-"all,writeq"]) :-
+    get_nchars_string('a b', [all,writeq], S, F).
+test(nchars, [S-F == "a b"-"all,writeq"]) :-
+    get_nchars_string("a b", [all,writeq], S, F).
+test(nchars, [S-F == "'a b'"-"writeq"]) :-
+    get_nchars_string('a b', [writeq], S, F).
+test(nchars, [S-F == "\"a b\""-"writeq"]) :-
+    get_nchars_string("a b", [writeq], S, F).
+test(nchars, S-F == "f('a b')"-"all,writeq") :-
+    get_nchars_string(f('a b'), [all,writeq], S, F).
+test(nchars, S-F == "f(\"a b\")"-"all,writeq") :-
+    get_nchars_string(f("a b"), [all,writeq], S, F).
+test(nchars, S-F == "f(A,_,b,A)"-"writeq") :-
+    get_nchars_string(f(X,_,b,X), [writeq], S, F).
 
-:- endif.
+test(nchars, S-F == "an atom"-"atom") :-
+    get_nchars_string('an atom', [atom], S, F).
+test(nchars, S-F == "a string"-"string") :-
+    get_nchars_string("a string", [string], S, F).
+test(nchars, S-F == "abc"-"list") :-
+    get_nchars_string([a,b,c], [list], S, F).
+test(nchars, S-F == "abcd"-"list") :-
+    get_nchars_string([0'a,0'b,0'c,0'd], [list], S, F).
+test(nchars, S-F == "10r3"-"rational") :-
+    get_nchars_string(20r6, [rational], S, F).
+test(nchars, S-F == "ar3"-"xinteger,rational") :-
+    get_nchars_string(20r6, [xinteger,rational], S, F).
+test(nchars, S-F == "14"-"xinteger,rational") :-
+    get_nchars_string(20, [xinteger,rational], S, F).
+test(nchars, S-F == "14"-"xinteger") :-
+    get_nchars_string(20, [xinteger], S, F).
+test(nchars, S-F == "0.25"-"xinteger,float") :-
+    get_nchars_string(0.25, [xinteger,float], S, F).
+
+% TODO: the type_error always shows atom - but making it more accurate
+%       would be more work than it's worth.
+test(nchars, error(type_error(atom,0.25))) :-
+    get_nchars_string(0.25, [xinteger], _S, _F).
 
 test(lookup_unify, N == 1) :-
     lookup_unify(item(one, N)).

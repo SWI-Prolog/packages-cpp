@@ -97,7 +97,8 @@ More specifically:
     etc., and the helper \cfuncref{PlCheckFail}{}.
   \item
     Many of the equality and inequality operators are deprecated;
-    replaced by the \cfuncref{PlTerm::as_string}{} method and the associated
+    replaced by the PlTerm::as_string() or PlTerm::get_nchars() methods
+    and the associated
     \ctype{std::string}, comparison operators. The \cfuncref{PlTerm::as_string}{} method
     allows specifying the encoding to use whereas the \exam{==} and
     similar operators do not allow for this.
@@ -1011,9 +1012,15 @@ The methods are:
   \cfunction{void}{PlTerm::integer}{unsigned short *v} Wrapper of PL_cvt_i_ushort().
 
   \cfunction{const std::string}{PlTerm::as_string}{PlEncoding enc=ENC_OUTPUT}
-    Calls PlTerm::get_nchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|CVT_EXCEPTION).
+    Calls PlTerm::get_nchars(CVT_ALL|CVT_WRITEQ|CVT_EXCEPTION).
+    This method is provided mainly for debugging.
+    \emph{The definition is subject to change in future} - if you want precise
+    control, use PlTerm::get_nchars().
   \cfunction{const std::wstring}{PlTerm::as_wstring}{}
-    Calls PlTerm::get_wchars(CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|CVT_EXCEPTION).
+    Calls PlTerm::get_wchars(CVT_ALL|CVT_WRITEQ|CVT_EXCEPTION).
+    This method is provided mainly for debugging.
+    \emph{The definition is subject to change in future} - if you want precise
+    control, use PlTerm::get_nchars().
 
   \cfunction{long}{PlTerm::as_long}{} Wrapper of PL_cvt_i_*().
   \cfunction{int32_t}{PlTerm::as_int32_t}{} Wrapper of PL_cvt_i_*().

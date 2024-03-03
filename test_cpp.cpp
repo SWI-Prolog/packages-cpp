@@ -1490,13 +1490,16 @@ static PL_blob_t my_blob = PL_BLOB_DEFINITION(MyBlob, "my_blob");
 
 struct MyBlob : public PlBlob
 { std::unique_ptr<MyConnection> connection;
+  std::string blob_name; // for debugging ... during shutdown, connection can
+                         // be deleted before the blob is deleted
 
   explicit MyBlob()
     : PlBlob(&my_blob) { }
 
   explicit MyBlob(const std::string& connection_name)
     : PlBlob(&my_blob),
-      connection(std::make_unique<MyConnection>(connection_name))
+      connection(std::make_unique<MyConnection>(connection_name)),
+      blob_name(connection_name)
   { assert(connection); // make_unique should have thrown exception if it can't allocate
     if ( !connection->open() )
       throw MyBlobError("my_blob_open_error");
@@ -1506,7 +1509,9 @@ struct MyBlob : public PlBlob
 
   virtual ~MyBlob() noexcept
   { if ( !close() )
-      Sdprintf("***ERROR: Close MyBlob failed: %s\n", name().c_str()); // Can't use PL_warning()
+      // Can't use PL_warning()
+      Sdprintf("***ERROR: Close MyBlob failed: (%s) (%s)\n",
+               name().c_str(), blob_name.c_str());
   }
 
   inline std::string
@@ -1707,12 +1712,20 @@ private:
   std::map<const std::string, std::string> data;
 };
 
+static bool
+str_starts_with(const std::string& str, const std::string& prefix)
+{ // TODO: C20 provides std::string::starts_with()
+  return str.length() >= prefix.length() &&
+    str.substr(0, prefix.length()) == prefix;
+}
+
 class MapStrStrEnumState
 {
 public:
   MapStrStrEnumState(MapStrStr* _ref, const std::string& _prefix)
-    : ref(_ref), prefix(_prefix), prefix_length(_prefix.length()),
-      it(prefix.empty() ? ref->begin() : ref->lower_bound(prefix))
+    : ref(_ref), // initialization of ref must be first
+      it(_prefix.empty() ? ref->begin() : ref->lower_bound(_prefix)),
+      prefix(_prefix)
   { ref->incr_ref();
   }
 
@@ -1726,19 +1739,15 @@ public:
   }
 
   bool key_starts_with_prefix() const
-  { return it != ref->end() &&
-      // TODO: C20 provides std::string::starts_with()
-      it->first.length() >= prefix_length &&
-      it->first.substr(0, prefix_length) == prefix;
+  { return it != ref->end() && str_starts_with(it->first, prefix);
   }
 
 private:
   MapStrStr *ref = nullptr;
-  std::string prefix;
-  size_t prefix_length = 0;
 
 public:
   MapStrStr::iterator it;
+  std::string prefix;
 };
 
 // %! create_map_str_str(-Map) is det.
@@ -1772,35 +1781,43 @@ PREDICATE(find_map_str_str, 3)
 
 // %! enum_map_str_str(+Map, +Prefix:string, -Key:string, -Value:string) is nodet.
 PREDICATE_NONDET(enum_map_str_str, 4)
-{ // "state" needs to be acquired so that automatic cleaup
-  // deletes it
+{ // "state" needs to be acquired so that automatic cleaup deletes it
   auto state = handle.context_unique_ptr<MapStrStrEnumState>();
   const auto control = handle.foreign_control();
   if ( control == PL_PRUNED )
     return true;
+
+  // Can use A1, A2, etc. after we know control != PL_PRUNED
+
   auto ref = PlBlobV<MapStrStr>::cast_ex(A1, map_str_str_blob);
   PlTerm prefix(A2), key(A3), value(A4);
-  PlFrame fr;
+  std::string prefix_str(prefix.get_nchars(CVT_STRING|CVT_ATOM|REP_UTF8));
 
-  switch ( control )
-  { case PL_FIRST_CALL:
-      state.reset(new MapStrStrEnumState(ref, prefix.as_string()));
-      [[fallthrough]];
-    case PL_REDO:
-      for ( ; state->key_starts_with_prefix() ; state->it++ )
-      { if ( key.unify_string(state->it->first ) &&
-             value.unify_string(state->it->second) )
-        { state->it++;
-          if ( state->key_starts_with_prefix() )
-            PL_retry_address(state.release());
-          else
-            return true;
-        }
-        fr.rewind();
-      }
-      fr.discard(); // TODO: not needed? see fr.rewind() above)
-    default:
-      assert(0);
+  if ( key.is_ground() )
+  { assert(control == PL_FIRST_CALL);
+    const auto key_str(key.get_nchars(CVT_STRING|CVT_ATOM|REP_UTF8));
+    if ( !str_starts_with(key_str, prefix_str) )
+      return false;
+    const auto f = ref->find(key_str);
+    return f != ref->cend() && value.unify_string(f->second);
+  }
+
+  if ( control == PL_FIRST_CALL )
+    state.reset(new MapStrStrEnumState(ref, prefix_str));
+  else
+    assert(control == PL_REDO);
+
+  PlFrame fr;
+  for ( ; state->key_starts_with_prefix() ; state->it++ )
+  { if ( key.unify_string(state->it->first ) &&
+         value.unify_string(state->it->second) )
+    { state->it++;
+      if ( state->key_starts_with_prefix() )
+        PL_retry_address(state.release());
+      else
+        return true;
+    }
+    fr.rewind();
   }
   return false;
 }

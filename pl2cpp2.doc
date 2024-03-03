@@ -2877,7 +2877,7 @@ C-string.
 \label{sec:cpp2-plcompound}
 
 The \ctype{PlCompound} class is a convenience class for creating
-a term from a string; it is similar to (=..)/2
+a term from a string; it is similar to (=..)/2 
 
 \begin{description}
     \constructor{PlCompound}{const wchar_t *text}
@@ -3619,35 +3619,56 @@ to Prolog for the next retry, and to prevent the context
 from being freed. If the predicate is called with \const{PL_PRUNE},
 the normal \exam{return true} will implicitly free the context.
 
-The skeleton for a typical non-deterministic predicate is:
+The skeleton for a typical non-deterministic predicate is as follows.
+The test for \const{PL_PRUNED} is done first to avoid an unneeded
+\ctype{PlFrame} and also to ensure that \arg{A1}, \arg{A2}, etc.
+aren't used when they have the value
+\const{PlTerm::null}.\footnote{This code could be structured as a
+\exam{switch} statement, but typically the \const{PL_FIRST_CALL} case
+falls through to the \const{PL_REDO} case.}
+There are a number of examples of non-deterministic predicates in the
+test code \file{test_cpp.cpp}.
 
 \begin{code}
 struct PredContext { ... }; // The "context" for retries
 
 PREDICATE_NONDET(pred, <arity>)
-{
+{ // "ctxt" must be acquired so that the destructor deletes it
   auto ctxt = handle.context_unique_ptr<PredContext>();
-  switch( PL_foreign_control(handle) )
-  { case PL_FIRST_CALL:
-      ctxt.reset(new PredContext(...));
-      ...
-      break;
-    case PL_REDO:
-      break;
-    case PL_PRUNED:
-      return true;
+  const auto control  = handle.foreign_control();
+  if ( control == PL_PRUNED )
+    return true;
+
+  // Can use A1, A2, etc. after we know control != PL_PRUNED
+
+  if ( ... ) // deterministic result
+  { assert(control == PL_FIRST_CALL);
+    if ( ... )
+      return true;  // Success (and no more solutions)
+    else
+      return fase;
   }
 
-  if ( ... )
-    return false; // Failure (and no more solutions)
-    // or throw PlFail();
+  if ( control = PL_FIRST_CALL )
+  { ctxt.reset(new PredContext(...));
+    ...
+  } else
+  { assert(control == PL_REDO);
+  }
 
-  if ( ... )
-    return true;  // Success (and no more solutions)
+  PlFrame fr;
+  for ( ; ctxt->valid(...) ; ctxt->next() )
+  { if ( ... unify a result ... )
+    { ctxt->next();
+      if ( ctxt->valid(...) )
+        PL_retry_addresss(ctxt.release()); // Succeed with a choice point
+      else
+        return true; // deterministic success
+    }
+    fr.rewind();
+  }
 
-  ...
-
-  PL_retry_address(ctxt.release()); // Succeed with a choice point
+  return false;
 }
 \end{code}
 

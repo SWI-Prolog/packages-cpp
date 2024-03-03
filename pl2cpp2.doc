@@ -1213,8 +1213,9 @@ for all of them, using the PL_BLOB_DEFINITION() macro.
 For the data, which is subclassed from \ctype{PlBlob}, the programmer
 defines the various fields, a constructor that initializes them, and a
 destructor.  Optionally, override methods can be defined for one of
-more of the methods compare_fields(), write_fields(), save(), load(),
-pre_delete(). More details on these are given later.
+more of the methods PlBlob::compare_fields(), PlBlob::write_fields(),
+PlBlob::save(), PlBlob::load(), PlBlob::pre_delete(). More details on
+these are given later.
 
 There is a mismatch between how Prolog does memory management (and
 garbage collection) and how C++ does it. In particular, Prolog assumes
@@ -1509,8 +1510,8 @@ return A2.unify_blob(&refb);
 
 At this point, the blob is owned by Prolog and may be freed by
 its atom garbage collector, which will call the blob's destructor
-(if the blob shouldn't be deleted, it can have an override for
-the PlBlob::pre_delete() method which returns \const{false}).
+(if the blob shouldn't be deleted, it can override the
+the PlBlob::pre_delete() method to return \const{false}).
 
 Whenever a predicate is called with the blob as an argument (e.g.,
 as \arg{A1}), the blob can be accessed by
@@ -1547,23 +1548,23 @@ failure or error; memory allocation exceptions are also handled.
 Blobs have callbacks, which can run outside the context of a
 PREDICATE(). Their exception handling is as follows:
 
-\begin{itemize}
-\item acquire(), which is called from PlBlobV<MyBlob>::acquire(),
-      can throw a C++ exception.
-\item compare_fields(), which is called from PlBlobV<MyBlob>::compare(),
+\begin{description}
+\cfunction{void}{PlBlob::acquire}{}, which is called from PlBlobV<MyBlob>::acquire(),
+      can throw a C++ exception. The programmer cannot override this.
+\cfunction{int}{PlBlob::compare_fields}{const PlBlob *_b}, which is called from PlBlobV<MyBlob>::compare(),
       should not throw an exception. A Prolog error won't work as it uses ``raw
       pointers'' and thus a GC or stack shift triggered by creating the
       exception will upset the system.
-\item write_fields(), which is called from PlBlobV<MyBlob>::write(),
+\cfunction{bool}{PlBlob::write_fields}{IOStream *s, int flags}, which is called from PlBlobV<MyBlob>::write(),
       can throw an exception, just like code inside a PREDICATE().
       In particular, you can wrap calls to Sfprintf() in \cfuncref{PlCheckFail}{},
       although the calling context will check for errors on the stream,
       so checking the Sfprintf() result isn't necessary.
-\item save() can throw a C++ exception, including PlFail().
-\item load() can throw a C++ exception, which is converted to
+\cfunction{void}{PlBlob::PlBlob::save}{IOStream *fd} can throw a C++ exception, including PlFail().
+\cfunction{PlAtom}{PlBlob::PlBlob::load}{IOSTREAM *fd} can throw a C++ exception, which is converted to
       a return value of \const{PlAtom::null}, which is interpreted by
       Prolog as failure.
-\item pre_delete(), which is called from PlBLobV<MyBLOB>::release(),
+\cfunction{bool}{PlBlob::PlBlob::pre_delete}{}, which is called from PlBLobV<MyBLOB>::release(),
       can return \const{false} (or throw a \ctype{PlException} or
       \ctype{PlExceptinFailBase}, which will be interpreted as a
       return value of \const{false}), resulting in the blob not being
@@ -1573,7 +1574,12 @@ PREDICATE(). Their exception handling is as follows:
       respect the ordering of blob dependencies (e.g., if an iterator
       blob refers to a file-like blob, the file-like blob might be
       deleted before the iterator is deleted).
-\end{itemize}
+
+      This code runs in the \const{gc} thread.
+      The only PL_*() function that can safely be called are
+      PL_unregister_atom() (which is what PlAtom::unregister_ref()
+      calls).
+\end{description}
 
 \subsubsection{Sample PlBlob code}
 \label{sec:cpp2-blobs-sample-code}

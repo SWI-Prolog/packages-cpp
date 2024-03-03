@@ -1757,7 +1757,9 @@ public:
 
   [[nodiscard]]
   static int release(atom_t a) noexcept
-  { auto data = cast_check(PlAtom(a));
+  { auto data = cast(PlAtom(a));
+    if ( !data ) // PL_free_blob() has been used.
+      return true;
     try
     { if ( !data->pre_delete() )
         return false;

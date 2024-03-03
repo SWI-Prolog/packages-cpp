@@ -1112,10 +1112,46 @@ test(map, KVs = ["ab"-"two","ac"-"three"]) :-
     maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d"], ["two","three","four"]),
     findall(K-V, enum_map_str_str(Map, "a", K, V), KVs).
 
-test(map, [blocked(crash),K2-V2 == "ab"-"two"]) :-
+test(map) :-
     create_map_str_str(Map),
     maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d"], ["two","three","four"]),
-    enum_map_str_str(Map, "", K2, V2), !.
+    enum_map_str_str(Map, "", K, V),
+    !, % cut after PL_FIRST_CALL
+    assertion(K == "ab"),
+    assertion(V == "two"),
+    enum_map_str_str(Map, "", K, V). % verify lookup with ground args, no choicepoint
+test(map, [nondet, K-V == "ab"-"two"]) :-
+    create_map_str_str(Map),
+    maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d"], ["two","three","four"]),
+    enum_map_str_str(Map, "", K, V),
+    enum_map_str_str(Map, "", K, V). % verify lookup with ground args, no choicepoint
+test(map, K-V == "ac"-"three") :-
+    create_map_str_str(Map),
+    maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d"], ["two","three","four"]),
+    enum_map_str_str(Map, "", K, V),
+    K \= "ab",
+    !, % cut after PL_REDO
+    assertion(K == "ac"),
+    assertion(V == "three"),
+    enum_map_str_str(Map, "", K, V). % verify lookup with ground args, no choicepoint
+test(map) :-
+    create_map_str_str(Map),
+    maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d"], ["two","three","four"]),
+    enum_map_str_str(Map, "", K, V),
+    K \= "ab",
+    K \= "ac",
+    !, % cut after deterministic return
+    assertion(K == "d"),
+    assertion(V == "four"),
+    enum_map_str_str(Map, "", K, V). % verify lookup with ground args, no choicepoint
+test(map, Ks == ["ab", "x"]) :-
+    create_map_str_str(Map),
+    maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d","x"], ["two","three","four","two"]),
+    findall(K, enum_map_str_str(Map, "", K, "two"), Ks).
+test(map, Ks == ["ab"]) :-
+    create_map_str_str(Map),
+    maplist(insert_or_assign_map_str_str(Map), ["ab","ac","d","x"], ["two","three","four","two"]),
+    findall(K, enum_map_str_str(Map, "a", K, "two"), Ks).
 
 :- end_tests(cpp_map_str_str).
 

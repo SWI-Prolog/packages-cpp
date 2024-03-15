@@ -818,6 +818,17 @@ test(blob, error(my_blob_close_error(Blob))) :-
     create_my_blob('FAIL_close', Blob),
     assertion(blob(Blob, my_blob)),
     close_my_blob(Blob).
+test(blob) :-
+    create_my_blob('foo', A),
+    with_output_to(string(Astr), write(current_output, A)),
+    assertion(string_concat("<my_blob>(", _, Astr)), % The pointer part is implementation-defined
+    free_blob(A),
+    with_output_to(string(Astr_freed), write(current_output, A)),
+    nil_repr(Nil),
+    format(string(Rstr), ">(~w)", [Nil]),
+    % The name part implementation-defined (e.g., mangled type name)
+    assertion(string_concat("<", _, Astr_freed)),
+    assertion(string_concat(_, Rstr, Astr_freed)).
 
 % The following attempts to test the handling of close errors in the
 % "release" callback, which calls ~MyBlob. It doesn't throw an error

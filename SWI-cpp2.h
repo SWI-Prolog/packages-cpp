@@ -66,6 +66,7 @@ particularly integer conversions.
 #include <string>
 #include <cassert>
 #include <memory>
+#include <typeinfo>
 
 #if INT_MAX != 0x7fffffff
   #error "Unexpected value for INT_MAX"
@@ -1712,6 +1713,8 @@ public:
   cast(PlAtom aref)
   { size_t len;
     PL_blob_t *type;
+    if ( aref.is_null() )
+      return nullptr;
     auto ref = static_cast<C_t *>(aref.blob_data(&len, &type));
     // Can't throw PlException here because might be in a context
     // outside of a PREDICATE.
@@ -1758,7 +1761,7 @@ public:
   [[nodiscard]]
   static int release(atom_t a) noexcept
   { auto data = cast(PlAtom(a));
-    if ( !data ) // PL_free_blob() has been used.
+    if ( !data ) // Shouldn't happen, even if PL_free_blob() has been used.
       return true;
     try
     { if ( !data->pre_delete() )
@@ -1778,14 +1781,13 @@ public:
     // order of types; but use cast_check() anyway (which will be
     // optimised away if NDEBUG).
     bool rc_try;
-    int rc = -1; // Stop the compiler warning about uninitialized
+    int rc;
     try
-    { const auto a_data = cast_check(PlAtom(a)); // TODO: cast(PlAtom(a))
-      const auto b_data = cast_check(PlAtom(b));
-      rc = a_data->compare_fields(b_data);
+    { const auto a_data = cast(PlAtom(a));
+      const auto b_data = cast(PlAtom(b));
+      rc = ( a_data && b_data ) ? a_data->compare_fields(b_data) : 0;
       if ( rc == 0 )
-      { rc = (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
-      }
+        rc = (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
       rc_try = true;
     }
     PREDICATE_CATCH(rc_try = false)
@@ -1797,7 +1799,10 @@ public:
 
   [[nodiscard]]
   static int write(IOSTREAM *s, atom_t a, int flags)
-  { const auto data = cast_check(PlAtom(a));
+  { const auto data = cast(PlAtom(a));
+    if ( !data )
+      // TODO: demangle typeid::name()
+      return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), nullptr) >= 0;
     int rc;
     try
     { rc = data->write(s, flags);
@@ -1809,7 +1814,9 @@ public:
 
   [[nodiscard]]
   static int save(atom_t a, IOSTREAM *fd)
-  { const auto data = cast_check(PlAtom(a));
+  { const auto data = cast(PlAtom(a));
+    if ( !data )
+      return false;
     bool rc;
     try
     { data->save(fd);

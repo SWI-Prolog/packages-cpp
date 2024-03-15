@@ -1977,3 +1977,13 @@ PREDICATE(lookup_unify, 1)
   }
   return false;
 }
+
+PREDICATE(free_blob, 1)
+{ return Plx_free_blob(A1.as_atom().unwrap());
+}
+
+PREDICATE(nil_repr, 1)
+{ char buf[100];
+  snprintf(buf, sizeof buf, "%p", nullptr);
+  return A1.unify_string(buf);
+}

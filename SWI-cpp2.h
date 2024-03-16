@@ -1747,7 +1747,7 @@ public:
   static void acquire(atom_t a)
   { PlAtom a_(a);
     auto data = cast_check(a_);
-    bool rc;
+    bool rc = false;
     try
     { data->acquire(a_);
       rc = true;
@@ -1780,8 +1780,8 @@ public:
     // types - they should have been already compared by standard
     // order of types; but use cast_check() anyway (which will be
     // optimised away if NDEBUG).
-    bool rc_try;
-    int rc;
+    bool rc_try = false;
+    int rc = 0;
     try
     { const auto a_data = cast(PlAtom(a));
       const auto b_data = cast(PlAtom(b));
@@ -1791,7 +1791,7 @@ public:
       rc_try = true;
     }
     PREDICATE_CATCH(rc_try = false)
-      // TODO: if ( ! rc_try ) Plx_clear_exception() ?
+    // TODO: if ( ! rc_try ) Plx_clear_exception() ?
     assert(rc_try);
     (void)rc_try;
     return rc;
@@ -1802,8 +1802,8 @@ public:
   { const auto data = cast(PlAtom(a));
     if ( !data )
       // TODO: demangle typeid::name()
-      return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), nullptr) >= 0;
-    int rc;
+      return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), data) >= 0;
+    int rc = -1;
     try
     { rc = data->write(s, flags);
     }
@@ -1817,7 +1817,7 @@ public:
   { const auto data = cast(PlAtom(a));
     if ( !data )
       return false;
-    bool rc;
+    bool rc = false;
     try
     { data->save(fd);
       rc = true;
@@ -1831,7 +1831,7 @@ public:
   static atom_t load(IOSTREAM *fd)
   { C_t ref;
     atom_t atom;
-    int rc_try;
+    int rc_try = false;
     try
     { atom = ref.load(fd).unwrap();
       rc_try = true;
@@ -1881,6 +1881,7 @@ public:
 
   virtual size_t blob_size_() const = 0; // See PL_BLOB_SIZE
 
+  // acquire() is not virtual and subclass must not override it.
   void acquire(PlAtom _symbol)
   { symbol_ = _symbol;
     // Don't: symbol_.register_ref() because it's already got a
@@ -1895,6 +1896,7 @@ public:
   { return 0; // compare() will do bitwise comparison
   }
 
+  // write() is not virtual - calls write_fields(), which is
   bool write(IOSTREAM *s, int flags) const;
 
   bool virtual write_fields(IOSTREAM *s, int flags) const

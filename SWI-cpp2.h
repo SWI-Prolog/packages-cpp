@@ -1513,7 +1513,7 @@ public:
   int flush();
   int64_t size();
   int seek(long pos, int whence);
-  int tell();
+  long tell();
   int close();
   int gcclose(int flags);
   char *gets(char *buf, int n);

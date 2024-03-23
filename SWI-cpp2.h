@@ -1512,8 +1512,8 @@ public:
   int setlocale(struct PL_locale *new_loc, struct PL_locale **old_loc);
   int flush();
   int64_t size();
-  [[deprecated("use seek64(pos, whence)")]] int seek(long pos, int whence);
-  [[deprecated("use tell64()")]] long tell();
+  int seek(int64_t pos, int whence);
+  int64_t tell();
   int close();
   int gcclose(int flags);
   char *gets(char *buf, int n);

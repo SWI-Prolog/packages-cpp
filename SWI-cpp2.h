@@ -1790,7 +1790,7 @@ public:
         rc = (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
       rc_try = true;
     }
-    PREDICATE_CATCH(rc_try = false)
+    PREDICATE_CATCH(rc_try = false; rc = false)
       // TODO: if ( ! rc_try ) Plx_clear_exception() ?
     assert(rc_try);
     (void)rc_try;

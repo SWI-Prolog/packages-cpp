@@ -1099,8 +1099,7 @@ public:
   // plThrow() is for the try-catch in PREDICATE - returns the result
   // of Plx_raise_exception(), which is always `false`, as a foreign_t.
   virtual foreign_t plThrow() const
-  { foreign_t rc = static_cast<foreign_t>(Plx_raise_exception(term().unwrap()));
-    return rc;
+  { return static_cast<foreign_t>(Plx_raise_exception(term().unwrap()));
   }
 
   // The following method needs to be used with care (e.g., not when
@@ -1719,7 +1718,8 @@ public:
     // Can't throw PlException here because might be in a context
     // outside of a PREDICATE.
     if ( ref && type == ref->blob_t_ )
-    { assert(len == sizeof *ref);
+    { if ( len != sizeof *ref )
+        PL_system_error("Invalid size %zd (should be %zd) for %s", len, sizeof *ref, typeid(C_t).name());
       return ref;
     }
     return nullptr;
@@ -1731,7 +1731,8 @@ public:
   { auto ref = cast(aref);
     // Can't throw PlException here because might be in a context
     // outside of a PREDICATE.
-    assert(ref);
+    if ( !ref )
+      PL_system_error("Failed cast to %s", typeid(C_t).name());
     return ref;
   }
 
@@ -1747,15 +1748,15 @@ public:
   static void acquire(atom_t a)
   { PlAtom a_(a);
     auto data = cast_check(a_);
-    bool rc;
+    bool rc = false; // Uninitialized variable warning (some compilers)
     try
     { data->acquire(a_);
       rc = true;
     }
     PREDICATE_CATCH(rc = false)
-      // TODO: if ( ! rc ) Plx_clear_exception() ?
-    assert(rc);
-    (void)rc;
+    if ( !rc )
+      PL_system_error("Failed acquire() for %s", typeid(C_t).name());
+    // TODO: if ( ! rc ) Plx_clear_exception() ?
   }
 
   [[nodiscard]]
@@ -1780,8 +1781,8 @@ public:
     // types - they should have been already compared by standard
     // order of types; but use cast_check() anyway (which will be
     // optimised away if NDEBUG).
-    bool rc_try;
-    int rc;
+    bool rc_try = false; // Uninitialized variable warning (some compilers)
+    int rc = 0;          // Uninitialized variable warning (some compilers)
     try
     { const auto a_data = cast(PlAtom(a));
       const auto b_data = cast(PlAtom(b));
@@ -1791,9 +1792,9 @@ public:
       rc_try = true;
     }
     PREDICATE_CATCH(rc_try = false)
-      // TODO: if ( ! rc_try ) Plx_clear_exception() ?
-    assert(rc_try);
-    (void)rc_try;
+    if ( !rc_try )
+      PL_system_error("Failed compare() for %s", typeid(C_t).name());
+    // TODO: if ( ! rc_try ) Plx_clear_exception() ?
     return rc;
   }
 
@@ -1802,8 +1803,8 @@ public:
   { const auto data = cast(PlAtom(a));
     if ( !data )
       // TODO: demangle typeid::name()
-      return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), nullptr) >= 0;
-    int rc;
+      return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), data) >= 0;
+    int rc = -1; // Uninitialized variable warning (some compilers)
     try
     { rc = data->write(s, flags);
     }
@@ -1817,7 +1818,7 @@ public:
   { const auto data = cast(PlAtom(a));
     if ( !data )
       return false;
-    bool rc;
+    bool rc = false; // Uninitialized variable warning (some compilers)
     try
     { data->save(fd);
       rc = true;
@@ -1831,7 +1832,7 @@ public:
   static atom_t load(IOSTREAM *fd)
   { C_t ref;
     atom_t atom;
-    int rc_try;
+    int rc_try = false; // Uninitialized variable warning (some compilers)
     try
     { atom = ref.load(fd).unwrap();
       rc_try = true;
@@ -1881,6 +1882,7 @@ public:
 
   virtual size_t blob_size_() const = 0; // See PL_BLOB_SIZE
 
+  // acquire() is not virtual and subclass must not override it.
   void acquire(PlAtom _symbol)
   { symbol_ = _symbol;
     // Don't: symbol_.register_ref() because it's already got a
@@ -1895,10 +1897,12 @@ public:
   { return 0; // compare() will do bitwise comparison
   }
 
+  // write() is not virtual and subclass must not override it. write_fields() is virtual.
   bool write(IOSTREAM *s, int flags) const;
 
   bool virtual write_fields(IOSTREAM *s, int flags) const
-  { return true; }
+  { return true;
+  }
 
   virtual void save(IOSTREAM *fd) const;
 

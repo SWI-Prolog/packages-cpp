@@ -1748,7 +1748,7 @@ public:
   static void acquire(atom_t a)
   { PlAtom a_(a);
     auto data = cast_check(a_);
-    bool rc = false; // Uninitialized variable warning (some compilers)
+    bool rc;
     try
     { data->acquire(a_);
       rc = true;
@@ -1781,8 +1781,8 @@ public:
     // types - they should have been already compared by standard
     // order of types; but use cast_check() anyway (which will be
     // optimised away if NDEBUG).
-    bool rc_try = false; // Uninitialized variable warning (some compilers)
-    int rc = 0;          // Uninitialized variable warning (some compilers)
+    bool rc_try = false;
+    int rc;
     try
     { const auto a_data = cast(PlAtom(a));
       const auto b_data = cast(PlAtom(b));
@@ -1791,7 +1791,7 @@ public:
         rc = (a_data < b_data) ? -1 : (a_data > b_data) ? 1 : 0;
       rc_try = true;
     }
-    PREDICATE_CATCH(rc_try = false)
+    PREDICATE_CATCH(rc_try = false; rc = 0;)
     if ( !rc_try )
       PL_system_error("Failed compare() for %s", typeid(C_t).name());
     return rc;
@@ -1803,7 +1803,7 @@ public:
     if ( !data )
       // TODO: demangle typeid::name()
       return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), data) >= 0;
-    int rc = -1; // Uninitialized variable warning (some compilers)
+    int rc;
     try
     { rc = data->write(s, flags);
     }
@@ -1817,7 +1817,7 @@ public:
   { const auto data = cast(PlAtom(a));
     if ( !data )
       return false;
-    bool rc = false; // Uninitialized variable warning (some compilers)
+    bool rc;
     try
     { data->save(fd);
       rc = true;
@@ -1831,7 +1831,7 @@ public:
   static atom_t load(IOSTREAM *fd)
   { C_t ref;
     atom_t atom;
-    int rc_try = false; // Uninitialized variable warning (some compilers)
+    int rc_try;
     try
     { atom = ref.load(fd).unwrap();
       rc_try = true;

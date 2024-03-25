@@ -308,7 +308,7 @@ void PlBlob::save(IOSTREAM *fd) const
 _SWI_CPP2_CPP_inline
 PlAtom PlBlob::load(IOSTREAM *fd)
 { (void)PL_warning("Cannot load reference to <%s>", blob_t_->name);
-  PL_fatal_error("Cannot load reference to <%s>", blob_t_->name);
+  PL_system_error("Cannot load reference to <%s>", blob_t_->name);
   return PlAtom(PlAtom::null);
 }
 

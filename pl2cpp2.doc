@@ -1987,9 +1987,12 @@ The methods are:
      \ctype{PlStream} object contains a valid stream and
      throws an exception if it doesn't. This is used to
      ensure that PlStream::release() hasn't been called.
-  \item Most of the stream I/O functions have corresponding
-     methods in \ctype{PlStream}. For example, Sfprintf()
-     corresponds to PlStream::printf().
+   \item Most of the stream I/O functions have corresponding methods
+     in \ctype{PlStream}. For example, Sfprintf() corresponds to
+     PlStream::printf().  PlStream::seek() and PlStream::tell() call
+     Sseek64() and Stell64() instead of \ctype{long} (they are also
+     deprecated: PlStream::seek64() and PlStream::tell64() are
+     preferred).
 \end{itemize}
 
 The C interface to stream I/O doesn't raise a Prolog error when

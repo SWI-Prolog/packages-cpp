@@ -1458,24 +1458,29 @@ struct MyConnection
 
   explicit MyConnection() { }
   explicit MyConnection(const std::string& _name)
-    : name(_name) { }
-
-  ~MyConnection() { }
+    : name(_name)
+  { if ( name_contains("FAIL_connection") ) // Test error handling
+      throw std::runtime_error("MyConnection-fail(" + _name + ")");
+  }
 
   bool open()
-  { if ( name == "FAIL" ) // for testing error handling
+  { if ( name_contains("FAIL_open") ) // Test error handling
       return false;
     return true;
   }
 
   bool close() noexcept
-  { if ( name == "FAIL_close" ) // for testing error handling
+  { if ( name_contains("FAIL_close") ) // Test error handling
       return false;
     return true;
   }
 
   void portray(PlStream& strm) const
   { strm.printf("Connection(name=%s)", name.c_str());
+  }
+
+  bool name_contains(const char *substr) const
+  { return name.find(substr) != name.npos;
   }
 };
 
@@ -1500,9 +1505,12 @@ struct MyBlob : public PlBlob
     : PlBlob(&my_blob),
       connection(std::make_unique<MyConnection>(connection_name)),
       blob_name(connection_name)
-  { assert(connection); // make_unique should have thrown exception if it can't allocate
+  { if ( !connection ) // make_unique should have thrown exception if it can't allocate
+      PL_system_error("MyBlob(%s) connection=%p", blob_name.c_str(), connection.get());
     if ( !connection->open() )
       throw MyBlobError("my_blob_open_error");
+    if ( name_contains("FAIL_new") ) // Test error handling
+      throw MyBlobError("my_blob_fail_new");
   }
 
   PL_BLOB_SIZE
@@ -1514,8 +1522,7 @@ struct MyBlob : public PlBlob
                name().c_str(), blob_name.c_str());
   }
 
-  inline std::string
-  name() const
+  std::string name() const
   { return connection ? connection->name : "";
   }
 
@@ -1534,12 +1541,16 @@ struct MyBlob : public PlBlob
   int compare_fields(const PlBlob* _b_data) const override
   { // dynamic_cast is safer than static_cast, but slower (see documentation)
     // It's used here for testing (the documentation has static_cast)
+    if ( name_contains("FAIL_compare") )
+      throw MyBlobError("my_blob_compare_error"); // Test error handling
     auto b_data = dynamic_cast<const MyBlob*>(_b_data);
     return name().compare(b_data->name());
   }
 
   bool write_fields(IOSTREAM *s, int flags) const override
-  { PlStream strm(s);
+  { if ( name_contains("FAIL_write") )
+      throw MyBlobError("my_blob_write_error"); // Test error handling
+    PlStream strm(s);
     strm.printf(",");
     return write_fields_only(strm);
   }
@@ -1557,6 +1568,10 @@ struct MyBlob : public PlBlob
     write_fields_only(strm);
     strm.printf(")");
     return true;
+  }
+
+  bool name_contains(const char *substr) const
+  { return blob_name.find(substr) != blob_name.npos;
   }
 };
 
@@ -1986,4 +2001,90 @@ PREDICATE(nil_repr, 1)
 { char buf[100];
   snprintf(buf, sizeof buf, "%p", nullptr);
   return A1.unify_string(buf);
+}
+
+PREDICATE(compile_only_stream, 0)
+{ // Has the various methods for PlStream, to ensure that they compile
+  PlStream strm(Scurrent_input);
+  int i;
+  bool b;
+  size_t s;
+  int64_t i64;
+  char *c;
+  ssize_t ss;
+  char buf[10];
+  PlTerm_var ex;
+  IOENC enc;
+  PL_locale *loc1 = nullptr, *loc2;
+  strm.release();
+  strm.check_stream();
+  i = strm.set_timeout(10);
+  i = strm.unit_size();
+  //   int putc(int c);
+  //   int getc();
+  //   int ungetc(int c);
+  b = strm.canrepresent(10);
+  i = strm.putcode(11);
+  i = strm.getcode();
+  i = strm.peekcode();
+  i = strm.putw(13);
+  i = strm.getw();
+  s = strm.fread(buf, sizeof buf, 1);
+    s = strm.fwrite(buf, sizeof buf, 1);
+  i = strm.feof();
+  i = strm.fpasteof();
+  i = strm.ferror();
+  strm.clearerr();
+  i = strm.seterr(1, "foo");
+  i = strm.set_exception(ex.unwrap());
+  i = strm.setenc(ENC_ANSI, &enc);
+  i = strm.setlocale(loc1, &loc2);
+  i = strm.flush();
+  i64 = strm.size();
+  // [[deprecated("Use seek64()")]] int seek(int64_t pos, int whence);
+  // [[deprecated("Use tell64()")]] int64_t tell();
+  i = strm.close();
+  i = strm.gcclose(1);
+  c = strm.gets(buf, 3);
+  ss = strm.read_pending(buf, 3, 0);
+  s = strm.pending();
+  i = strm.fputs("foo");
+  i = strm.printf("%s", "foo");
+  i = strm.printfX("%s", "foo");
+  // i = strm.vprintf(const char *fm, va_list args);
+  i = strm.lock();
+  i = strm.tryLock();
+  i = strm.unlock();
+  i = strm.fileno();
+  // int	closehook(void (*hook)(IOSTREAM *s));
+  strm.setbuffer(buf, sizeof buf);
+
+  i64 = strm.tell64();
+  i = strm.seek64(1, SEEK_CUR);
+
+  i = strm.checkBOM();
+  i = strm.writeBOM();
+
+  { int64_t  ip;    b = strm.qlf_get_int64(&ip);  }
+  { int32_t  ip;    b = strm.qlf_get_int32(&ip);  }
+  { uint32_t ip;    b = strm.qlf_get_uint32(&ip); }
+  { double   fp;    b = strm.qlf_get_double(&fp); }
+  { atom_t   a;     b = strm.qlf_get_atom(&a);    }
+  { int64_t  i = 0; b = strm.qlf_put_int64(i);    }
+  { int32_t  i = 0; b = strm.qlf_put_int32(i);    }
+  { uint32_t i = 0; b = strm.qlf_put_uint32(i);   }
+  { double f = 0.0; b = strm.qlf_put_double(f);   }
+  { atom_t   a = 0; b = strm.qlf_put_atom(a);     }
+
+  (void)i;
+  (void)b;
+  (void)s;
+  (void)i64;
+  (void)c;
+  (void)ss;
+  (void)enc;
+  (void)loc1;
+  (void)loc2;
+
+  return false;
 }

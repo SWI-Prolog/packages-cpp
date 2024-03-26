@@ -109,8 +109,8 @@ PlEx_fail(qid_t qid)
 _SWI_CPP2_CPP_inline
 const std::string
 PlTerm::get_nchars(unsigned int flags) const
-{ flags &= ~(BUF_STACK|BUF_MALLOC|BUF_ALLOW_STACK);
-  flags |= BUF_DISCARDABLE|CVT_EXCEPTION;
+{ flags &= ~static_cast<unsigned int>(BUF_STACK|BUF_MALLOC|BUF_ALLOW_STACK);
+  flags |= static_cast<unsigned int>(BUF_DISCARDABLE|CVT_EXCEPTION);
   char *s = nullptr;
   size_t len = 0;
   PlStringBuffers _string_buffers;
@@ -123,8 +123,8 @@ PlTerm::get_nchars(unsigned int flags) const
 _SWI_CPP2_CPP_inline
 const std::wstring
 PlTerm::get_wchars(unsigned int flags) const
-{ flags &= ~(BUF_STACK|BUF_MALLOC|BUF_ALLOW_STACK);
-  flags |= BUF_DISCARDABLE|CVT_EXCEPTION;
+{ flags &= ~static_cast<unsigned int>(BUF_STACK|BUF_MALLOC|BUF_ALLOW_STACK);
+  flags |= static_cast<unsigned int>(BUF_DISCARDABLE|CVT_EXCEPTION);
   pl_wchar_t *s;
   size_t len;
   PlStringBuffers _string_buffers;

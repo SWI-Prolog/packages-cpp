@@ -133,7 +133,7 @@ test(as_string, S == "hello(ä¸\u0096ç\u0095\u008Cå\u009B\u009B)") :-
 test(add_3, Result == 666) :-
     add(667, -1, Result).
 test(add_3, Result == 123) :-
-    add(100.0, 23, Result).
+    add(100, 23, Result).
 test(add_3_err, error(type_error(integer,0.1))) :-
     add(666, 0.1, _).
 

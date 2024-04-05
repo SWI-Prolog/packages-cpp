@@ -179,15 +179,15 @@ public:
 
   friend C_t *PlUnwrapAsPtr(WrappedC<C_t>* obj) { return obj ? obj->unwrap_as_ptr() : nullptr; }
 
-  explicit WrappedC<C_t>(C_t v)
+  explicit WrappedC(C_t v)
     : C_(v) { }
 
-  WrappedC<C_t>(            const WrappedC<C_t>&) = default;
-  WrappedC<C_t>& operator =(const WrappedC<C_t>&) = default;
+  WrappedC(            const WrappedC<C_t>&) = default;
+  WrappedC& operator =(const WrappedC<C_t>&) = default;
   // This simple wrapper class doesn't need a move constructor or
   // move operator =.
 
-  ~WrappedC<C_t>() { }
+  ~WrappedC() { }
 
   operator bool() const = delete; // Use not_null(), is_null() instead
   bool operator ==(WrappedC<C_t> o) const { return C_ == o.C_; }
@@ -1667,12 +1667,12 @@ class PlForeignContextPtr
 {
 public:
   [[deprecated("Use PlControl::context_unique_ptr")]]
-  explicit PlForeignContextPtr<ContextType>(PlControl handle)
+  explicit PlForeignContextPtr(PlControl handle)
   { ptr_.reset(static_cast<ContextType *>(handle.foreign_context_address()));
   }
 
-  PlForeignContextPtr<ContextType>(const PlForeignContextPtr<ContextType>&) = delete;
-  PlForeignContextPtr<ContextType>(PlForeignContextPtr<ContextType>&&) = delete;
+  PlForeignContextPtr(const PlForeignContextPtr<ContextType>&) = delete;
+  PlForeignContextPtr(PlForeignContextPtr<ContextType>&&) = delete;
   PlForeignContextPtr<ContextType>& operator =(const PlForeignContextPtr<ContextType>&) = delete;
   PlForeignContextPtr<ContextType>& operator =(PlForeignContextPtr<ContextType>&&) = delete;
 

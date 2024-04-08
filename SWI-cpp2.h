@@ -316,15 +316,15 @@ public:
   bool operator ==(PlAtom to) const { return unwrap() == to.unwrap(); }
   bool operator !=(PlAtom to) const { return unwrap() != to.unwrap(); }
 
-  [[deprecated("use as_string() or ==PlAtom")]]  bool operator ==(const char *s)         const { return eq(s); }
-  [[deprecated("use as_string() or ==PlAtom")]]  bool operator ==(const wchar_t *s)      const { return eq(s); }
-  [[deprecated("use as_string() or ==PlAtom")]]  bool operator ==(const std::string& s)  const { return eq(s); }
-  [[deprecated("use as_string() or ==PlAtom")]]  bool operator ==(const std::wstring& s) const { return eq(s); }
-  [[deprecated("use PlAtom instead of atom_t")]] bool operator ==(atom_t to)             const { return unwrap() == to; }
+  [[deprecated("use as_string() and std::string::operator==() or ==PlAtom")]]   bool operator ==(const char *s)         const { return eq(s); }
+  [[deprecated("use as_string() and std::string::operator==() or ==PlAtom")]]   bool operator ==(const wchar_t *s)      const { return eq(s); }
+  [[deprecated("use as_string() and std::string::operator==() or ==PlAtom")]]   bool operator ==(const std::string& s)  const { return eq(s); }
+  [[deprecated("use as_swtring() and std::wstring::operator==() or ==PlAtom")]] bool operator ==(const std::wstring& s) const { return eq(s); }
+  [[deprecated("use PlAtom instead of atom_t")]]                                bool operator ==(atom_t to)             const { return unwrap() == to; }
 
-  [[deprecated("use as_string() or !=PlAtom")]]  bool operator !=(const char *s)         const { return !eq(s); }
-  [[deprecated("use as_string() or !=PlAtom")]]  bool operator !=(const wchar_t *s)      const { return !eq(s); }
-  [[deprecated("use PlAtom instead of atom_t")]] bool operator !=(atom_t to)             const { return unwrap() != to; }
+  [[deprecated("use as_string() and std::string::operator!=() or !=PlAtom")]]   bool operator !=(const char *s)         const { return !eq(s); }
+  [[deprecated("use as_string() and std::string::operator!=() or !=PlAtom")]]   bool operator !=(const wchar_t *s)      const { return !eq(s); }
+  [[deprecated("use PlAtom instead of atom_t")]]                                bool operator !=(atom_t to)             const { return unwrap() != to; }
 
   // TODO: when C++17 becomes standard, rename register_ref() to register().
 
@@ -710,25 +710,25 @@ public:
   bool operator <=(PlTerm t2) const { return compare(t2) <= 0; }
   bool operator >=(PlTerm t2) const { return compare(t2) >= 0; }
 					/* comparison (long) */
-  [[deprecated("use as_int64_t()")]] bool operator ==(int64_t v) const;
-  [[deprecated("use as_int64_t()")]] bool operator !=(int64_t v) const;
-  [[deprecated("use as_int64_t()")]] bool operator < (int64_t v) const;
-  [[deprecated("use as_int64_t()")]] bool operator > (int64_t v) const;
-  [[deprecated("use as_int64_t()")]] bool operator <=(int64_t v) const;
-  [[deprecated("use as_int64_t()")]] bool operator >=(int64_t v) const;
+  [[deprecated("use as_int64_t() and int64_t::operator==()")]] bool operator ==(int64_t v) const;
+  [[deprecated("use as_int64_t() and int64_t::operator!=()")]] bool operator !=(int64_t v) const;
+  [[deprecated("use as_int64_t() and int64_t::operator<()")]]  bool operator < (int64_t v) const;
+  [[deprecated("use as_int64_t() and int64_t::operator>()")]]  bool operator > (int64_t v) const;
+  [[deprecated("use as_int64_t() and int64_t::operator<=()")]] bool operator <=(int64_t v) const;
+  [[deprecated("use as_int64_t() and int64_t::operator>=()")]] bool operator >=(int64_t v) const;
 
 					/* comparison (atom, string) */
-  [[deprecated("use as_string()")]]  bool operator ==(const char *s)         const { return eq(s); }
-  [[deprecated("use as_string()")]]  bool operator ==(const wchar_t *s)      const { return eq(s); }
-  [[deprecated("use as_wstring()")]] bool operator ==(const std::string& s)  const { return eq(s); }
-  [[deprecated("use as_wstring()")]] bool operator ==(const std::wstring& s) const { return eq(s); }
-  [[deprecated("use as_atom()")]]    bool operator ==(PlAtom a)              const { return eq(a); }
+  [[deprecated("use as_string() and std::string::operator==()")]]    bool operator ==(const char *s)         const { return eq(s); }
+  [[deprecated("use as_string() and std::string::operator==()")]]    bool operator ==(const wchar_t *s)      const { return eq(s); }
+  [[deprecated("use as_wstring() and std::string::operator==()")]]   bool operator ==(const std::string& s)  const { return eq(s); }
+  [[deprecated("use as_wstring() and std::wstring::operator==()")]]  bool operator ==(const std::wstring& s) const { return eq(s); }
+  [[deprecated("use as_atom()")]]                                    bool operator ==(PlAtom a)              const { return eq(a); }
 
-  [[deprecated("use as_string()")]]  bool operator !=(const char *s)         const { return !eq(s); }
-  [[deprecated("use as_wstring()")]] bool operator !=(const wchar_t *s)      const { return !eq(s); }
-  [[deprecated("use as_string()")]]  bool operator !=(const std::string& s)  const { return !eq(s); }
-  [[deprecated("use as_wstring()")]] bool operator !=(const std::wstring& s) const { return !eq(s); }
-  [[deprecated("use as_atom()")]]    bool operator !=(PlAtom a)              const { return !eq(a); }
+  [[deprecated("use as_string() and std::string::operator==()")]]    bool operator !=(const char *s)         const { return !eq(s); }
+  [[deprecated("use as_wstring() and std::wstring::operator==()")]]  bool operator !=(const wchar_t *s)      const { return !eq(s); }
+  [[deprecated("use as_string() and std::string::operator==()")]]    bool operator !=(const std::string& s)  const { return !eq(s); }
+  [[deprecated("use as_wstring() and std::wstring::operator==()")]]  bool operator !=(const std::wstring& s) const { return !eq(s); }
+  [[deprecated("use as_atom()")]]                                    bool operator !=(PlAtom a)              const { return !eq(a); }
 
   // E.g.: t.write(Serror, 1200, PL_WRT_QUOTED);
   [[nodiscard]] int write(IOSTREAM *s, int precedence, int flags) const

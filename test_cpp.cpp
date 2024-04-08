@@ -650,21 +650,29 @@ PREDICATE(hostname2, 1)
   return true;
 }
 
+// The eq_int64/2 and lt_int64/2 predicates test the deprecated PlTerm::operator==()
+
+#ifdef _MSC_VER
+#pragma warning( push )
+#pragma warning (disable:4996)
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 PREDICATE(eq_int64, 2)
-{
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  return A1 == A2.as_int64_t();
-  #pragma GCC diagnostic pop
+{ return A1 == A2.as_int64_t();
 }
 
 PREDICATE(lt_int64, 2)
-{
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  return A1 < A2.as_int64_t();
-  #pragma GCC diagnostic pop
+{ return A1 < A2.as_int64_t();
 }
+
+#ifdef _MSC_VER
+#pragma warning( pop )
+#else
+#pragma GCC diagnostic pop
+#endif
 
 PREDICATE(get_atom_ex, 2)
 { PlAtom a(PlTerm::null);

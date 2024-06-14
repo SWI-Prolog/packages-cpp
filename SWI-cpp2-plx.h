@@ -127,6 +127,7 @@ PLX_EXCE(int                     , assert                          , (term_t ter
 PLX_WRAP(term_t                  , new_term_refs                   , (size_t n), (n))
 PLX_WRAP(term_t                  , new_term_ref                    , (), ())
 PLX_WRAP(term_t                  , copy_term_ref                   , (term_t from), (from))
+PLX_VOID(void                    , free_term_ref                   , (term_t t), (t))
 PLX_VOID(void                    , reset_term_refs                 , (term_t r), (r))
 /* [[deprecated]]  */
 PLX_WRAP(atom_t                  , new_atom                        , (const char *s), (s))
@@ -413,6 +414,9 @@ PLX_ASIS(int                     , same_compound                   , (term_t t1,
 // (skipped):: int PL_warning(const char *fmt   , ...) WPRINTF12;
 // (skipped):: int PL_warningX(const char *fmt  , ...);
 // (skipped):: void PL_fatal_error(const char *fmt  , ...) WPRINTF12;
+// (skipped):: void PL_api_error(const char *fmt, ...) WPRINTF12;
+// (skipped):: void PL_system_error(const char *fmt, ...) WPRINTF12;
+
 PLX_WRAP(record_t                , record                          , (term_t term), (term))
 PLX_EXCE(int                     , recorded                        , (record_t record, term_t term), (record, term))
 PLX_VOID(void                    , erase                           , (record_t record), (record))

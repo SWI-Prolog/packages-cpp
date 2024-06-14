@@ -556,6 +556,7 @@ public:
   void put_chars(int flags, size_t len, const char *chars) { Plx_put_chars(unwrap(), flags, len, chars); }
   void put_list_chars(const char *chars)                   { Plx_put_list_chars(unwrap(), chars); }
   void put_list_codes(const char *chars)                   { Plx_put_list_codes(unwrap(), chars); }
+  // TODO: add std::string versions of the following
   void put_atom_nchars(size_t l, const char *chars)        { Plx_put_atom_nchars(unwrap(), l, chars); }
   void put_string_nchars(size_t len, const char *chars)    { Plx_put_string_nchars(unwrap(), len, chars); }
   void put_list_nchars(size_t l, const char *chars)        { Plx_put_list_nchars(unwrap(), l, chars); }
@@ -567,15 +568,18 @@ public:
   void put_list()                                          { Plx_put_list(unwrap()); }
   void put_nil()                                           { Plx_put_nil(unwrap()); }
   void put_term(PlTerm t2)                                 { Plx_put_term(unwrap(), t2.unwrap()); }
+  void put_blob( void *blob, size_t len, PL_blob_t *type)  { Plx_put_blob(unwrap(), blob, len, type); }
+  PlRecord record() const;
+
+  // TODO: When the following are implemented, add them
+  //       to the deleted methods in PlTermScoped:
   // TODO: PL_put_dict(term_t t, atom_t tag, size_t len, const atom_t *keys, term_t values)
   // TODO: PL_cons_functor(term_t h, functor_t f, ...)
   // TODO: PL_cons_functor_v(term_t h, functor_t fd, term_t a0)
   // TODO: PL_cons_list(term_t l, term_t h, term_t t)
-  void put_blob( void *blob, size_t len, PL_blob_t *type)  { Plx_put_blob(unwrap(), blob, len, type); }
 
   // TODO: PL_unify_*()?
   // TODO: PL_skip_list()
-  PlRecord record() const;
 
 					/* PlTerm --> C */
   [[deprecated("use as_long()")]]     explicit operator long()     const { return as_long(); }
@@ -640,6 +644,8 @@ public:
   PlAtom name() const; // throws PlTypeError if not a "compound" or atom
   [[nodiscard]] bool name_arity(PlAtom *name, size_t *arity) const; // name and/or arity can be nullptr
   [[nodiscard]] PlTerm copy_term_ref() const;
+  void free_term_ref();
+  void free_term_ref_reset();
 
   // The assignment operators from version 1 have been removed because
   // of possible confusion with the standard assignment and copy
@@ -751,6 +757,107 @@ private:
   [[nodiscard]] bool _get_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_nchars(unwrap(), len, s, flags); }
   [[nodiscard]] bool _get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return Plx_get_wchars(unwrap(), length, s, flags); }
 };
+
+
+// PlTermScoped is an *experimental* inteface, which may change
+// in the future. It implements a PlTerm that is automatically
+// freed when it goes out of scope. The API is similar to
+// std::unique_ptr.
+
+class PlTermScoped : public PlTerm
+{
+public:
+  explicit PlTermScoped()
+  : PlTerm()
+  { }
+
+  explicit PlTermScoped(PlTerm t)
+    : PlTerm(t.copy_term_ref())
+  { }
+
+  explicit PlTermScoped(term_t t)
+    : PlTerm(Plx_copy_term_ref(t))
+  { }
+
+  explicit PlTermScoped(PlTermScoped&& moving) noexcept
+    : PlTerm(moving)
+  { moving.reset();
+  }
+
+  PlTermScoped& operator=(PlTermScoped&& moving) noexcept
+  { if ( this != &moving )
+    { reset(moving);
+      moving.reset();
+    }
+    return *this;
+  }
+
+  PlTermScoped(const PlTermScoped&) = delete;
+  PlTermScoped& operator=(PlTermScoped const&) = delete;
+
+  ~PlTermScoped()
+  { free_term_ref_reset(); // TODO: reset() isn't needed?
+  }
+
+  void reset()
+  { free_term_ref();
+    PlTerm::reset();
+  }
+
+  void reset(PlTerm src)
+  { free_term_ref();
+    PlTerm::reset(src);
+  }
+
+  PlTerm get() const noexcept { return PlTerm(unwrap()); }
+
+  PlTermScoped release() noexcept
+  { term_t t = unwrap();
+    reset();
+    return PlTermScoped(t);
+  }
+
+  void swap(PlTermScoped& src) noexcept
+  { // std::swap(*this, src);
+    term_t this_unwrap = unwrap();
+    // Must use PlTerm::reset() to avoid call to PL_free_term_ref():
+    static_cast<PlTerm*>(this)->reset(PlTerm(src.unwrap()));
+    static_cast<PlTerm>(src).reset(PlTerm(this_unwrap));
+  }
+
+  // The put_*() and cons_*() methods are incompatible with the
+  // call to PL_free_term_ref() in the destructor.
+  void put_variable() = delete;
+  void put_atom(PlAtom a) = delete;
+  void put_bool(int val) = delete;
+  void put_atom_chars(const char *chars) = delete;
+  void put_string_chars(const char *chars) = delete;
+  void put_chars(int flags, size_t len, const char *chars) = delete;
+  void put_list_chars(const char *chars) = delete;
+  void put_list_codes(const char *chars) = delete;
+  void put_atom_nchars(size_t l, const char *chars) = delete;
+  void put_string_nchars(size_t len, const char *chars) = delete;
+  void put_list_nchars(size_t l, const char *chars) = delete;
+  void put_list_ncodes(size_t l, const char *chars) = delete;
+  void put_integer(long i) = delete;
+  void put_pointer(void *ptr) = delete;
+  void put_float(double f) = delete;
+  void put_functor(PlFunctor functor) = delete;
+  void put_list() = delete;
+  void put_nil() = delete;
+  void put_term(PlTerm t2) = delete;
+  void put_blob( void *blob, size_t len, PL_blob_t *type) = delete;
+};
+
+// TODO: verify that this is the right way to specialize
+//       std::swap()'s use with std containers:
+namespace std
+{
+  inline
+  void swap(PlTermScoped& lhs, PlTermScoped& rhs) noexcept
+  { lhs.swap(rhs);
+  }
+}
 
 
 class PlTerm_atom : public PlTerm
@@ -1719,7 +1826,7 @@ public:
     // outside of a PREDICATE.
     if ( ref && type == ref->blob_t_ )
     { if ( len != sizeof *ref )
-        PL_system_error("Invalid size %zd (should be %zd) for %s", len, sizeof *ref, typeid(C_t).name());
+        PL_api_error("Invalid size %zd (should be %zd) for %s", len, sizeof *ref, typeid(C_t).name());
       return ref;
     }
     return nullptr;
@@ -1732,7 +1839,7 @@ public:
     // Can't throw PlException here because might be in a context
     // outside of a PREDICATE.
     if ( !ref )
-      PL_system_error("Failed cast to %s", typeid(C_t).name());
+      PL_api_error("Failed cast to %s", typeid(C_t).name());
     return ref;
   }
 
@@ -1755,7 +1862,7 @@ public:
     }
     PREDICATE_CATCH(rc = false)
     if ( !rc )
-      PL_system_error("Failed acquire() for %s", typeid(C_t).name());
+      PL_api_error("Failed acquire() for %s", typeid(C_t).name());
     // TODO: if ( ! rc ) Plx_clear_exception() ?
   }
 
@@ -1793,7 +1900,7 @@ public:
     }
     PREDICATE_CATCH(rc_try = false; rc = 0;)
     if ( !rc_try )
-      PL_system_error("Failed compare() for %s", typeid(C_t).name());
+      PL_api_error("Failed compare() for %s", typeid(C_t).name());
     return rc;
   }
 

@@ -351,6 +351,19 @@ PlTerm::copy_term_ref() const
 { return PlTerm(Plx_copy_term_ref(unwrap()));
 }
 
+_SWI_CPP2_CPP_inline
+void
+PlTerm::free_term_ref()
+{ if ( not_null() )
+    Plx_free_term_ref(unwrap());
+}
+
+_SWI_CPP2_CPP_inline
+void
+PlTerm::free_term_ref_reset()
+{ free_term_ref();
+  reset();
+}
 
 _SWI_CPP2_CPP_inline
 void

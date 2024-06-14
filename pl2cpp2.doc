@@ -779,6 +779,8 @@ provides complete documentation of this class.
 
 There are a number of subclasses that exist only to provide a safe way
 of constructing at term.
+There is also a subclass (\ctype{PlTermScoped}) that helps reclaim
+terms.
 
 Most of the \ctype{PlTerm} constructors are defined as subclasses of
 \ctype{PlTerm}, with a name that reflects the Prolog type of what is
@@ -1065,7 +1067,14 @@ The methods are:
   \cfunction{bool}{name_arity}{PlAtom *name, size_t *arity} Wrapper of PL_get_name_arity(); \arg{name} and/or \arg{arity} can be \const{nullptr}. Returns \const{false} if the term
   isn't a compound or atom.
   \cfunction{PlTerm}{PlTerm::copy_term_ref}{} Wrapper of PL_copy_term_ref(). Throws
-    an exception error (e.g., \ctype{PlResourceError}).
+  an exception error (e.g., \ctype{PlResourceError}).
+  \cfunction{void}{PlTerm::free_term_ref}{} Wrapper of PL_free_term_ref().
+    Is safe to use if the object wraps \const{PlTerm::null}.
+    Does \emph{not} reset the wrapped term. This is used implicitly in
+    \ctype{PlTermScoped}'s destructor, which does reset the wrapped term.
+    \cfunction{void}{PlTerm::free_term_ref_reset}{} Same as
+    PlTerm::free_term_ref() plus PlTerm::reset().
+    \ctype{PlTermScoped}'s destructor, which does reset the wrapped term.
   \cfunction{bool}{nify_term}{PlTerm t2} Wrapper of PL_unify(). Throws an exception
     on error and returns \const{false} if unification fails. If on failure, there
     isn't an immediate return to Prolog (e.g., by wrapping the call with
@@ -1123,12 +1132,139 @@ The methods are:
 
 \end{description}
 
+\subsection{PlTermScoped class (experimental)}
+\label{sec:cpp-plterm_scoped}
+
+\emph{This class is experimental and subject to change.}
+
+Normally all term references in a \jargon{scope} are discarded
+together or all term references created after a specific one are
+reclaimed using PlTerm::reset_term_refs().  A \ctype{PlTermScoped}
+object is the same as a \ctype{PlTerm} object except that
+PL_free_term_ref() is called on its wrapped term when the object goes
+out of scope. This shrinks the current foreign frame if the term is
+the last one in the frame and otherwise it marks it for reuse.
+
+Here is an example, where \ctype{PlTermScoped} is inside a for-loop.
+If \ctype{PlTerm} were used instead, the stack would grow by the number
+of items in the array; \ctype{PlTermScoped} ensures that stack doesn't
+grow.\footnote{Assuming that unify_atom_list() is called from a
+predicate implementation, if \ctype{PlTerm} were used instead of
+\ctype{PlTermCopy}, all the created terms would be discarded when
+the Prolog stack frame is unwound; the use of \ctype{PlTermScoped}
+reuses the terms in that stack frame.}
+A slightly more effiicient way of preventing the Prolog stack from
+growing is to use PlTerm::put_term() to reuse a term reference; but
+that is more difficult to understand and also more error-prone.
+
+\begin{code}
+bool
+unify_atom_list(const std::vector<std::string>& array, PlTerm list)
+{ PlTermScoped tail(list); // calls PL_copy_term_ref() to copy `list`
+  for( auto item : array )
+  { PlTermScoped head; // var term
+    PlCheckFail(tail.unify_list(head, tail));
+    PlCheckFail(head.unify_chars(PL_ATOM, item));
+  }
+  return tail.unify_nil();
+}
+end{code}
+
+The design of \ctype{PlTermScoped} is modeled on
+\ctype{std::unique_ptr}\footnote{\ctype{unique_ptr} was originally
+called \ctype{scoped_ptr} in the Boost libraries, but the name was
+changed to contrast with \ctype{std::shared_ptr}, which is
+reference-counted.} and uses \jargon{move semantics} to ensure
+safety.\footnote{\jargon{Move semantics} are a relatively new feature
+in C++ and can be a bit difficult to understand. Roughly speaking, a
+\jargon{move} is a copies the object and then calls its destructor, so
+that any further use of the object is an error. If an object defines
+move methods or constructors, it can optimize this operation, and also
+can catch certain kinds of errors at compile time.}
+
+A \ctype{PlTermScoped} object can be created either with or without a
+wrapped term - the PlTermScoped::reset() method sets (or nulls) the
+wrapped term.  A \ctype{PlTermScoped} object cannot be copied or
+passed as a value to a function; the PlTermScoped::release() method
+returns the wrapped term and resets the \ctype{PlTermScoped} object so
+that any further use of the \ctype{PlTermScoped} object is an error.
+
+As shown in the example above, \ctype{PlTermScoped} can be used
+instead of \ctype{PlTerm}, in places where a loop would otherwise
+cause the stack to grow. There are limitations on the operations that
+are allowed on a \ctype{PlTermScoped} object; in particular, a
+\ctype{PlTermScoped} object cannot be copied and cannot be implicitly
+converted to a \ctype{Plterm}.
+
+The \ctype{PlTermScoped} constructors always create a new term ref, by
+calling either PL_new_term_ref() or PL_copy_term_ref(). If you try to
+copy or create a \ctype{PlTermScoped} object from another
+\ctype{PlTermScoped} object, you will get a compile-time error; you can
+set the value from a \ctype{PlTerm} object, which can be obtained by
+calling PlTermScoped::release().
+
+The methods derived from the PL_put_*() and PL_cons_*() functions
+should not be used with a \ctype{PlTermScoped} object. If you need to
+use these, you can use PlTermScoped::get() to get a \ctype{PlTerm},
+for which a put_*() method can be used.
+
+To copy a \ctype{PlTermScoped} object or to pass it as a value in
+a function call, use the PlTermScoped::release()
+method or std::move():
+\begin{code}
+  PlTermScoped ts(...);
+  PlTerm t;
+
+  // Copy to a PlTerm:
+  t = ts.release(); // or: t = std::move(ts);
+
+  // Pass as a value to a function:
+  foo(ts.release(); // or: foo(std::move(ts);
+
+  // Copy to a PlTermScoped:
+  PlTermScoped ts2;
+  ts2.reset(ts.release); // or: ts2.reset(std::move(ts));
+\end{code}
+
+The methods are (in addition to, or overriding the methods in \ctype{PlTerm}):
+\begin{itemize}
+  \item \constructor{PlTermScoped}{} - same as PlTermScoped(PlTerm::null).
+  \item \constructor{PlTermScoped}{PlTerm t} - set the value
+    from t.copy_term_ref()
+  \item \constructor{PlTermScoped}{term_t t} - same as PlTermScoped(PlTerm(t)).
+  \item \constructor{PlTermScoped}{PlTermScoped\&\& m} - create a
+    new wrapped object from \arg{m} and reset \arg{m}. This is typically
+    used with std::move().
+  \item \cfunction{PlTermScoped&}{operator=}{PlTermScoped\&\& m} - copy
+    \arg{m} and reset it. This is typically used with std::move().
+  \item \destructor{PlTermScoped} - if the wrapped term not null,
+    call PL_free_term_ref() on it.
+  \item \constructor{PlTermScoped}{PlTermScoped\& m} - deleted method.
+  \item \cfunction{PlTermScoped&}{operator=}{PlTermScoped\& m} - deleted method.
+  \item \cfunction{void}{PlTermScoped::reset}{} - same as
+    PlTermScoped::reset(PlTerm::null).
+  \item \cfunction{void}{PlTermScoped::reset}{PlTerm src} -
+    sets the wrapped term from \arg{src}. To set the wrapped term
+    from a \ctype{PlTermScoped}, use PlTermScoped::release() to
+    convert it to a \ctype{PlTerm}.
+  \item \cfunction{PlTerm}{PlTermScoped::get}{} - convert the object
+    to a \ctype{PlTerm}. This is typically used when calling a function
+    that expects a \ctype{PlTerm} object and which will not call
+    PlTerm::free_term_ref() on it.
+  \item \cfunction{PlTerm}{PlTermScoped::release}{} - typically used
+    in the context \exam{t2.reset(t.release())} to copy a
+    \ctype{PlTermScoped}; this can also be written
+    \exam{t2=std::move(t)}.
+  \item \cfunction{void}{PlTermScoped::swap}{PlTermScoped& src} -
+    swap two \ctype{PlTermScoped} objects' wrapped terms.
+\end{itemize}
+
 \subsection{Blobs}
 \label{sec:cpp2-blobs}
 
 \emph{Nomenclature warning:}
 
-There are two different \ctype{release()} functions:  % TOOD: \cfuncnoref
+There are two different \ctype{release()} functions:  % TODO: \cfunctionref
 \begin{itemize}
    \item The release() callback for a blob (see the definition
          of \ctype{PL_blob_t}).
@@ -1902,7 +2038,7 @@ The C++ API remains a work in progress.
 SWI-Prolog string handling has evolved over time.  The functions that
 create atoms or strings using \ctype{char*} or \ctype{wchar_t*} are
 ``old school''; similarly with functions that get the string as
-\ctype{char*} or \ctype{wchar_t*}. The PL_{get_unify_put}_[nw]chars()
+\ctype{char*} or \ctype{wchar_t*}. The PL_{get,unify,put}_[nw]chars()
 family is more friendly when it comes to different input, output,
 encoding and exception handling.
 

@@ -144,6 +144,17 @@ PREDICATE(hello3, 2)
   return false;
 }
 
+PREDICATE(hello4, 1)
+{ // The following code is the same as
+  //   A1.unify_term(PlCompound("hello", PlTermv(PlAtom("world"))));
+  // but is in separate statements to make tracig constructors easier.
+  auto hello_world = A1;
+  auto world_atom = PlAtom("world");
+  auto world_termv = PlTermv(world_atom);
+  auto hello_world_compound = PlCompound("hello", world_termv);
+  return hello_world.unify_term(hello_world_compound);
+}
+
 // TODO: add tests
 PREDICATE(as_string, 2)
 { return A2.unify_string(A1.as_string());
@@ -283,7 +294,7 @@ PREDICATE(term_to_string, 2)
 }
 
 PREDICATE(term, 1)
-{ return A1.unify_term(PlCompound("hello", PlTermv(PlTerm_atom("world"))));
+{ return A1.unify_term(PlCompound("hello", PlTermv(PlAtom("world"))));
 }
 
 PREDICATE(term, 2)
@@ -388,17 +399,17 @@ PREDICATE(eq4, 2)
 }
 
 PREDICATE(write_list, 1)
-{ PlTerm_tail tail(A1);
-  PlTerm_var e;
-  PlStream strm(Scurrent_output);
+{ PlStream strm(Scurrent_output);
+
   // This is an example of using the try...PREDICATE_CATCH for avoiding
   // throwing an exception in the PlStream destructor.
+  PlTerm_tail tail(A1);
+  PlTerm_var e;
   try
   { while( tail.next(e) )
       strm.printf("%s\n", e.as_string().c_str());
   } PREDICATE_CATCH({strm.release(); return false;})
-  PlCheckFail(tail.unify_nil());
-  return true;
+  return tail.close();  // or: PlCheckFail(tail.unify_nil());
 }
 
 PREDICATE(cappend, 3)
@@ -675,7 +686,7 @@ PREDICATE(lt_int64, 2)
 #endif
 
 PREDICATE(get_atom_ex, 2)
-{ PlAtom a(PlTerm::null);
+{ PlAtom a(PlAtom::null);
   A1.get_atom_ex(&a);
   return A2.unify_atom(a);
 }
@@ -725,6 +736,28 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   const char codes[] = {81,82,83,0};
   PlTerm_list_codes s02(codes);
   PlTerm_list_chars s03("mno");
+
+  PlTerm_var tt;
+  tt.put_variable();
+  tt.put_atom(PlAtom("xyz"));
+  tt.put_bool(false);
+  tt.put_atom_chars("abcdefg");
+  tt.put_string_chars("gfedcba");
+  tt.put_chars(0, 3, "abc");
+  tt.put_list_chars("mnopq");
+  tt.put_list_codes("1234");
+  tt.put_atom_nchars(3, "111");
+  tt.put_string_nchars(3, "222");
+  tt.put_list_nchars(3, "333");
+  tt.put_list_ncodes(3, "444");
+  tt.put_integer(-1234);
+  tt.put_pointer(&tt);
+  tt.put_float(0.123);
+  tt.put_functor(PlFunctor("foo", 1));
+  tt.put_list();
+  tt.put_nil();
+  tt.put_term(t_string1);
+
   PlAtom atom1("atom1");
   PlAtom atom2(L"原子2");
   PlAtom atom3(std::string("atom3"));
@@ -1514,7 +1547,7 @@ struct MyBlob : public PlBlob
       connection(std::make_unique<MyConnection>(connection_name)),
       blob_name(connection_name)
   { if ( !connection ) // make_unique should have thrown exception if it can't allocate
-      PL_system_error("MyBlob(%s) connection=%p", blob_name.c_str(), connection.get());
+      PL_api_error("MyBlob(%s) connection=%p", blob_name.c_str(), connection.get());
     if ( !connection->open() )
       throw MyBlobError("my_blob_open_error");
     if ( name_contains("FAIL_new") ) // Test error handling
@@ -2095,4 +2128,143 @@ PREDICATE(compile_only_stream, 0)
   (void)loc2;
 
   return false;
+}
+
+
+// Tests for PlTermScoped
+
+bool
+unify_atom_list(const std::vector<std::string>& array, PlTerm list)
+{ PlTermScoped tail(list);
+  term_t save_head = PlTerm::null; // For checking that PL_free_term_ref() is called
+  for( auto item : array )
+  { PlTermScoped head; // var term
+    if ( save_head != PlTerm::null &&
+         save_head != head.unwrap() )
+      throw PlUnknownError("unify_atom_list head not reused");
+    save_head = head.unwrap();
+    PlCheckFail(tail.unify_list(head, tail));
+    PlCheckFail(head.unify_chars(PL_ATOM, item));
+  }
+  return tail.unify_nil();
+}
+
+// The same code as unify_atom_list, using the C interface:
+int
+unify_atom_list_c(char **array, size_t len, term_t list)
+{ term_t tail;
+
+  if ( !(tail=PL_copy_term_ref(list)) )
+    return FALSE;
+
+  for(size_t i=0; i<len; i++)
+  { term_t head;
+
+    if ( !(head = PL_new_term_ref()) ||
+	 !PL_unify_list(tail, head, tail) ||
+	 !PL_unify_chars(head, PL_ATOM, (size_t)-1, array[i]) )
+    {  PL_free_term_ref(head);
+      return FALSE;
+    }
+    PL_free_term_ref(head);
+  }
+
+  if ( PL_unify_nil(tail) )
+  { PL_free_term_ref(tail);
+    return TRUE;
+  }
+  PL_free_term_ref(tail);
+  return FALSE;
+}
+
+// unify_atom_list(In, Out)
+PREDICATE(unify_atom_list, 2)
+{ std::vector<std::string> array;
+  PlTerm_tail tail(A1);
+  PlTerm_var e;
+  while( tail.next(e) )
+    array.push_back(e.as_string());
+  return tail.close() && unify_atom_list(array, A2);
+}
+
+// unify_atom_list_c(In, Out) - same as unify_atom_list/2
+//                              but uses C API
+PREDICATE(unify_atom_list_c, 2)
+{ std::vector<std::string> array;
+  PlTerm_tail tail(A1);
+  PlTerm_var e;
+  while( tail.next(e) )
+    array.push_back(e.as_string());
+  if ( ! tail.close() )
+    return false;
+  char** array2 = (char**)calloc(sizeof (char*), array.size());
+  for( size_t i = 0; i < array.size(); i++ )
+    array2[i] = strdup(array[i].c_str());
+
+  int rc = unify_atom_list_c(array2, array.size(), A2.unwrap());
+
+  for( size_t i = 0; i < array.size(); i++ )
+    free(array2[i]);
+  free(array2);
+  return rc;
+}
+
+PREDICATE(term_release, 0) // TODO: make this into a proper test
+{ PlStream strm(Scurrent_output);
+  PlTermScoped t1;
+  strm.printf("term_release: t1=%zd\n", t1.unwrap());
+  if ( t1.is_null() )
+    throw PlUnknownError("PlTermScoped t1 ctor didn't get a term");
+  PlTermScoped t2;
+  if ( t2.is_null() )
+    throw PlUnknownError("PlTermScoped t2 ctor didn't get a term");
+  if ( t1.unwrap() == t2.unwrap() )
+    throw PlUnknownError("PlTermScoped t1 == t2");
+
+  term_t save_t1 = t1.unwrap(), save_t2 = t2.unwrap();
+
+  t1.swap(t2);
+  if ( t1.unwrap() != save_t2 )
+    throw PlUnknownError("PlTermScoped t1.swap(t2) 1 failed (1)");
+  if ( t2.unwrap() != save_t1 )
+    throw PlUnknownError("PlTermScoped t1.swap(t2) 1 failed (2)");
+  std::swap(t1, t2); // TODO: add test that this swap is called when sorting a vector
+  if ( t1.unwrap() != save_t1 )
+    throw PlUnknownError("PlTermScoped swap(t1,t2) failed (1)");
+  if ( t2.unwrap() != save_t2 )
+    throw PlUnknownError("PlTermScoped swap(t1,t2) failed (2)");
+
+  PlTermScoped t3(t1.release());
+  if ( t1.not_null() )
+    throw PlUnknownError("PlTermScoped t3(t1.release()) failed");
+  if ( t3.unwrap() != save_t1 )
+    throw PlUnknownError("PlTermScoped t3 ctor failed");
+
+  PlTermScoped t4;
+  t4.reset();
+  if ( t4.not_null() )
+    throw PlUnknownError("PlTermScoped t4.reset() failed");
+  t4.reset(t3.release());
+  if ( t3.not_null() )
+    throw PlUnknownError("PlTermScoped t4.reset(t3.release()) failed");
+  if ( t4.unwrap() != save_t1 )
+    throw PlUnknownError("PlTermScoped t4 != save_t1");
+
+  PlTermScoped t5(std::move(t4));
+  if ( t4.not_null() )
+    throw PlUnknownError("PlTermScoped std::move(t4) failed");
+  if ( t5.unwrap() != save_t1 )
+    throw PlUnknownError("PlTermScoped t5 != save_t1");
+
+  PlTermScoped t6;
+  t6 = std::move(t5);
+  if ( t5.not_null() )
+    throw PlUnknownError("PlTermScoped std::move(t5) failed");
+  if ( t6.unwrap() != save_t1 )
+    throw PlUnknownError("PlTermScoped t6 != save_t1");
+
+  // TODO: why doesn't the following compile? (See t6, which does):
+  // PlTermScoped t7 = std::move(t6);
+
+  return true;
 }

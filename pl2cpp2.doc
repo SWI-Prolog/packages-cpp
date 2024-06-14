@@ -659,7 +659,7 @@ The wrapper classes (\ctype{PlFunctor}, \ctype{PlAtom},
 \ctype{PlTerm}), etc.  all contain a field \exam{C_} that contains the
 wrapped value (\ctype{functor_t}, \ctype{atom_t}, \ctype{term_t}
 respectively). If this wrapped value is needed, it should be accessed
-using the unwrap() or unwrap_ptr() methods.
+using the unwrap() or unwrap_as_ptr() methods.
 
 In some cases, it's natural to use a pointer to a wrapper class.
 For those, the function PlUnwrapAsPtr() returns \ctype{nullptr} if
@@ -2908,29 +2908,30 @@ arguments.  See \ctype{PlTermv} for details.  The example below
 creates the Prolog term \exam{hello(world)}.
 
 \begin{code}
-PlCompound("hello", PlTermv("world"))
+PlCompound("hello", PlTermv(PlAtom("world")))
 \end{code}
 \end{description}
 
 
-\subsection{The class PlTail (version 2)}
+\subsection{The class PlTerm_tail (version 2)}
 \label{sec:cpp2-pltail}
 
-The class \ctype{PlTail} is both for analysing and constructing lists.
-It is called \ctype{PlTail} as enumeration-steps make the term-reference
-follow the `tail' of the list.
+The class \ctype{PlTerm_tail}\footnote{This was named \ctype{PlTail}
+in version 1 of the API.}  is both for analysing and constructing
+lists.  It is called \ctype{PlTerm_tail} as enumeration-steps make the
+term-reference follow the `tail' of the list.
 
 \begin{description}
-    \constructor{PlTail}{PlTerm list}
-A \ctype{PlTail} is created by making a new term-reference pointing to
-the same object.  As \ctype{PlTail} is used to enumerate or build a
+    \constructor{PlTerm_tail}{PlTerm list}
+A \ctype{PlTerm_tail} is created by making a new term-reference pointing to
+the same object.  As \ctype{PlTerm_tail} is used to enumerate or build a
 Prolog list, the initial \arg{list} term-reference keeps pointing to
 the head of the list.
-    \cfunction{int}{PlTail::append}{const PlTerm \&element}
-Appends \arg{element} to the list and make the \ctype{PlTail} reference
+    \cfunction{int}{PlTerm_tail::append}{const PlTerm \&element}
+Appends \arg{element} to the list and make the \ctype{PlTerm_tail} reference
 point to the new variable tail.  If \arg{A} is a variable, and this
 function is called on it using the argument \exam{"gnat"}, a list of
-the form \exam{[gnat|B]} is created and the \ctype{PlTail} object
+the form \exam{[gnat|B]} is created and the \ctype{PlTerm_tail} object
 now points to the new variable \arg{B}.
 
 This function returns \const{true} if the unification succeeded and
@@ -2944,7 +2945,7 @@ int
 main(int argc, char **argv)
 { PlEngine e(argv[0]);
   PlTermv av(1);
-  PlTail l(av[0]);
+  PlTerm_tail l(av[0]);
 
   for(int i=0; i<argc; i++)
     PlCheckFail(l.append(argv[i]));
@@ -2954,25 +2955,25 @@ main(int argc, char **argv)
   return q.next_solution() ? 0 : 1;
 }
 \end{code}
-    \cfunction{int}{PlTail::close}{}
+    \cfunction{int}{PlTerm_tail::close}{}
 Unifies the term with \const{[]} and returns the result of the
 unification.
-    \cfunction{int}{PlTail::next}{PlTerm \&t}
-Bind \arg{t} to the next element of the list \ctype{PlTail} and advance
-\ctype{PlTail}. Returns \const{true} on success and \const{false} if
-\ctype{PlTail} represents the empty list. If \ctype{PlTail} is neither a
+    \cfunction{int}{PlTerm_tail::next}{PlTerm \&t}
+Bind \arg{t} to the next element of the list \ctype{PlTerm_tail} and advance
+\ctype{PlTerm_tail}. Returns \const{true} on success and \const{false} if
+\ctype{PlTerm_tail} represents the empty list. If \ctype{PlTerm_tail} is neither a
 list nor the empty list, a \except{type_error} is thrown. The example
 below prints the elements of a list.
 
 \begin{code}
 PREDICATE(write_list, 1)
-{ PlTail tail(A1);
-  PlTerm e;
+{ PlTerm_tail tail(A1);
+  PlTerm_var e;
 
   while(tail.next(e))
     cout << e.as_string() << endl;
 
-  return true;
+  return tail.close();
 }
 \end{code}
 \end{description}
@@ -3003,7 +3004,7 @@ Create a vector from 1 to 5 initialising arguments.  For example:
 
 \begin{code}
 load_file(const char *file)
-{ return PlCall("compile", PlTermv(file));
+{ return PlCall("compile", PlTermv(PlAtom(file)));
 }
 \end{code}
 
@@ -3292,17 +3293,29 @@ This construct is currently supported upto 3 arguments.
 This class encapsulates the call-backs onto Prolog.
 
 \begin{description}
-    \constructor{PlQuery}{const char *name, const PlTermv \&av}
+    \constructor{PlQuery}{const char *name, const PlTermv \&av, int flags = PL_Q_PASS_EXCEPTION}
 Create a query where \arg{name} defines the name of the predicate and
 \arg{av} the argument vector.  The arity is deduced from \arg{av}.  The
 predicate is located in the Prolog module \module{user}.
     \constructor{PlQuery}{const char *module, const char *name,
-			  const PlTermv \&av}
+			  const PlTermv \&av, int flags = PL_Q_PASS_EXCEPTION}
 Same, but performs the predicate lookup in the indicated module.
     \cfunction{int}{PlQuery::next_solution}{}
 Provide the next solution to the query.  Yields \const{true} if
 successful and \const{false} if there are no (more) solutions.
 Prolog exceptions are mapped to C++ exceptions.
+If the \class{PlQuery} object was created with the \const{PL_Q_EXT_STATUS}
+flag, the extended return codes can also be returned
+(\const{TRUE},
+ \const{FALSE},
+ \const{PL_S_NOT_INNER},
+ \const{PL_S_EXCEPTION},
+ \const{PL_S_FALSE},
+ \const{PL_S_TRUE},
+ \const{PL_S_LAST}).
+Because of this, you shouldn't use PlCheckFail() with PlQuery::next_solution()
+in this situation.
+
     \cfunction{void}{PlQuery::cut}{}
 Discards the query, but does not delete an of the data created
 by the query. If there is any pending Prolog exception, it is

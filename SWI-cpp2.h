@@ -85,7 +85,7 @@ particularly integer conversions.
   #error "Unexpected value for LONG_MAX"
 #endif
 
-#if !(defined(__APPLE__) || defined(__FreeBSD__))
+#if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
 #include <malloc.h>
 #endif
 

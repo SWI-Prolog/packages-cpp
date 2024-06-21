@@ -1075,6 +1075,13 @@ test(plterm_scoped, error(type_error(list,foo))) :-
 test(plterm_scoped, [blocked('crashes in PL_free_term_ref')]) :-
     term_release.
 
+test(record_ext, P == foo(bar,1,"a\0bc",'xy\0')) :-
+    record_ext(foo(bar,1,"a\0bc", 'xy\0'), Str),
+    record_ext(P, Str).
+test(record_ext, P == foo(bar,1,"a\0bc世界",'\0xy\0')) :-
+    record_ext2(foo(bar,1,"a\0bc世界", '\0xy\0'), Str),
+    record_ext2(P, Str).
+
 :- end_tests(cpp).
 
 :- begin_tests(cpp_atommap).

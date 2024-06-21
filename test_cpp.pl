@@ -94,6 +94,9 @@ test(hello2, Out == "Hello2 world2\nHello2 world2\nHello2 world2\nHello2 world2\
 test(hello3, Out == "Hello3 世界弐\n") :-
     hello3(世界弐, Out).
 
+test(hello4, Out == hello(world)) :-
+    hello4(Out).
+
 test(call_cpp, Out == "hello(foo)\n") :-
     with_output_to(string(Out), call_cpp(writeln(hello(foo)))).
 test(call_cpp, Out == "hello(世界四)\n") :-
@@ -845,7 +848,7 @@ test(blob, [blocked(cant_throw_error),
     create_fail_close_blob,
     garbage_collect,
     garbage_collect_atoms.
-test(blob, blocked(calls_PL_system_error)) :-
+test(blob, blocked('throws std::runtime_error')) :-
     create_my_blob('-FAIL_connection-', _Blob).
 test(blob, error(my_blob_open_error(_))) :-
     create_my_blob('-FAIL_open-', _Blob).
@@ -1053,6 +1056,24 @@ test_setup_call_cleanup(X) :-
         true,
         between(1, 5, X),
         throw(error)).
+
+% Experimental API tests
+test(plterm_scoped, R == []) :-
+    unify_atom_list([], R).
+test(plterm_scoped, R == [a, foo]) :-
+    unify_atom_list(["a", foo], R).
+test(plterm_scoped, error(type_error(list,foo))) :-
+    unify_atom_list(foo, _).
+
+test(plterm_scoped, R == []) :-
+    unify_atom_list_c([], R).
+test(plterm_scoped, R == [a, foo]) :-
+    unify_atom_list_c(["a", foo], R).
+test(plterm_scoped, error(type_error(list,foo))) :-
+    unify_atom_list_c(foo, _).
+
+test(plterm_scoped, [blocked('crashes in PL_free_term_ref')]) :-
+    term_release.
 
 :- end_tests(cpp).
 

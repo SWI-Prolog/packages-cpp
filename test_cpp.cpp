@@ -2268,3 +2268,27 @@ PREDICATE(term_release, 0) // TODO: make this into a proper test
 
   return true;
 }
+
+// record_ext(Term, External:string)
+// if External is a variable, unifies it with the external record of Term
+// else unifies Term with the conversion from the external record
+PREDICATE(record_ext, 2)
+{ PlTerm term(A1), external(A2);
+  if ( external.is_variable() )
+  { PlRecordExternalCopy ext(term);
+    return external.unify_string(ext.data());
+  }
+  return term.unify_term(
+      PlRecordExternalCopy::term(external.get_nchars(CVT_STRING|CVT_EXCEPTION)));
+}
+
+// Same as record_ext/2, but calls different method
+PREDICATE(record_ext2, 2)
+{ PlTerm term(A1), external(A2);
+  if ( external.is_variable() )
+  { PlRecordExternalCopy ext(term);
+    return external.unify_string(ext.data());
+  }
+  PlRecordExternalCopy ext(external.get_nchars(CVT_STRING|CVT_EXCEPTION));
+  return term.unify_term(ext.term());
+}

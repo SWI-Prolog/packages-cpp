@@ -3373,13 +3373,29 @@ assert(t.unify_term(r->term()));
 \end{code}
 
 The class \ctype{PlRecordExternalCopy} keeps the \jargon{external record}
-as an uninterpreted string. It supports the following methods.
+as an uninterpreted string (which may contain nulls).
+It supports the following methods.
 \begin{description}
-   \cfunction{}{PlRecordExternalCopy}{} Constructor.
+   \constructor{PlRecordExternalCopy}{PlTerm t}
    Creates a string using Pl_record_external(), copies it into
-   the object,  then deletes the reference using PL_erase_external().
-   \cfunction{PlTerm}{term}{} creates a term from the record,
-   using PL_recorded_external()).
+   the object  then deletes the reference using PL_erase_external().
+   \constructor{PlRecordExternalCopy}{const std::string& external}
+   Saves the \arg{external} string (which is assumed to have been
+   created using PL_record_external()).
+   \constructor{PlRecordExternalCopy}{const char* external, size_t len}
+   Saves the \arg{external} string (which is assumed to have been
+   created using PL_record_external()).
+   \cfunction{PlTerm}{term}{} creates a term from the saved external
+   record string, using PL_recorded_external()).
+   \cfunction{static PlTerm}{term}{const std::string& external}
+   Creates a term from the external record string.
+   Equivalent to PlRecordExternalCopy(external).term().
+   \cfunction{static PlTerm}{term}{const char* external}
+   Creates a term from the external record string.
+   Equivalent to PlRecordExternalCopy(external,len).term()
+   except the length is inferred from \arg{external}'s contents.
+   \cfunction{const std::string&}{data}{} Gets the external
+   string that was created by the constructor.
 \end{description}
 
 \section{The class PlRegister (version 2)}

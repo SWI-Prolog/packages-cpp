@@ -562,6 +562,8 @@ public:
   void put_list_nchars(size_t l, const char *chars)        { Plx_put_list_nchars(unwrap(), l, chars); }
   void put_list_ncodes(size_t l, const char *chars)        { Plx_put_list_ncodes(unwrap(), l, chars); }
   void put_integer(long i)                                 { Plx_put_integer(unwrap(), i); }
+  void put_int64(int64_t i)                                { Plx_put_int64(unwrap(), i); }
+  void put_uint64(uint64_t i)                              { Plx_put_uint64(unwrap(), i); }
   void put_pointer(void *ptr)                              { Plx_put_pointer(unwrap(), ptr); }
   void put_float(double f)                                 { Plx_put_float(unwrap(), f); }
   void put_functor(PlFunctor functor)                      { Plx_put_functor(unwrap(), functor.unwrap()); }
@@ -965,7 +967,7 @@ private:
 public:
   explicit PlTermv(size_t n = 0)
     : size_(n),
-      a0_(n ? Plx_new_term_refs(static_cast<int>(n)) : PlTerm::null)
+      a0_(n ? Plx_new_term_refs(n) : PlTerm::null)
   { if ( size_  )
       PlEx<bool>(a0_ != (term_t)0);
   }
@@ -1124,6 +1126,14 @@ public:
     : C_(init(t))
   { }
 
+  PlRecordExternalCopy(const std::string& external)
+    : C_(external)
+  { }
+
+  PlRecordExternalCopy(const char*external, size_t len)
+    : C_(std::string(external, len))
+  { }
+
   PlRecordExternalCopy(const PlRecordExternalCopy& r) = default;
   PlRecordExternalCopy& operator =(const PlRecordExternalCopy&) = delete;
   ~PlRecordExternalCopy() = default;
@@ -1134,14 +1144,26 @@ public:
     return t;
   }
 
+  static PlTerm
+  term(const char* data)
+  { PlTerm_var t;
+    Plx_recorded_external(data, t.unwrap());
+    return t;
+  }
+
+  static PlTerm
+  term(const std::string& data)
+  { return term(data.data());
+  }
+
   const std::string& data() const { return C_; }
 
 private:
   std::string init(PlTerm t)
   { size_t len;
-    char *s =  Plx_record_external(t.unwrap(), &len);
-    std::string result(s, len);
-    Plx_erase_external(s);
+    char *external =  Plx_record_external(t.unwrap(), &len);
+    std::string result(external, len);
+    Plx_erase_external(external);
     return result;
   }
 

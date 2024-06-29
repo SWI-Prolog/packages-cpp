@@ -1389,7 +1389,7 @@ public:
 		 *	 CALLING PROLOG		*
 		 *******************************/
 
-class PlFrame : WrappedC<fid_t>
+class PlFrame : public WrappedC<fid_t>
 {
 public:
   PlFrame()
@@ -1423,7 +1423,7 @@ public:
 [[nodiscard]] bool PlRewindOnFail(std::function<bool()> f);
 
 
-class PlQuery : WrappedC<qid_t>
+class PlQuery : public WrappedC<qid_t>
 {
 public:
   PlQuery(PlPredicate pred, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)

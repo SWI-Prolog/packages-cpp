@@ -683,7 +683,9 @@ all define the following methods and constants:
     \exam{C_} - the wrapped value.
     This can be used directly when calling C functions,
     for example, if \exam{t} and \exam{a} are of type \ctype{PlTerm}
-    and \ctype{PlAtom}: \verb$Plcheck_PL(PL_put_atom(t.unwrap(),a.unwrap()))$.
+    and \ctype{PlAtom}: \verb$PlEx(PL_put_atom(t.unwrap(),a.unwrap()))$
+    (although it's better to do \verb$Plx_put_atom(t.unwrap(),a.unwrap())$,
+    which does the check).
   \item
     \exam{null} - the null value (typically \exam{0}, but
     code should not rely on this).
@@ -2541,7 +2543,7 @@ Here is a list of typical changes:
     if failure is expected to happen often.
 
   \item
-    You can use the \cfuncref{PlCheck_PL}{rc} to check the return code
+    You can use the \cfuncref{PlEx}{rc} to check the return code
     from a function in \file{SWI-Prolog} and throw a \ctype{PlFail}
     exception to short-circuit execution and return failure (\const{false})
     to Prolog (or throw a \ctype{PlException} if there was a Prolog error.
@@ -2623,19 +2625,19 @@ unify_zero(term_t a1)
 }
 \end{code}
 
-\subsection{PlCheckFail(), PlCheckEx(), and PlCheck_PL() convenience functions}
+\subsection{PlCheckFail(), and PlEx() convenience functions}
 \label{sec:cpp2-plcheck}
 
 If one of the C PL_*() functions in \file{SWI-Prolog.h} returns
 failure, this can be either a Prolog-style failure (e.g. from
 PL_unify() or PL_next_solution()) or an error. If the failure is due
 to an error, it's usually best to immediately return to Prolog - and
-this can be done with the PlCheckEx() function, which turns
+this can be done with the PlEx() function, which turns
 a Prolog error into a C++ \ctype{PlException}.  \cfuncref{PlCheckFail}{}
-calls PlCheckEx() and additionally throws PlFail() if the failure is
+calls PlEx() and additionally throws PlFail() if the failure is
 for Prolog failure.
 
-PlCheckEx() calls PL_exception() to see if there is a
+PlEx() calls PL_exception() to see if there is a
 Prolog exception; if so, the Prolog exception is converted to a
 \ctype{PlException} object, which is then thrown.  For more details on
 the C++ exceptions, see \secref{cpp2-exceptions}.
@@ -3053,7 +3055,7 @@ PlCompound("hello", PlTermv(PlAtom("world")))
 \label{sec:cpp2-pltail}
 
 The class \ctype{PlTerm_tail}\footnote{This was named \ctype{PlTail}
-in version 1 of the API.}  is both for analysing and constructing
+in version 1 of the API.} is both for analysing and constructing
 lists.  It is called \ctype{PlTerm_tail} as enumeration-steps make the
 term-reference follow the `tail' of the list.
 

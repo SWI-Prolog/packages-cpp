@@ -1985,6 +1985,7 @@ unsigned int nchars_flag(PlTerm list)
       throw PlDomainError("write-option", e);
     flags |= it->second;
   }
+  PlCheckFail(tail.close());
   return flags;
 }
 

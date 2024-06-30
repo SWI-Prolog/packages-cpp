@@ -1108,7 +1108,7 @@ test(atom_term_map) :-
     % This test uses different keys from the other atom_term_map test.
     % If it succeeds, it will have erased all the entries that were
     % inserted.
-    atom_term_insert(foo, foo_value),
+    atom_term_insert(foo, "foo_value"),
     atom_term_insert(bar, bar_value),
     atom_term_insert(bar, bar_value), % OK to add identical enntry
     catch(atom_term_insert(foo, foo_value2),
@@ -1116,7 +1116,7 @@ test(atom_term_map) :-
           Exc = true),
     assertion(Exc == true),
     atom_term_find(foo, F),
-    assertion(F == foo_value),
+    assertion(F == "foo_value"),
     assertion(\+ atom_term_find(foox, _)),
     atom_term_erase(foo),
     assertion(\+ atom_term_find(foo, _)),

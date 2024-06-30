@@ -1649,8 +1649,7 @@ static AtomMap<PlAtom, PlAtom> map_atom_atom("add", "atom_atom");
 
 PREDICATE(atom_atom_find, 2)
 { auto value = map_atom_atom.find(A1.as_atom());
-  PlCheckFail(value.not_null());
-  return A2.unify_atom(value);
+  return value.not_null() && A2.unify_atom(value);
 }
 
 PREDICATE(atom_atom_add, 2)
@@ -1671,9 +1670,7 @@ static AtomMap<PlTerm, PlRecord> map_atom_term("insert", "atom_term");
 
 PREDICATE(atom_term_find, 2)
 { auto value = map_atom_term.find(A1.as_atom());
-  if ( value.is_null() )
-    return false;
-  return A2.unify_term(value);
+  return value.not_null() && A2.unify_term(value);
 }
 
 PREDICATE(atom_term_insert, 2)

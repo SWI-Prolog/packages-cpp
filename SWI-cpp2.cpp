@@ -100,6 +100,7 @@ PlEx_fail(qid_t qid)
     throw ex2;
   } else
   { // TODO: get the name of the PL_...() function that caused the problem:
+    // assert(0);
     throw PlUnknownError("False return code without exception");
   }
 }

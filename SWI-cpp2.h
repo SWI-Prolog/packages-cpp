@@ -1056,7 +1056,7 @@ public:
 class PlRecord : public WrappedC<record_t>
 {
 public:
-  PlRecord(PlTerm t)
+  explicit PlRecord(PlTerm t)
     : WrappedC<record_t>(Plx_record(t.unwrap()))
   { }
 
@@ -1068,9 +1068,22 @@ public:
     : WrappedC<record_t>(r)
   { }
 
-  PlRecord& operator =(const PlRecord& r)
+  PlRecord(PlRecord&& r) noexcept
+    : WrappedC<record_t>(r)
+  { r.reset();
+  }
+
+  PlRecord& operator=(const PlRecord& r)
   { if ( this != &r )
       reset(r);
+    return *this;
+  }
+
+  PlRecord& operator=(PlRecord&& r) noexcept
+  { if ( this != &r )
+    { reset(r);
+      r.reset();
+    }
     return *this;
   }
 
@@ -1091,7 +1104,7 @@ public:
   }
 
   ~PlRecord()
-  { // TODO: erase();
+  { // TODO: erase(); -- but probably doesn't work with move constructor
   }
 };
 

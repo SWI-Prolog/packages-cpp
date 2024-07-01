@@ -39,15 +39,22 @@
 
 #include <map>
 #include <mutex>
+#include <shared_mutex>
 
 #include "SWI-cpp2.h"
 
 
-// The AtomMap class is a wrapper around a std::map, mapping
-// alias names to blobs. The blobs are of typ PlAtom, so this is
-// actually an atom->atom map.
+// The AtomMap class is a wrapper around a std::map, mapping alias
+// names to blobs. The blobs are of type PlAtom or PlTerm, so this is
+// actually an atom->atom or atom->term map.
 // The entries are protected by a mutex, so the operations are thread-safe.
 // The operations do appropriate calls to register and unregister the atoms/blobs.
+//
+// When defining an AtomMap, you specify the value type and how it is stored.
+// The supported values are:
+//   PlAtom,PlAtom
+//   PlTerm,PlRecord
+// The API automatically converts between the value and stored value types.
 //
 // The operations are:
 //   PlAtom find(PlAtom name) - look up, returning PlAtom::null if not found
@@ -61,9 +68,9 @@ class AtomMap
 {
 public:
   explicit AtomMap() = delete;
-  // See permission_error/3 for explanation of insert_op and insert_type.
-  // The result error message is something like
+  // On error, the message is something like
   //   No permission to <insert_op> <insert_type> `<key>'
+  // using PlPermissionError(insert_op_, insert_type_, key)
   explicit AtomMap(const std::string& insert_op, const std::string& insert_type)
     : insert_op_(insert_op), insert_type_(insert_type)
   { }
@@ -75,26 +82,26 @@ public:
 
   void
   insert(PlAtom key, ValueType value)
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::scoped_lock lock__(lock_);
     insert_inside_lock(key, value);
   }
 
   [[nodiscard]]
   ValueType
   find(PlAtom key)
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::shared_lock lock__(lock_);
     return find_inside_lock(key);
   }
 
   void
   erase(PlAtom key)
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::scoped_lock lock__(lock_);
     erase_inside_lock(key);
   }
 
   size_t
   size()
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::shared_lock lock__(lock_);
     return size_inside_lock();
   }
 
@@ -103,10 +110,10 @@ private:
   ValueType
   find_inside_lock(PlAtom key)
   { const auto lookup = entries_.find(key.unwrap());
-    ValueType value(ValueType::null);
-    if ( lookup != entries_.end() )
-      value.reset(ValueType(lookup->second));
-    return value;
+    if ( lookup == entries_.end() )
+      return ValueType(ValueType::null);
+    else
+      return ValueType(lookup->second);
   }
 
   void
@@ -167,15 +174,16 @@ private:
   { stored_value->erase();
   }
 
-  // Data - mutex + map
+  // Data: mutex + map
 
-  std::mutex lock_;
+  std::shared_mutex lock_;
+
   // TODO: Define the necessary operators for PlAtom, so that it can be
   //       the key instead of atom_t.
   std::map<atom_t, StoredValueType> entries_;
 
-  std::string insert_op_;
-  std::string insert_type_;
+  std::string insert_op_;   // for PlPermissionError
+  std::string insert_type_; // for PlPermissionError
 };
 
 

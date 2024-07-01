@@ -127,6 +127,7 @@ PLX_EXCE(int                     , assert                          , (term_t ter
 PLX_WRAP(term_t                  , new_term_refs                   , (size_t n), (n))
 PLX_WRAP(term_t                  , new_term_ref                    , (), ())
 PLX_WRAP(term_t                  , copy_term_ref                   , (term_t from), (from))
+PLX_VOID(void                    , free_term_ref                   , (term_t t), (t))
 PLX_VOID(void                    , reset_term_refs                 , (term_t r), (r))
 /* [[deprecated]]  */
 PLX_WRAP(atom_t                  , new_atom                        , (const char *s), (s))
@@ -413,6 +414,9 @@ PLX_ASIS(int                     , same_compound                   , (term_t t1,
 // (skipped):: int PL_warning(const char *fmt   , ...) WPRINTF12;
 // (skipped):: int PL_warningX(const char *fmt  , ...);
 // (skipped):: void PL_fatal_error(const char *fmt  , ...) WPRINTF12;
+// (skipped):: void PL_api_error(const char *fmt, ...) WPRINTF12;
+// (skipped):: void PL_system_error(const char *fmt, ...) WPRINTF12;
+
 PLX_WRAP(record_t                , record                          , (term_t term), (term))
 PLX_EXCE(int                     , recorded                        , (record_t record, term_t term), (record, term))
 PLX_VOID(void                    , erase                           , (record_t record), (record))
@@ -534,7 +538,7 @@ PLX_EXCE(LRESULT                 , win_message_proc                , (HWND hwnd,
 PLX_ASIS(PL_engine_t             , create_engine                   , (PL_thread_attr_t *attributes), (attributes))
 PLX_ASIS(int                     , set_engine                      , (PL_engine_t engine, PL_engine_t *old), (engine, old))
 PLX_ASIS(int                     , destroy_engine                  , (PL_engine_t engine), (engine))
-PLX_ASIS(hash_table_t            , new_hash_table                  , (int size, void (*free_symbol)(table_key_t n, table_value_t v)), (size, free_symbol))
+PLX_ASIS(hash_table_t            , new_hash_table                  , (size_t size, void (*free_symbol)(table_key_t n, table_value_t v)), (size, free_symbol))
 PLX_ASIS(int                     , register_profile_type           , (PL_prof_type_t *type), (type))
 PLX_ASIS(void*                   , prof_call                       , (void *handle, PL_prof_type_t *type), (handle, type))
 PLX_VOID(void                    , prof_exit                       , (void *node), (node))

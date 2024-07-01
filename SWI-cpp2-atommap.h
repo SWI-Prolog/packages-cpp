@@ -39,6 +39,7 @@
 
 #include <map>
 #include <mutex>
+#include <shared_mutex>
 
 #include "SWI-cpp2.h"
 
@@ -81,26 +82,26 @@ public:
 
   void
   insert(PlAtom key, ValueType value)
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::scoped_lock lock__(lock_);
     insert_inside_lock(key, value);
   }
 
   [[nodiscard]]
   ValueType
   find(PlAtom key)
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::shared_lock lock__(lock_);
     return find_inside_lock(key);
   }
 
   void
   erase(PlAtom key)
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::scoped_lock lock__(lock_);
     erase_inside_lock(key);
   }
 
   size_t
   size()
-  { std::lock_guard<std::mutex> lock__(lock_);
+  { std::shared_lock lock__(lock_);
     return size_inside_lock();
   }
 
@@ -173,15 +174,16 @@ private:
   { stored_value->erase();
   }
 
-  // Data - mutex + map
+  // Data: mutex + map
 
-  std::mutex lock_;
+  std::shared_mutex lock_;
+
   // TODO: Define the necessary operators for PlAtom, so that it can be
   //       the key instead of atom_t.
   std::map<atom_t, StoredValueType> entries_;
 
-  std::string insert_op_;
-  std::string insert_type_;
+  std::string insert_op_;   // for PlPermissionError
+  std::string insert_type_; // for PlPermissionError
 };
 
 

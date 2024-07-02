@@ -78,7 +78,13 @@ public:
   AtomMap(const AtomMap&&) = delete;
   AtomMap& operator =(const AtomMap&) = delete;
   AtomMap& operator =(const AtomMap&&) = delete;
-  ~AtomMap() = default;
+
+  ~AtomMap()
+  { std::scoped_lock lock__(lock_);
+    auto lookup = entries_.begin();
+    while ( lookup != entries_.end() )
+      lookup = erase_inside_lock(lookup);
+  }
 
   void
   insert(PlAtom key, ValueType value)
@@ -106,6 +112,8 @@ public:
   }
 
 private:
+  typedef std::map<atom_t, StoredValueType> map_t;
+
   [[nodiscard]]
   ValueType
   find_inside_lock(PlAtom key)
@@ -139,9 +147,13 @@ private:
     //       the value as PlAtom::null), so that rocks_close/1 can
     //       distinguish an alias lookup that should throw a
     //       PlExistenceError because it's never been opened.
-    key.unregister_ref();
+    erase_inside_lock(lookup);
+  }
+
+  auto erase_inside_lock(typename map_t::iterator lookup)
+  { PlAtom(lookup->first).unregister_ref();
     unregister_stored_value(&lookup->second);
-    entries_.erase(lookup);
+    return entries_.erase(lookup);
   }
 
   size_t
@@ -180,7 +192,7 @@ private:
 
   // TODO: Define the necessary operators for PlAtom, so that it can be
   //       the key instead of atom_t.
-  std::map<atom_t, StoredValueType> entries_;
+  map_t entries_;
 
   std::string insert_op_;   // for PlPermissionError
   std::string insert_type_; // for PlPermissionError

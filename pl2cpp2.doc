@@ -1130,7 +1130,7 @@ The methods are:
 
   \cfunction{void}{reset_term_refs}{} Wrapper for PL_reset_term_refs().
 
-  \cfunction{int}{call}{PlModule module} Wrapper for PL_call(unwrap(); \arg{module} defaults to ``null''.
+  \cfunction{int}{call}{PlModule module} Wrapper for PL_call(unwrap()); \arg{module} defaults to ``null''.
 
 \end{description}
 
@@ -1170,7 +1170,7 @@ unify_atom_list(const std::vector<std::string>& array, PlTerm list)
   }
   return tail.unify_nil();
 }
-end{code}
+\end{code}
 
 The design of \ctype{PlTermScoped} is modeled on
 \ctype{std::unique_ptr}\footnote{\ctype{unique_ptr} was originally
@@ -1221,45 +1221,45 @@ method or std::move():
   t = ts.release(); // or: t = std::move(ts);
 
   // Pass as a value to a function:
-  foo(ts.release(); // or: foo(std::move(ts);
+  foo(ts.release()); // or: foo(std::move(ts);
 
   // Copy to a PlTermScoped:
   PlTermScoped ts2;
-  ts2.reset(ts.release); // or: ts2.reset(std::move(ts));
+  ts2.reset(ts.release()); // or: ts2.reset(std::move(ts));
 \end{code}
 
 The methods are (in addition to, or overriding the methods in \ctype{PlTerm}):
-\begin{itemize}
-  \item \constructor{PlTermScoped}{} - same as PlTermScoped(PlTerm::null).
-  \item \constructor{PlTermScoped}{PlTerm t} - set the value
+\begin{description}
+  \constructor{PlTermScoped}{} - same as PlTermScoped(PlTerm::null).
+  \constructor{PlTermScoped}{PlTerm t} - set the value
     from t.copy_term_ref()
-  \item \constructor{PlTermScoped}{term_t t} - same as PlTermScoped(PlTerm(t)).
-  \item \constructor{PlTermScoped}{PlTermScoped\&\& m} - create a
+  \constructor{PlTermScoped}{term_t t} - same as PlTermScoped(PlTerm(t)).
+  \constructor{PlTermScoped}{PlTermScoped\&\& m} - create a
     new wrapped object from \arg{m} and reset \arg{m}. This is typically
     used with std::move().
-  \item \cfunction{PlTermScoped\&}{operator=}{PlTermScoped\&\& m} - copy
+  \cfunction{PlTermScoped\&}{operator=}{PlTermScoped\&\& m} - copy
     \arg{m} and reset it. This is typically used with std::move().
-  \item \destructor{PlTermScoped} - if the wrapped term not null,
+  \destructor{PlTermScoped} - if the wrapped term not null,
     call PL_free_term_ref() on it.
-  \item \constructor{PlTermScoped}{PlTermScoped\& m} - deleted method.
-  \item \cfunction{PlTermScoped\&}{operator=}{PlTermScoped\& m} - deleted method.
-  \item \cfunction{void}{PlTermScoped::reset}{} - same as
+  \constructor{PlTermScoped}{PlTermScoped\& m} - deleted method.
+  \cfunction{PlTermScoped\&}{operator=}{PlTermScoped\& m} - deleted method.
+  \cfunction{void}{PlTermScoped::reset}{} - same as
     PlTermScoped::reset(PlTerm::null).
-  \item \cfunction{void}{PlTermScoped::reset}{PlTerm src} -
+  \cfunction{void}{PlTermScoped::reset}{PlTerm src} -
     sets the wrapped term from \arg{src}. To set the wrapped term
     from a \ctype{PlTermScoped}, use PlTermScoped::release() to
     convert it to a \ctype{PlTerm}.
-  \item \cfunction{PlTerm}{PlTermScoped::get}{} - convert the object
+  \cfunction{PlTerm}{PlTermScoped::get}{} - convert the object
     to a \ctype{PlTerm}. This is typically used when calling a function
     that expects a \ctype{PlTerm} object and which will not call
     PlTerm::free_term_ref() on it.
-  \item \cfunction{PlTerm}{PlTermScoped::release}{} - typically used
+  \cfunction{PlTerm}{PlTermScoped::release}{} - typically used
     in the context \exam{t2.reset(t.release())} to copy a
     \ctype{PlTermScoped}; this can also be written
     \exam{t2=std::move(t)}.
-  \item \cfunction{void}{PlTermScoped::swap}{PlTermScoped\& src} -
+  \cfunction{void}{PlTermScoped::swap}{PlTermScoped\& src} -
     swap two \ctype{PlTermScoped} objects' wrapped terms.
-\end{itemize}
+\end{description}
 
 \subsection{Blobs}
 \label{sec:cpp2-blobs}
@@ -1732,7 +1732,6 @@ struct MyConnection
 
   explicit MyConnection();
   explicit MyConnection(const std::string& _name);
-  ~MyConnection() { }
   bool open();
   bool close() noexcept;
   void portray(PlStream& strm) const;
@@ -2105,33 +2104,34 @@ that ensure the matchin PL_release_stream() is done, and also handles
 some subtle problems with C++ exceptions.
 
 The methods are:
-\begin{itemize}
-  \item \constructor{PlStream}{term_t t, int flags} - see
+\begin{description}
+  \constructor{PlStream}{term_t t, int flags} - see
      PL_get_stream() for documentation of the flags.
      Throws a C++ exception on error.
-  \item \constructor{PlStream}{IOSTREAM *s} - calls
+  \constructor{PlStream}{IOSTREAM *s} - calls
     PL_acquire_stream() to lock the stream.
      Throws a C++ exception on error.
-  \item \destructor{PlStream} - calls PlStream::release().
+  \destructor{PlStream} - calls PlStream::release().
     See below for caveats if there are exceptions.
   \cfunction{void}{PlStream::release}{} calls PL_release_stream(),
     throwing an exception if there has been an I/O error on
     the stream, and sets the \ctype{PlStream} object to an
     invalid stream (see PlStream::check_stream()).
-  \item \cppcast{IOSTREAM*}{PlStream} - when used in a context
+  \cppcast{IOSTREAM*}{PlStream} - when used in a context
      that requires an \ctype{IOSTREAM*}, \ctype{PlStream}
      is implicitly converted to \ctype{IOSTREAM*}.
-  \item cfunction{void}{check_stream}{} checks that the
+  \cfunction{void}{check_stream}{} checks that the
      \ctype{PlStream} object contains a valid stream and
      throws an exception if it doesn't. This is used to
      ensure that PlStream::release() hasn't been called.
-   \item Most of the stream I/O functions have corresponding methods
+\end{description}
+
+Most of the stream I/O functions have corresponding methods
      in \ctype{PlStream}. For example, Sfprintf() corresponds to
      PlStream::printf().  PlStream::seek() and PlStream::tell() call
      Sseek64() and Stell64() instead of \ctype{long} (they are also
      deprecated: PlStream::seek64() and PlStream::tell64() are
      preferred).
-\end{itemize}
 
 The C interface to stream I/O doesn't raise a Prolog error when
 there's a stream error (typically indicated by a -1 return
@@ -3381,7 +3381,7 @@ It supports the following methods.
    \constructor{PlRecordExternalCopy}{PlTerm t}
    Creates a string using Pl_record_external(), copies it into
    the object  then deletes the reference using PL_erase_external().
-   \constructor{PlRecordExternalCopy}{const std::string& external}
+   \constructor{PlRecordExternalCopy}{const std::string\& external}
    Saves the \arg{external} string (which is assumed to have been
    created using PL_record_external()).
    \constructor{PlRecordExternalCopy}{const char* external, size_t len}
@@ -3389,14 +3389,14 @@ It supports the following methods.
    created using PL_record_external()).
    \cfunction{PlTerm}{term}{} creates a term from the saved external
    record string, using PL_recorded_external()).
-   \cfunction{static PlTerm}{term}{const std::string& external}
+   \cfunction{static PlTerm}{term}{const std::string\& external}
    Creates a term from the external record string.
    Equivalent to PlRecordExternalCopy(external).term().
    \cfunction{static PlTerm}{term}{const char* external}
    Creates a term from the external record string.
    Equivalent to PlRecordExternalCopy(external,len).term()
    except the length is inferred from \arg{external}'s contents.
-   \cfunction{const std::string&}{data}{} Gets the external
+   \cfunction{const std::string\&}{data}{} Gets the external
    string that was created by the constructor.
 \end{description}
 

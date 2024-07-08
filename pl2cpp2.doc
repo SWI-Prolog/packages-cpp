@@ -562,7 +562,7 @@ from the PREDICATE() macros. This is a subclass of \ctype{PlExceptionBase},
 which is a subclass of \ctype{std::exception}.
     \classitem{PlFrame}
 This utility-class can be used to discard unused term-references as well
-as to do `\jargon{data-backtracking}'.
+as to do \jargon{data-backtracking}.
     \classitem{PlEngine}
 This class is used in \jargon{embedded} applications (applications
 where the main control is held in C++).  It provides creation and
@@ -673,7 +673,7 @@ all define the following methods and constants:
     Default constructor (sets the wrapped value to \exam{null}).
     Some classes do not have a default constructor because it
     can lead to subtle bugs - instead, they either have a different
-    way of creating the object or can use the `null` value for
+    way of creating the object or can use the ``null'' value for
     the class.
   \item
     Constructor that takes the wrapped value (e.g.,
@@ -850,23 +850,21 @@ A pointer is
 represented in Prolog as a mangled integer.  The mangling is designed
 to make most pointers fit into a \jargon{tagged-integer}.  Any valid
 pointer can be represented.  This mechanism can be used to represent
-pointers to C++ objects in Prolog.  Please note that `MyClass' should
-define conversion to and from \ctype{void *}.
+pointers to C++ objects in Prolog.  Please note that \ctype{MyClass}
+should define conversion to and from \ctype{void *}.
 \begin{code}
 PREDICATE(make_my_object, 1)
 { auto myobj = new MyClass();
-
   return A1.unify_pointer(myobj);
 }
 
 PREDICATE(my_object_contents, 2)
-{ auto myobj = static_cast<MyClass*>(A1.pointer());
+{ auto myobj = static_cast<MyClass*>(A1.as_pointer());
   return A2.unify_string(myobj->contents);
 }
 
 PREDICATE(free_my_object, 1)
-{ auto myobj = static_cast<MyClass*>(A1.pointer());
-
+{ auto myobj = static_cast<MyClass*>(A1.as_pointer());
   delete myobj;
   return true;
 }
@@ -1237,7 +1235,7 @@ The methods are (in addition to, or overriding the methods in \ctype{PlTerm}):
   \constructor{PlTermScoped}{PlTermScoped\&\& m} - create a
     new wrapped object from \arg{m} and reset \arg{m}. This is typically
     used with std::move().
-  \cfunction{PlTermScoped\&}{operator=}{PlTermScoped\&\& m} - copy
+  \cfunction{PlTermScoped\&}{PlTermScoped::operator=}{PlTermScoped\&\& m} - copy
     \arg{m} and reset it. This is typically used with std::move().
   \destructor{PlTermScoped} - if the wrapped term not null,
     call PL_free_term_ref() on it.
@@ -2250,7 +2248,7 @@ your source files.
 \label{sec:cpp2-examples}
 
 Before going into a detailed description of the C++ classes we present
-a few examples illustrating the `feel' of the interface.
+a few examples illustrating the ``feel'' of the interface.
 
 
 \subsection{Hello(World) (version 2)}
@@ -2727,7 +2725,8 @@ Extracts pointer value from a term. The term should have been created
 by PlTerm::PlTerm(void*).
 \end{description}
 
-In addition, the Prolog type (`PL_VARIABLE`, `PL_ATOM`, ... `PL_DICT`)
+In addition, the Prolog type (\const{PL_VARIABLE},
+\const{PL_ATOM}, ... \const{PL_DICT})
 can be determined using the type() method. There are also boolean
 methods that check the type:
 \begin{description}
@@ -3024,7 +3023,7 @@ C-string.
 \label{sec:cpp2-plcompound}
 
 The \ctype{PlCompound} class is a convenience class for creating
-a term from a string; it is similar to (=..)/2
+a term from a string; it is similar to (=..)/2 
 
 \begin{description}
     \constructor{PlCompound}{const wchar_t *text}
@@ -3057,7 +3056,7 @@ PlCompound("hello", PlTermv(PlAtom("world")))
 The class \ctype{PlTerm_tail}\footnote{This was named \ctype{PlTail}
 in version 1 of the API.} is both for analysing and constructing
 lists.  It is called \ctype{PlTerm_tail} as enumeration-steps make the
-term-reference follow the `tail' of the list.
+term-reference follow the ``tail'' of the list.
 
 \begin{description}
     \constructor{PlTerm_tail}{PlTerm list}
@@ -3754,7 +3753,7 @@ that \const{PL_av} is not used.
     \cmacro{}{NAMED_PREDICATE}{plname, cname, arity}
 This version can be used to create predicates whose name is not a valid
 C++ identifier. Here is a ---hypothetical--- example, which unifies the
-second argument with a stringified version of the first. The `cname' is
+second argument with a stringified version of the first. The \arg{cname} is
 used to create a name for the functions. The concrete name does not
 matter, but must be unique. Typically it is a descriptive name using the
 limitations imposed by C++ indentifiers.

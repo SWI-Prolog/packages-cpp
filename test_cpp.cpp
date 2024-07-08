@@ -581,7 +581,6 @@ public:
 
 PREDICATE(make_my_object, 1)
 { auto myobj = new MyClass();
-
   return A1.unify_pointer(myobj);
 }
 
@@ -592,7 +591,6 @@ PREDICATE(my_object_contents, 2)
 
 PREDICATE(free_my_object, 1)
 { auto myobj = static_cast<MyClass*>(A1.as_pointer());
-
   delete myobj;
   return true;
 }

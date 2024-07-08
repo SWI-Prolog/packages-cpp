@@ -1133,7 +1133,7 @@ The methods are:
 \end{description}
 
 \subsection{PlTermScoped class (experimental)}
-\label{sec:cpp-plterm_scoped}
+\label{sec:cpp-plterm-scoped}
 
 \emph{This class is experimental and subject to change.}
 
@@ -1235,12 +1235,12 @@ The methods are (in addition to, or overriding the methods in \ctype{PlTerm}):
   \item \constructor{PlTermScoped}{PlTermScoped\&\& m} - create a
     new wrapped object from \arg{m} and reset \arg{m}. This is typically
     used with std::move().
-  \item \cfunction{PlTermScoped&}{operator=}{PlTermScoped\&\& m} - copy
+  \item \cfunction{PlTermScoped\&}{operator=}{PlTermScoped\&\& m} - copy
     \arg{m} and reset it. This is typically used with std::move().
   \item \destructor{PlTermScoped} - if the wrapped term not null,
     call PL_free_term_ref() on it.
   \item \constructor{PlTermScoped}{PlTermScoped\& m} - deleted method.
-  \item \cfunction{PlTermScoped&}{operator=}{PlTermScoped\& m} - deleted method.
+  \item \cfunction{PlTermScoped\&}{operator=}{PlTermScoped\& m} - deleted method.
   \item \cfunction{void}{PlTermScoped::reset}{} - same as
     PlTermScoped::reset(PlTerm::null).
   \item \cfunction{void}{PlTermScoped::reset}{PlTerm src} -
@@ -1255,7 +1255,7 @@ The methods are (in addition to, or overriding the methods in \ctype{PlTerm}):
     in the context \exam{t2.reset(t.release())} to copy a
     \ctype{PlTermScoped}; this can also be written
     \exam{t2=std::move(t)}.
-  \item \cfunction{void}{PlTermScoped::swap}{PlTermScoped& src} -
+  \item \cfunction{void}{PlTermScoped::swap}{PlTermScoped\& src} -
     swap two \ctype{PlTermScoped} objects' wrapped terms.
 \end{itemize}
 
@@ -3022,7 +3022,7 @@ C-string.
 \label{sec:cpp2-plcompound}
 
 The \ctype{PlCompound} class is a convenience class for creating
-a term from a string; it is similar to (=..)/2 
+a term from a string; it is similar to (=..)/2
 
 \begin{description}
     \constructor{PlCompound}{const wchar_t *text}

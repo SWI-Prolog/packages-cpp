@@ -1058,6 +1058,9 @@ test_setup_call_cleanup(X) :-
         throw(error)).
 
 % Experimental API tests
+:- if((current_prolog_flag(version,V),V>=90308)).
+% Scoped terms depend on a working PL_free_term_ref()
+% implementation.  9.2.6 and up only provide a dummy.
 test(plterm_scoped, R == []) :-
     unify_atom_list([], R).
 test(plterm_scoped, R == [a, foo]) :-
@@ -1074,6 +1077,7 @@ test(plterm_scoped, error(type_error(list,foo))) :-
 
 test(plterm_scoped, [blocked('crashes in PL_free_term_ref')]) :-
     term_release.
+:- endif.
 
 test(record_ext, P == foo(bar,1,"a\0bc",'xy\0')) :-
     record_ext(foo(bar,1,"a\0bc", 'xy\0'), Str),

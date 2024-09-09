@@ -135,6 +135,22 @@ PlTerm::get_wchars(unsigned int flags) const
   return L"<---get_wchars error --->"; // Should never get here
 }
 
+_SWI_CPP2_CPP_inline
+const std::string
+PlTerm::get_file_name(int flags) const
+{ char *name = const_cast<char*>("");
+  PlCheckFail(get_file_name(&name, flags));
+  return name;
+}
+
+_SWI_CPP2_CPP_inline
+const std::wstring
+PlTerm::get_file_nameW(int flags) const
+{ wchar_t *name = const_cast<wchar_t*>(L"");
+  PlCheckFail(get_file_nameW(&name, flags));
+  return name;
+}
+
 #define _MUST_BE_TYPE(must_be_name, is_test, type_name)  \
 _SWI_CPP2_CPP_inline \
 void \

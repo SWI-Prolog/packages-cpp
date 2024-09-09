@@ -366,6 +366,7 @@ PLX_WRAP(bool                    , unify_mpz                       , (term_t t, 
 PLX_WRAP(bool                    , unify_mpq                       , (term_t t, mpq_t mpq), (t, mpq))
 #endif
 
+// PL_get_file_name(), PL_get_file_nameW() exception is controlled by PL_FILE_NOERRORS
 PLX_ASIS(bool                    , get_file_name                   , (term_t n, char **name, int flags), (n, name, flags))
 PLX_ASIS(bool                    , get_file_nameW                  , (term_t n, wchar_t **name, int flags), (n, name, flags))
 // TODO: document PL_changed_cwd()

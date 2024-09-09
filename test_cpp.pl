@@ -51,11 +51,21 @@
 
 :- use_foreign_library(foreign(test_cpp)).
 
+:- dynamic user:file_search_path/2.
+:- multifile user:file_search_path/2.
+
+:- prolog_load_context(directory, Dir),
+    asserta(user:file_search_path(my_program_home, Dir)).
+
 :- multifile user:portray/1.
 
 user:portray(MyBlob) :-
     blob(MyBlob, my_blob), !,
     portray_my_blob(current_output, MyBlob).
+
+user:portray(MyFileBlob) :-
+    blob(MyFileBlob, my_file_blob), !,
+    my_file_blob_portray(current_output, MyFileBlob).
 
 % test_cpp :-
 %     run_tests([ cpp,
@@ -923,6 +933,45 @@ test(blob_portray, S == "MyBlob(closed)") :-
     create_my_blob(foo, B),
     close_my_blob(B),
     with_output_to(string(S), print(B)).
+
+expected_file_name_my_program_home(ShortPath, AbsPathOS) :-
+    once(user:file_search_path(my_program_home, Home)),
+    concat_atom([Home, '/', ShortPath], AbsPath0),
+    prolog_to_os_filename(AbsPath0, AbsPathOS).
+
+expected_file_name_my_program_home_string(ShortPath, AbsPathOS) :-
+    expected_file_name_my_program_home(ShortPath, AbsPathOS0),
+    atom_string(AbsPathOS0, AbsPathOS).
+
+test(file_blob, Read == "% -*- mode: Prolog; coding: utf-8 -*-\n\n") :-
+    my_file_open(File, my_program_home('test_cpp.pl'), 'r', [search,absolute,ospath]),
+    print(File), nl,
+    absolute_file_name(my_program_home('test_cpp.pl'), Abs, [access(read)]),
+    expected_file_name_my_program_home('test_cpp.pl', AbsPathOS_atom),
+    assertion(AbsPathOS_atom == Abs),
+    my_file_filename_atom(File, Filename),
+    assertion(Filename == Abs),
+    my_file_read(File, 39, Read),
+    my_file_close(File).
+% TODO: the following uses uninstantiated F, so explicit catch/3 is done
+% test(file_blob, error(existence_error(my_file_blob_open,F))) :-
+%     expected_file_name_my_program_home('non-existent-file', F0),
+%     atom_string(F0, F),
+%     my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath]).
+test(file_blob) :-
+    expected_file_name_my_program_home_string('non-existent-file', F),
+    catch(my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath]),
+          E,
+          assertion(E =@= error(existence_error(my_file_blob_open,F),_))).
+test(file_blob, error(existence_error(source_sink,my_program_home('non-existent-file')))) :-
+    my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath,read]).
+test(file_blob, error(existence_error(source_sink,my_program_home('non-existent-file')))) :-
+    absolute_file_name(my_program_home('non-existent-file'), _Abs, [access(read)]).
+
+test(option_flags, error(domain_error('MyFileBlob-options',foo))) :-
+    my_file_open(_File, my_program_home('test_cpp.pl'), 'r', [foo,search,absolute,ospath,read]).
+test(option_flags, error(type_error('atom or string',access(read)))) :-
+    my_file_open(_File, my_program_home('test_cpp.pl'), 'r', [search,absolute,ospath,access(read)]).
 
 test(nchars_flags, F-S == 0x43f-"xinteger,all") :-
     nchars_flags([xinteger,all,atomic,number], F),

@@ -913,8 +913,10 @@ The methods are:
   \cfunction{bool}{PlTerm::get_nil}{} Wrappper of PL_get_nil(), throwing an exception on Prolog error.
   \cfunction{bool}{PlTerm::get_blob}{void **blob, size_t *len, PL_blob_t **type} Wrappper of PL_get_blob(), throwing an exception on Prolog error.
 
-  \cfunction{bool}{PlTerm::get_file_name}{char **name, int flags} Wrappper of PL_get_file_name(), throwing an exception on Prolog error.
-  \cfunction{bool}{PlTerm::get_file_nameW}{wchar_t **name, int flags} Wrappper of PL_get_file_nameW(), throwing an exception on Prolog error.
+  \cfunction{bool}{PlTerm::get_file_name}{char **name, int flags} Wrappper of PL_get_file_name() (does not throw a C++ exception).
+  \cfunction{bool}{PlTerm::get_file_nameW}{wchar_t **name, int flags} Wrappper of PL_get_file_nameW(), (does not throw a C++ exception).
+  \cfunction{std::string}{PlTerm::get_file_name}{char **name, int flags} Wrapper of PL_get_file_name(), ignoring \const{PL_FILE_NOERRORS} - throws \const{PlFail} on failure, which is interpreted by the enclosing \ctype{PREDICATE} as either failure or an error, depending on the flag bit \const{PL_FILE_NOERRORS}.
+  \cfunction{std::wstring}{PlTerm::get_file_nameW}{int flags} Same as PlTerm::get_file_name(), but returns a wide-character string.
 
   \cfunction{bool}{PlTerm::get_attr}{term_t a} Wrappper of PL_get_attr(), throwing an exception on Prolog error.
 
@@ -1106,7 +1108,7 @@ The methods are:
   \cfunction{bool}{PlTerm::unify_string}{const std::string\&  v} Wrapper of PL_unify_string_nchars(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_string}{const std::wstring\& v} Wrapper of PL_unify_wchars(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_functor}{PlFunctor          f} Wrapper of PL_unify_functor(), throwing an exception on error.
-  \cfunction{bool}{PlTerm::unify_pointer}{void *ptr} Wrapper of PL_unify_pointer(), throwing an exception on error.
+  \cfunction{bool}{PlTerm::unify_pointer}{void *ptr} Wrapper of PL_unify_pointer(), throwing an exception on error. An alternative to this is to use a blob that wraps a pointer - see \secref{cpp2-blobs-sample-code-pointer}.
   \cfunction{bool}{PlTerm::unify_nil}{} Wrapper of PL_unify_nil(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_list}{PlTerm h, PlTerm t} Wrapper of PL_unify_list(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_bool}{bool val} Wrapper of PL_unify_bool(), throwing an exception on error.
@@ -1602,6 +1604,7 @@ save(), load() methods (these are described after the sample code).
 
 In this section, the blob is of type \ctype{MyBlob}, a subclass
 of \ctype{PlBlob}. (Example code is given in \secref{cpp2-blobs-sample-code})
+and \secref{cpp2-blobs-sample-code-pointer}.
 
 A blob is typically created by calling a predicate that does
 the following:
@@ -1717,12 +1720,15 @@ PREDICATE(). Their exception handling is as follows:
       calls).
 \end{description}
 
-\subsubsection{Sample PlBlob code}
+\subsubsection{Sample PlBlob code (connection to database)}
 \label{sec:cpp2-blobs-sample-code}
 
 Here is minimal sample code for creating a blob that owns a connection
 to a database. It has a single field (\exam{connection}) and
 defines compare_fields() and write_fields().
+
+A second sample code shows how to wrap a system pointer -
+\secref{cpp2-blobs-sample-code-pointer}
 
 \begin{code}
 struct MyConnection
@@ -2013,6 +2019,185 @@ return true;
       a Prolog error is thrown.
 
   \end{itemize}
+
+\end{itemize}
+
+\subsubsection{Sample PlBlob code (wrapping a pointer)}
+\label{sec:cpp2-blobs-sample-code-pointer}
+
+\begin{code}
+struct MyFileBlob;
+
+static PL_blob_t my_file_blob = PL_BLOB_DEFINITION(MyFileBlob, "my_file_blob");
+
+static const PlOptionsFlag<int>
+MyFileBlob_options("MyFileBlob-options",
+                   { {"absolute", PL_FILE_ABSOLUTE},
+                     {"ospath",   PL_FILE_OSPATH},
+                     {"search",   PL_FILE_SEARCH},
+                     {"exist",    PL_FILE_EXIST},
+                     {"read",     PL_FILE_READ},
+                     {"write",    PL_FILE_WRITE},
+                     {"execute",  PL_FILE_EXECUTE},
+                     {"noerrors", PL_FILE_NOERRORS} });
+
+struct MyFileBlob : public PlBlob
+{ std::FILE* file_;
+
+  std::string mode_;
+  int flags_;
+  std::string filename_;
+  std::vector<char> buffer_; // used by read(), to avoid re-allocation
+
+  explicit MyFileBlob()
+    : PlBlob(&my_file_blob) { }
+
+  explicit MyFileBlob(PlTerm filename, PlTerm mode, PlTerm flags)
+    : PlBlob(&my_file_blob),
+      mode_(mode.as_string())
+  { flags_ = MyFileBlob_options.lookup_list(flags);
+    filename_ = filename.get_file_name(flags_);
+    file_ = fopen(filename_.c_str(), mode_.c_str());
+    if ( !file_ ) // TODO: get error code (might not be existence error)
+      throw PlExistenceError("my_file_blob_open", PlTerm_string(filename_));
+    // for debugging:
+    //   PlTerm_string(filename.as_string() + "\" => \"" +
+    //                 filename_ + "\", \"" + mode_ +
+    //                 ", flags=" + MyFileBlob_options.as_string(flags_) + "\")")
+  }
+
+  PL_BLOB_SIZE
+
+  std::string read(size_t count)
+  { assert(sizeof buffer_[0] == sizeof (char));
+    assert(sizeof (char) == 1);
+
+    buffer_.reserve(count);
+    return std::string(buffer_.data(),
+                       std::fread(buffer_.data(), sizeof buffer_[0], count, file_));
+  }
+
+  bool eof() const
+  { return std::feof(file_);
+  }
+
+  bool error() const
+  { return std::ferror(file_);
+  }
+
+  virtual ~MyFileBlob() noexcept
+  { if ( !close() )
+      // Can't use PL_warning()
+      Sdprintf("***ERROR: Close MyFileBlob failed: (%s)\n", filename_.c_str());
+  }
+
+  bool close() noexcept
+  { if ( !file_ )
+      return true;
+    int rc = std::fclose(file_);
+    file_ = nullptr;
+    return rc == 0;
+  }
+
+  PlException MyFileBlobError(const std::string error) const
+  { return PlGeneralError(PlCompound(error, PlTermv(symbol_term())));
+  }
+
+  int compare_fields(const PlBlob* _b_data) const override
+  { // dynamic_cast is safer than static_cast, but slower (see documentation)
+    // It's used here for testing (the documentation has static_cast)
+    auto b_data = dynamic_cast<const MyFileBlob*>(_b_data);
+    return filename_.compare(b_data->filename_);
+  }
+
+  bool write_fields(IOSTREAM *s, int flags) const override
+  { PlStream strm(s);
+    strm.printf(",");
+    return write_fields_only(strm);
+  }
+
+  bool write_fields_only(PlStream& strm) const
+  { // For debugging:
+    // strm.printf("%s mode=%s flags=%s", filename_.c_str(), mode_.c_str(),
+    //             MyFileBlob_options.as_string(flags_).c_str());
+    strm.printf("%s", filename_.c_str());
+    if ( !file_ )
+      strm.printf("-CLOSED");
+    return true;
+  }
+
+  bool portray(PlStream& strm) const
+  { strm.printf("MyFileBlob(");
+    write_fields_only(strm);
+    strm.printf(")");
+    return true;
+  }
+};
+
+PREDICATE(my_file_open, 4)
+{ auto ref = std::unique_ptr<PlBlob>(new MyFileBlob(A2, A3, A4));
+  return A1.unify_blob(&ref);
+}
+
+PREDICATE(my_file_close, 1)
+{ auto ref = PlBlobV<MyFileBlob>::cast_ex(A1, my_file_blob);
+  if ( !ref->close() ) // TODO: get the error code
+    throw ref->MyFileBlobError("my_file_blob_close_error");
+  return true;
+}
+\end{code}
+
+\subsubsection{Discussion of the sample PlBlob code (wrapping a pointer)}
+\label{sec:cpp2-blobs-sample-code-pointer-discussion}
+
+\begin{itemize}
+
+\item This code provides a simple wrapper for some of the C ``stdio''
+  functions defined in \file{<cstdio>}. The blob wraps the file
+  pointer returned from fopen() and also keeps a few other values
+  for debugging (the mode, flags, filename from the call to fopen())
+  plus a buffer for read operations.
+
+\item A utility class `PlOptionsFlag` is defined in file{SWI-cpp2-flags.h},
+  for mapping a list of atoms to a bit-field flag. For example, the
+  list \exam{[search,read]} would map to `exam{PL_FILE_SEARCH|PL_FILE_READ}`.
+
+\item The \ctype{MyFileBlob} struct defines the blob that wraps a
+  \ctype{FILE*}.  The constructor (which is called by predicate
+  my_file_open/4) converts the \arg{flags} term (a list of atoms or
+  strings) to a flag that is passed to PL_get_file_name(), to convert
+  the \arg{filename} to a string containing the abslute file
+  name. This is then passed to fopen(), together with the
+  \arg{mode}. If the call to fopen() fails, a C++ exception is thrown,
+  to be handled by Prolog. Other errors, such as a wrong argument type
+  to PL_get_file_name() can also cause an exception.
+
+\item MyFileBlob::read() ensures that the buffer is big enough and
+  then calls `fread()` to return the buffer's contents.
+
+\item MyFileBlob::eof() and MyFileBlob::error() call feof()
+  and ferror() respectively. They can be used to check the status
+  of the call to MyFileBlob::read().
+
+\item The destructor calls MyFileBlob::close() and outputs a warning
+  if it fails - a destructor is not allowed to throw a C++ exception,
+  so this is the best we can do; it's better if the programmer explicitly
+  closes the file rather than depending on the garbage collector to
+  free the blob.
+
+\item MyFileBlob::close() calls fclose(). It then sets the \ctype{FILE*}
+  to null, so that close won't be done twice.
+
+\item MyFileBlob::compare_fields(), MyFileBlob::write_fields(),
+  MyFileBlob::write_fields_only(), MyFileBlob::portray() are similar
+  to the same methods in \ctype{MyBlob} in \secref{cpp2-blobs-sample-code}.
+
+\item Predicate my_file_open(File,Filename,Mode,Flags) calls the
+  \ctype{MyFileBlob} constructor with \arg{Filename}, \arg{Mode},
+  \arg{flags} and unifies the blob with \arg{File}.
+
+\item Predicate my_file_close/1 calls MyFileBlob::close(), checks for
+  an error and creates a Prolog error if the close failed.
 
 \end{itemize}
 

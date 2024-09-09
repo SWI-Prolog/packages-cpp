@@ -483,6 +483,8 @@ public:
 
   [[nodiscard]] bool get_file_name(char **name, int flags) const { return Plx_get_file_name(unwrap(), name, flags); }
   [[nodiscard]] bool get_file_nameW(wchar_t **name, int flags) const { return Plx_get_file_nameW(unwrap(), name, flags); }
+  [[nodiscard]] const std::string get_file_name(int flags) const;
+  [[nodiscard]] const std::wstring get_file_nameW(int flags) const;
 
   [[nodiscard]] bool get_attr(term_t a) const { return Plx_get_attr(unwrap(), a); }
 
@@ -1267,19 +1269,19 @@ protected:
 
 PlException PlGeneralError(PlTerm inside);
 
-PlException PlTypeError(const std::string& expected, PlTerm actual);
+PlException PlTypeError(const std::string& expected, PlTerm culprit);
 
-PlException PlDomainError(const std::string& expected, PlTerm actual);
+PlException PlDomainError(const std::string& expected, PlTerm culprit);
 
-PlException PlDomainError(PlTerm expected, PlTerm actual);
+PlException PlDomainError(PlTerm expected, PlTerm culprit);
 
-PlException PlInstantiationError(PlTerm t);
+PlException PlInstantiationError(PlTerm culprit);
 
-PlException PlUninstantiationError(PlTerm t);
+PlException PlUninstantiationError(PlTerm culprit);
 
 PlException PlRepresentationError(const std::string& resource);
 
-PlException PlExistenceError(const std::string& type, PlTerm actual);
+PlException PlExistenceError(const std::string& type, PlTerm culprit);
 
 PlException PlPermissionError(const std::string& op, const std::string& type, PlTerm obj);
 

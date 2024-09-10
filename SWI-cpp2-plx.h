@@ -95,7 +95,7 @@ PLX_VOID(void                    , license                         , (const char
 PLX_ASIS(module_t                , context                         , (), ())
 PLX_ASIS(atom_t                  , module_name                     , (module_t module), (module))
 PLX_WRAP(module_t                , new_module                      , (atom_t name), (name))
-PLX_EXCE(int                     , strip_module                    , (term_t in, module_t *m, term_t out), (in, m, out))
+PLX_EXCE(bool                    , strip_module                    , (term_t in, module_t *m, term_t out), (in, m, out))
 PLX_WRAP(fid_t                   , open_foreign_frame              , (), ())
 
 PLX_VOID(void                    , rewind_foreign_frame            , (fid_t cid), (cid))
@@ -104,7 +104,7 @@ PLX_VOID(void                    , discard_foreign_frame           , (fid_t cid)
 
 PLX_WRAP(predicate_t             , pred                            , (functor_t f, module_t m), (f, m))
 PLX_WRAP(predicate_t             , predicate                       , (const char *name, int arity, const char* module), (name, arity, module))
-PLX_EXCE(int                     , predicate_info                  , (predicate_t pred, atom_t *name, size_t *arity, module_t *module), (pred, name, arity, module))
+PLX_EXCE(bool                    , predicate_info                  , (predicate_t pred, atom_t *name, size_t *arity, module_t *module), (pred, name, arity, module))
 PLX_WRAP(qid_t                   , open_query                      , (module_t m, int flags, predicate_t pred, term_t t0), (m, flags, pred, t0))
 // TODO: PL_next_solution() needs special handling:
 //       [[nodiscard]] int PL_next_solution(qid_t qid);
@@ -114,16 +114,16 @@ PLX_ASIS(qid_t                   , current_query                   , (), ())
 PLX_ASIS(PL_engine_t             , query_engine                    , (qid_t qid), (qid))
 PLX_ASIS(bool                    , can_yield                       , (), ())
 // [[nodiscard]]
-PLX_WRAP(int                     , call                            , (term_t t, module_t m), (t, m))
+PLX_WRAP(bool                    , call                            , (term_t t, module_t m), (t, m))
 // TODO: Needs special case - see PL_next_solution():
 //       [[nodiscard]] int PL_call_predicate(module_t m, int debug, predicate_t pred, term_t t0);
 PLX_ASIS(term_t                  , exception                       , (qid_t qid), (qid))
-PLX_ASIS(int                     , raise_exception                 , (term_t exception), (exception))
+PLX_ASIS(bool                    , raise_exception                 , (term_t exception), (exception))
 // Deprecated: int PL_throw(term_t exception);
 PLX_VOID(void                    , clear_exception                 , (), ())
 // TODO: document PL_yielded()
 PLX_ASIS(term_t                  , yielded                         , (qid_t qid), (qid))
-PLX_EXCE(int                     , assert                          , (term_t term, module_t m, int flags), (term, m, flags))
+PLX_EXCE(bool                    , assert                          , (term_t term, module_t m, int flags), (term, m, flags))
 PLX_WRAP(term_t                  , new_term_refs                   , (size_t n), (n))
 PLX_WRAP(term_t                  , new_term_ref                    , (), ())
 PLX_WRAP(term_t                  , copy_term_ref                   , (term_t from), (from))
@@ -137,7 +137,7 @@ PLX_WRAP(atom_t                  , new_atom_wchars                 , (size_t len
 PLX_WRAP(atom_t                  , new_atom_mbchars                , (int rep, size_t len, const char *s), (rep, len, s))
 // Deprecated: const char *PL_atom_chars(atom_t a);
 PLX_WRAP(const char *            , atom_nchars                     , (atom_t a, size_t *len), (a, len))
-PLX_EXCE(int                     , atom_mbchars                    , (atom_t a, size_t *len, char **s, unsigned int flags), (a, len, s, flags))
+PLX_EXCE(bool                    , atom_mbchars                    , (atom_t a, size_t *len, char **s, unsigned int flags), (a, len, s, flags))
 PLX_WRAP(const wchar_t *         , atom_wchars                     , (atom_t a, size_t *len), (a, len))
 PLX_VOID(void                    , register_atom                   , (atom_t a), (a))
 PLX_VOID(void                    , unregister_atom                 , (atom_t a), (a))
@@ -221,32 +221,33 @@ PLX_ASIS(bool                    , is_pair                         , (term_t t),
 PLX_ASIS(bool                    , is_atomic                       , (term_t t), (t))
 PLX_ASIS(bool                    , is_number                       , (term_t t), (t))
 PLX_ASIS(bool                    , is_acyclic                      , (term_t t), (t))
-PLX_EXCE(int                     , put_variable                    , (term_t t), (t))
-PLX_EXCE(int                     , put_atom                        , (term_t t, atom_t a), (t, a))
-PLX_EXCE(int                     , put_bool                        , (term_t t, int val), (t, val))
-PLX_EXCE(int                     , put_atom_chars                  , (term_t t, const char *chars), (t, chars))
-PLX_EXCE(int                     , put_string_chars                , (term_t t, const char *chars), (t, chars))
-PLX_EXCE(int                     , put_chars                       , (term_t t, int flags, size_t len, const char *chars), (t, flags, len, chars))
-PLX_EXCE(int                     , put_list_chars                  , (term_t t, const char *chars), (t, chars))
-PLX_EXCE(int                     , put_list_codes                  , (term_t t, const char *chars), (t, chars))
-PLX_EXCE(int                     , put_atom_nchars                 , (term_t t, size_t l, const char *chars), (t, l, chars))
-PLX_EXCE(int                     , put_string_nchars               , (term_t t, size_t len, const char *chars), (t, len, chars))
-PLX_EXCE(int                     , put_list_nchars                 , (term_t t, size_t l, const char *chars), (t, l, chars))
-PLX_EXCE(int                     , put_list_ncodes                 , (term_t t, size_t l, const char *chars), (t, l, chars))
-PLX_EXCE(int                     , put_integer                     , (term_t t, long i), (t, i))
-PLX_EXCE(int                     , put_pointer                     , (term_t t, void *ptr), (t, ptr))
-PLX_EXCE(int                     , put_float                       , (term_t t, double f), (t, f))
-PLX_EXCE(int                     , put_functor                     , (term_t t, functor_t functor), (t, functor))
-PLX_EXCE(int                     , put_list                        , (term_t l), (l))
-PLX_EXCE(int                     , put_nil                         , (term_t l), (l))
-PLX_EXCE(int                     , put_term                        , (term_t t1, term_t t2), (t1, t2))
-PLX_EXCE(int                     , put_dict                        , (term_t t, atom_t tag, size_t len, const atom_t *keys, term_t values), (t, tag, len, keys, values))
+// TODO: put_variable, put_atom, put_bool, put_atom_char always return true?
+PLX_EXCE(bool                    , put_variable                    , (term_t t), (t))
+PLX_EXCE(bool                    , put_atom                        , (term_t t, atom_t a), (t, a))
+PLX_EXCE(bool                    , put_bool                        , (term_t t, int val), (t, val))
+PLX_EXCE(bool                    , put_atom_chars                  , (term_t t, const char *chars), (t, chars))
+PLX_EXCE(bool                    , put_string_chars                , (term_t t, const char *chars), (t, chars))
+PLX_EXCE(bool                    , put_chars                       , (term_t t, int flags, size_t len, const char *chars), (t, flags, len, chars))
+PLX_EXCE(bool                    , put_list_chars                  , (term_t t, const char *chars), (t, chars))
+PLX_EXCE(bool                    , put_list_codes                  , (term_t t, const char *chars), (t, chars))
+PLX_EXCE(bool                    , put_atom_nchars                 , (term_t t, size_t l, const char *chars), (t, l, chars))
+PLX_EXCE(bool                    , put_string_nchars               , (term_t t, size_t len, const char *chars), (t, len, chars))
+PLX_EXCE(bool                    , put_list_nchars                 , (term_t t, size_t l, const char *chars), (t, l, chars))
+PLX_EXCE(bool                    , put_list_ncodes                 , (term_t t, size_t l, const char *chars), (t, l, chars))
+PLX_EXCE(bool                    , put_integer                     , (term_t t, long i), (t, i))
+PLX_EXCE(bool                    , put_pointer                     , (term_t t, void *ptr), (t, ptr))
+PLX_EXCE(bool                    , put_float                       , (term_t t, double f), (t, f))
+PLX_EXCE(bool                    , put_functor                     , (term_t t, functor_t functor), (t, functor))
+PLX_EXCE(bool                    , put_list                        , (term_t l), (l))
+PLX_EXCE(bool                    , put_nil                         , (term_t l), (l))
+PLX_EXCE(bool                    , put_term                        , (term_t t1, term_t t2), (t1, t2))
+PLX_EXCE(bool                    , put_dict                        , (term_t t, atom_t tag, size_t len, const atom_t *keys, term_t values), (t, tag, len, keys, values))
 // TODO:
 //    PL_EXPORT(atom_t)	_PL_cons_small_int(int64_t v); // 0 return code means not a small int
 //    PL_EXPORT(void)		_PL_unregister_keys(size_t len, atom_t *keys);
 // (skipped):: int PL_cons_functor(term_t h, functor_t f, ...) WUNUSED;
-PLX_EXCE(int                     , cons_functor_v                  , (term_t h, functor_t fd, term_t a0), (h, fd, a0))
-PLX_EXCE(int                     , cons_list                       , (term_t l, term_t h, term_t t), (l, h, t))
+PLX_EXCE(bool                    , cons_functor_v                  , (term_t h, functor_t fd, term_t a0), (h, fd, a0))
+PLX_EXCE(bool                    , cons_list                       , (term_t l, term_t h, term_t t), (l, h, t))
 
 // [[nodiscard]]
 PLX_WRAP(bool                    , unify                           , (term_t t1, term_t t2), (t1, t2))
@@ -311,45 +312,45 @@ PLX_WRAP(bool                    , unify_int64                     , (term_t t, 
 // [[nodiscard]]
 PLX_WRAP(bool                    , unify_uint64                    , (term_t t, uint64_t value), (t, value))
 // [[nodiscard]]
-PLX_EXCE(int                     , put_int64                       , (term_t t, int64_t i), (t, i))
+PLX_EXCE(bool                    , put_int64                       , (term_t t, int64_t i), (t, i))
 // [[nodiscard]]
-PLX_EXCE(int                     , put_uint64                      , (term_t t, uint64_t i), (t, i))
+PLX_EXCE(bool                    , put_uint64                      , (term_t t, uint64_t i), (t, i))
 PLX_ASIS(bool                    , is_attvar                       , (term_t t), (t))
-PLX_WRAP(int                     , get_attr                        , (term_t v, term_t a), (v, a))
-PLX_EXCE(int                     , get_atom_ex                     , (term_t t, atom_t *a), (t, a))
-PLX_EXCE(int                     , get_integer_ex                  , (term_t t, int *i), (t, i))
-PLX_EXCE(int                     , get_long_ex                     , (term_t t, long *i), (t, i))
-PLX_EXCE(int                     , get_int64_ex                    , (term_t t, int64_t *i), (t, i))
-PLX_EXCE(int                     , get_uint64_ex                   , (term_t t, uint64_t *i), (t, i))
-PLX_EXCE(int                     , get_intptr_ex                   , (term_t t, intptr_t *i), (t, i))
-PLX_EXCE(int                     , get_size_ex                     , (term_t t, size_t *i), (t, i))
-PLX_EXCE(int                     , get_bool_ex                     , (term_t t, int *i), (t, i))
-PLX_EXCE(int                     , get_float_ex                    , (term_t t, double *f), (t, f))
-PLX_EXCE(int                     , get_char_ex                     , (term_t t, int *p, int eof), (t, p, eof))
-PLX_EXCE(int                     , unify_bool_ex                   , (term_t t, int val), (t, val))
-PLX_EXCE(int                     , get_pointer_ex                  , (term_t t, void **addrp), (t, addrp))
-PLX_WRAP(int                     , unify_list_ex                   , (term_t l, term_t h, term_t t), (l, h, t))
-PLX_EXCE(int                     , unify_nil_ex                    , (term_t l), (l))
-PLX_WRAP(int                     , get_list_ex                     , (term_t l, term_t h, term_t t), (l, h, t))
-PLX_EXCE(int                     , get_nil_ex                      , (term_t l), (l))
+PLX_WRAP(bool                    , get_attr                        , (term_t v, term_t a), (v, a))
+PLX_EXCE(bool                    , get_atom_ex                     , (term_t t, atom_t *a), (t, a))
+PLX_EXCE(bool                    , get_integer_ex                  , (term_t t, int *i), (t, i))
+PLX_EXCE(bool                    , get_long_ex                     , (term_t t, long *i), (t, i))
+PLX_EXCE(bool                    , get_int64_ex                    , (term_t t, int64_t *i), (t, i))
+PLX_EXCE(bool                    , get_uint64_ex                   , (term_t t, uint64_t *i), (t, i))
+PLX_EXCE(bool                    , get_intptr_ex                   , (term_t t, intptr_t *i), (t, i))
+PLX_EXCE(bool                    , get_size_ex                     , (term_t t, size_t *i), (t, i))
+PLX_EXCE(bool                    , get_bool_ex                     , (term_t t, int *i), (t, i))
+PLX_EXCE(bool                    , get_float_ex                    , (term_t t, double *f), (t, f))
+PLX_EXCE(bool                    , get_char_ex                     , (term_t t, int *p, int eof), (t, p, eof))
+PLX_EXCE(bool                    , unify_bool_ex                   , (term_t t, int val), (t, val))
+PLX_EXCE(bool                    , get_pointer_ex                  , (term_t t, void **addrp), (t, addrp))
+PLX_WRAP(bool                    , unify_list_ex                   , (term_t l, term_t h, term_t t), (l, h, t))
+PLX_EXCE(bool                    , unify_nil_ex                    , (term_t l), (l))
+PLX_WRAP(bool                    , get_list_ex                     , (term_t l, term_t h, term_t t), (l, h, t))
+PLX_EXCE(bool                    , get_nil_ex                      , (term_t l), (l))
 
-PLX_ASIS(int                     , instantiation_error             , (term_t culprit), (culprit))
-PLX_ASIS(int                     , uninstantiation_error           , (term_t culprit), (culprit))
-PLX_ASIS(int                     , representation_error            , (const char *resource), (resource))
-PLX_ASIS(int                     , type_error                      , (const char *expected, term_t culprit), (expected, culprit))
-PLX_ASIS(int                     , domain_error                    , (const char *expected, term_t culprit), (expected, culprit))
-PLX_ASIS(int                     , existence_error                 , (const char *type, term_t culprit), (type, culprit))
-PLX_ASIS(int                     , permission_error                , (const char *operation, const char *type, term_t culprit), (operation, type, culprit))
-PLX_ASIS(int                     , resource_error                  , (const char *resource), (resource))
-PLX_ASIS(int                     , syntax_error                    , (const char *msg, IOSTREAM *in), (msg, in))
+PLX_ASIS(bool                    , instantiation_error             , (term_t culprit), (culprit))
+PLX_ASIS(bool                    , uninstantiation_error           , (term_t culprit), (culprit))
+PLX_ASIS(bool                    , representation_error            , (const char *resource), (resource))
+PLX_ASIS(bool                    , type_error                      , (const char *expected, term_t culprit), (expected, culprit))
+PLX_ASIS(bool                    , domain_error                    , (const char *expected, term_t culprit), (expected, culprit))
+PLX_ASIS(bool                    , existence_error                 , (const char *type, term_t culprit), (type, culprit))
+PLX_ASIS(bool                    , permission_error                , (const char *operation, const char *type, term_t culprit), (operation, type, culprit))
+PLX_ASIS(bool                    , resource_error                  , (const char *resource), (resource))
+PLX_ASIS(bool                    , syntax_error                    , (const char *msg, IOSTREAM *in), (msg, in))
 
 PLX_ASIS(bool                    , is_blob                         , (term_t t, PL_blob_t **type), (t, type))
 PLX_WRAP(bool                    , unify_blob                      , (term_t t, void *blob, size_t len, PL_blob_t *type), (t, blob, len, type))
 PLX_WRAP(atom_t                  , new_blob                        , (void *blob, size_t len, PL_blob_t *type), (blob, len, type))
-PLX_EXCE(int                     , put_blob                        , (term_t t, void *blob, size_t len, PL_blob_t *type), (t, blob, len, type))
-PLX_WRAP(int                     , get_blob                        , (term_t t, void **blob, size_t *len, PL_blob_t **type), (t, blob, len, type))
+PLX_EXCE(bool                    , put_blob                        , (term_t t, void *blob, size_t len, PL_blob_t *type), (t, blob, len, type))
+PLX_WRAP(bool                    , get_blob                        , (term_t t, void **blob, size_t *len, PL_blob_t **type), (t, blob, len, type))
 PLX_ASIS(void*                   , blob_data                       , (atom_t a, size_t *len, struct PL_blob_t **type), (a, len, type))
-PLX_ASIS(int                     , free_blob                       , (atom_t blob), (blob))
+PLX_ASIS(bool                    , free_blob                       , (atom_t blob), (blob))
 // Should not call PL_register_blob_type, so it's not defined:
 // PLX_VOID(void                 , register_blob_type              , (PL_blob_t *type), (type))
 PLX_ASIS(PL_blob_t*              , find_blob_type                  , (const char* name), (name))
@@ -357,7 +358,7 @@ PLX_ASIS(bool                    , unregister_blob_type            , (PL_blob_t 
 
 #ifdef __GNU_MP__
 [[nodiscard]]
-PLX_WRAP(int                     , get_mpz                         , (term_t t, mpz_t mpz), (t, mpz))
+PLX_WRAP(bool                    , get_mpz                         , (term_t t, mpz_t mpz), (t, mpz))
 [[nodiscard]]
 PLX_WRAP(bool                    , get_mpq                         , (term_t t, mpq_t mpq), (t, mpq))
 [[nodiscard]]
@@ -373,44 +374,44 @@ PLX_VOID(void                    , changed_cwd                     , (), ())
 // TODO: document PL_cwd()
 PLX_ASIS(char *                  , cwd                             , (char *buf, size_t buflen), (buf, buflen))
 
-PLX_EXCE(int                     , cvt_i_bool                      , (term_t p, int *c), (p, c))
-PLX_EXCE(int                     , cvt_i_char                      , (term_t p, char *c), (p, c))
-PLX_EXCE(int                     , cvt_i_schar                     , (term_t p, signed char *c), (p, c))
-PLX_EXCE(int                     , cvt_i_uchar                     , (term_t p, unsigned char *c), (p, c))
-PLX_EXCE(int                     , cvt_i_short                     , (term_t p, short *s), (p, s))
-PLX_EXCE(int                     , cvt_i_ushort                    , (term_t p, unsigned short *s), (p, s))
-PLX_EXCE(int                     , cvt_i_int                       , (term_t p, int *c), (p, c))
-PLX_EXCE(int                     , cvt_i_uint                      , (term_t p, unsigned int *c), (p, c))
-PLX_EXCE(int                     , cvt_i_long                      , (term_t p, long *c), (p, c))
-PLX_EXCE(int                     , cvt_i_ulong                     , (term_t p, unsigned long *c), (p, c))
-PLX_EXCE(int                     , cvt_i_llong                     , (term_t p, long long *c), (p, c))
-PLX_EXCE(int                     , cvt_i_ullong                    , (term_t p, unsigned long long *c), (p, c))
-PLX_EXCE(int                     , cvt_i_int32                     , (term_t p, int32_t *c), (p, c))
-PLX_EXCE(int                     , cvt_i_uint32                    , (term_t p, uint32_t *c), (p, c))
-PLX_EXCE(int                     , cvt_i_int64                     , (term_t p, int64_t *c), (p, c))
-PLX_EXCE(int                     , cvt_i_uint64                    , (term_t p, uint64_t *c), (p, c))
-PLX_EXCE(int                     , cvt_i_size_t                    , (term_t p, size_t *c), (p, c))
-PLX_EXCE(int                     , cvt_i_float                     , (term_t p, double *c), (p, c))
-PLX_EXCE(int                     , cvt_i_single                    , (term_t p, float *c), (p, c))
-PLX_EXCE(int                     , cvt_i_string                    , (term_t p, char **c), (p, c))
-PLX_EXCE(int                     , cvt_i_codes                     , (term_t p, char **c), (p, c))
-PLX_EXCE(int                     , cvt_i_atom                      , (term_t p, atom_t *c), (p, c))
-PLX_EXCE(int                     , cvt_i_address                   , (term_t p, void *c), (p, c))
-PLX_EXCE(int                     , cvt_o_int64                     , (int64_t c, term_t p), (c, p))
-PLX_EXCE(int                     , cvt_o_float                     , (double c, term_t p), (c, p))
-PLX_EXCE(int                     , cvt_o_single                    , (float c, term_t p), (c, p))
-PLX_EXCE(int                     , cvt_o_string                    , (const char *c, term_t p), (c, p))
-PLX_EXCE(int                     , cvt_o_codes                     , (const char *c, term_t p), (c, p))
-PLX_EXCE(int                     , cvt_o_atom                      , (atom_t c, term_t p), (c, p))
-PLX_EXCE(int                     , cvt_o_address                   , (void *address, term_t p), (address, p))
+PLX_EXCE(bool                    , cvt_i_bool                      , (term_t p, int *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_char                      , (term_t p, char *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_schar                     , (term_t p, signed char *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_uchar                     , (term_t p, unsigned char *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_short                     , (term_t p, short *s), (p, s))
+PLX_EXCE(bool                    , cvt_i_ushort                    , (term_t p, unsigned short *s), (p, s))
+PLX_EXCE(bool                    , cvt_i_int                       , (term_t p, int *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_uint                      , (term_t p, unsigned int *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_long                      , (term_t p, long *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_ulong                     , (term_t p, unsigned long *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_llong                     , (term_t p, long long *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_ullong                    , (term_t p, unsigned long long *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_int32                     , (term_t p, int32_t *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_uint32                    , (term_t p, uint32_t *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_int64                     , (term_t p, int64_t *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_uint64                    , (term_t p, uint64_t *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_size_t                    , (term_t p, size_t *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_float                     , (term_t p, double *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_single                    , (term_t p, float *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_string                    , (term_t p, char **c), (p, c))
+PLX_EXCE(bool                    , cvt_i_codes                     , (term_t p, char **c), (p, c))
+PLX_EXCE(bool                    , cvt_i_atom                      , (term_t p, atom_t *c), (p, c))
+PLX_EXCE(bool                    , cvt_i_address                   , (term_t p, void *c), (p, c))
+PLX_EXCE(bool                    , cvt_o_int64                     , (int64_t c, term_t p), (c, p))
+PLX_EXCE(bool                    , cvt_o_float                     , (double c, term_t p), (c, p))
+PLX_EXCE(bool                    , cvt_o_single                    , (float c, term_t p), (c, p))
+PLX_EXCE(bool                    , cvt_o_string                    , (const char *c, term_t p), (c, p))
+PLX_EXCE(bool                    , cvt_o_codes                     , (const char *c, term_t p), (c, p))
+PLX_EXCE(bool                    , cvt_o_atom                      , (atom_t c, term_t p), (c, p))
+PLX_EXCE(bool                    , cvt_o_address                   , (void *address, term_t p), (address, p))
 
 PLX_WRAP(term_t                  , new_nil_ref                     , (), ())
-PLX_ASIS(int                     , cvt_encoding                    , (), ())
-PLX_ASIS(int                     , cvt_set_encoding                , (int enc), (enc))
+PLX_ASIS(bool                    , cvt_encoding                    , (), ())
+PLX_ASIS(bool                    , cvt_set_encoding                , (int enc), (enc))
 // (skipped):: void SP_set_state(int state);
 // (skipped):: int SP_get_state();
 PLX_ASIS(int                     , compare                         , (term_t t1, term_t t2), (t1, t2))
-PLX_ASIS(int                     , same_compound                   , (term_t t1, term_t t2), (t1, t2))
+PLX_ASIS(bool                    , same_compound                   , (term_t t1, term_t t2), (t1, t2))
 // (skipped):: int PL_warning(const char *fmt   , ...) WPRINTF12;
 // (skipped):: int PL_warningX(const char *fmt  , ...);
 // (skipped):: void PL_fatal_error(const char *fmt  , ...) WPRINTF12;
@@ -418,12 +419,12 @@ PLX_ASIS(int                     , same_compound                   , (term_t t1,
 // (skipped):: void PL_system_error(const char *fmt, ...) WPRINTF12;
 
 PLX_WRAP(record_t                , record                          , (term_t term), (term))
-PLX_EXCE(int                     , recorded                        , (record_t record, term_t term), (record, term))
+PLX_EXCE(bool                    , recorded                        , (record_t record, term_t term), (record, term))
 PLX_VOID(void                    , erase                           , (record_t record), (record))
 PLX_WRAP(record_t                , duplicate_record                , (record_t r), (r))
 PLX_WRAP(char *                  , record_external                 , (term_t t, size_t *size), (t, size))
-PLX_EXCE(int                     , recorded_external               , (const char *rec, term_t term), (rec, term))
-PLX_EXCE(int                     , erase_external                  , (char *rec), (rec))
+PLX_EXCE(bool                    , recorded_external               , (const char *rec, term_t term), (rec, term))
+PLX_EXCE(bool                    , erase_external                  , (char *rec), (rec))
 // (skipped):: int PL_set_prolog_flag(const char *name, int type, ...);
 // (skipped):: PL_atomic_t _PL_get_atomic(term_t t);
 // (skipped):: void _PL_put_atomic(term_t t, PL_atomic_t a);
@@ -434,36 +435,36 @@ PLX_VOID(void                    , mark_string_buffers             , (buf_mark_t
 PLX_VOID(void                    , release_string_buffers_from_mark, (buf_mark_t mark), (mark))
 PLX_WRAP(bool                    , unify_stream                    , (term_t t, IOSTREAM *s), (t, s))
 // TODO: document PL_get_stream_handle
-PLX_EXCE(int                     , get_stream_handle               , (term_t t, IOSTREAM **s), (t, s))
-PLX_EXCE(int                     , get_stream                      , (term_t t, IOSTREAM **s, int flags), (t, s, flags))
-PLX_EXCE(int                     , get_stream_from_blob            , (atom_t a, IOSTREAM**s, int flags), (a, s, flags))
+PLX_EXCE(bool                    , get_stream_handle               , (term_t t, IOSTREAM **s), (t, s))
+PLX_EXCE(bool                    , get_stream                      , (term_t t, IOSTREAM **s, int flags), (t, s, flags))
+PLX_EXCE(bool                    , get_stream_from_blob            , (atom_t a, IOSTREAM**s, int flags), (a, s, flags))
 PLX_WRAP(IOSTREAM*               , acquire_stream                  , (IOSTREAM *s), (s))
-PLX_EXCE(int                     , release_stream                  , (IOSTREAM *s), (s))
+PLX_EXCE(bool                    , release_stream                  , (IOSTREAM *s), (s))
 // TODO: document PL_release_stream_noerror()
-PLX_WRAP(int                     , release_stream_noerror          , (IOSTREAM *s), (s))
+PLX_WRAP(bool                    , release_stream_noerror          , (IOSTREAM *s), (s))
 // TODO: document PL_open_resource()
 PLX_WRAP(IOSTREAM *              , open_resource                   , (module_t m, const char *name, const char *rc_class, const char *mode), (m, name, rc_class, mode))
 
 // (skipped):: IOSTREAM **_PL_streams(void);	/* base of streams */
-PLX_ASIS(int                     , write_term                      , (IOSTREAM *s, term_t term, int precedence, int flags), (s, term, precedence, flags))
+PLX_ASIS(bool                    , write_term                      , (IOSTREAM *s, term_t term, int precedence, int flags), (s, term, precedence, flags))
 PLX_ASIS(bool                    , ttymode                         , (IOSTREAM *s), (s))
 
 // TODO: PL_put_term_from_chars depends on CVT_EXCEPTION - ? make version that checks this and throws an exception?
-PLX_ASIS(int                     , put_term_from_chars             , (term_t t, int flags, size_t len, const char *s), (t, flags, len, s))
+PLX_ASIS(bool                    , put_term_from_chars             , (term_t t, int flags, size_t len, const char *s), (t, flags, len, s))
 
 // PL_chars_to_term(), PL_wchars_to_term() put error into term for syntax errors
 [[nodiscard]]
-PLX_ASIS(int                     , chars_to_term                   , (const char *chars, term_t term), (chars, term))
+PLX_ASIS(bool                    , chars_to_term                   , (const char *chars, term_t term), (chars, term))
 [[nodiscard]]
-PLX_ASIS(int                     , wchars_to_term                  , (const pl_wchar_t *chars, term_t term), (chars, term))
+PLX_ASIS(bool                    , wchars_to_term                  , (const pl_wchar_t *chars, term_t term), (chars, term))
 
 // In the following, some of the functions can return `false` without
 // a Prolog error; in these cases, a PlUnknownError is thrown.
 // If you wish finer control, use the PL_*() version of the call.
-PLX_EXCE(int                     , initialise                      , (int argc, char **argv), (argc, argv))
-PLX_EXCE(int                     , winitialise                     , (int argc, wchar_t **argv), (argc, argv))
+PLX_EXCE(bool                    , initialise                      , (int argc, char **argv), (argc, argv))
+PLX_EXCE(bool                    , winitialise                     , (int argc, wchar_t **argv), (argc, argv))
 PLX_ASIS(bool                    , is_initialised                  , (int *argc, char ***argv), (argc, argv))
-PLX_EXCE(int                     , set_resource_db_mem             , (const unsigned char *data, size_t size), (data, size))
+PLX_EXCE(bool                    , set_resource_db_mem             , (const unsigned char *data, size_t size), (data, size))
 PLX_ASIS(bool                    , toplevel                        , (), ())
 PLX_EXCE(int                     , cleanup                         , (int status), (status))
 PLX_VOID(void                    , cleanup_fork                    , (), ())
@@ -491,19 +492,19 @@ PLX_ASIS(void *                  , realloc                         , (void *mem,
 PLX_ASIS(void *                  , malloc_unmanaged                , (size_t size), (size))
 PLX_ASIS(void *                  , malloc_atomic_unmanaged         , (size_t size), (size))
 PLX_VOID(void                    , free                            , (void *mem), (mem))
-PLX_ASIS(int                     , linger                          , (void *mem), (mem))
+PLX_ASIS(bool                    , linger                          , (void *mem), (mem))
 
 PLX_ASIS(PL_dispatch_hook_t      , dispatch_hook                   , (PL_dispatch_hook_t h), (h))
 PLX_VOID(void                    , abort_hook                      , (PL_abort_hook_t h), (h))
 PLX_VOID(void                    , initialise_hook                 , (PL_initialise_hook_t h), (h))
-PLX_ASIS(int                     , abort_unhook                    , (PL_abort_hook_t h), (h))
+PLX_ASIS(bool                    , abort_unhook                    , (PL_abort_hook_t h), (h))
 PLX_ASIS(PL_agc_hook_t           , agc_hook                        , (PL_agc_hook_t h), (h))
 
 // TODO: int PL_scan_options(term_t options, int flags, const char *opttype, PL_option_t specs[], ...);
 // Deprecated: void (*PL_signal(int sig, void (*func)(int)))(int);
 PLX_ASIS(int                     , sigaction                       , (int sig, pl_sigaction_t *act, pl_sigaction_t *old), (sig, act, old))
 PLX_VOID(void                    , interrupt                       , (int sig), (sig))
-PLX_ASIS(int                     , raise                           , (int sig), (sig))
+PLX_ASIS(bool                    , raise                           , (int sig), (sig))
 PLX_ASIS(int                     , handle_signals                  , (), ())
 PLX_ASIS(int                     , get_signum_ex                   , (term_t sig, int *n), (sig, n))
 // (skipped):: int PL_action(int, ...);
@@ -547,10 +548,10 @@ PLX_VOID(void                    , prof_exit                       , (void *node
 PLX_ASIS(int                     , prolog_debug                    , (const char *topic), (topic))
 PLX_ASIS(int                     , prolog_nodebug                  , (const char *topic), (topic))
 
-// (skipped):: int _PL_get_xpce_reference(term_t t, xpceref_t *ref);
-// (skipped):: int _PL_unify_xpce_reference(term_t t, xpceref_t *ref);
-// (skipped):: int _PL_put_xpce_reference_i(term_t t, uintptr_t r);
-// (skipped):: int _PL_put_xpce_reference_a(term_t t, atom_t name);
+// (skipped):: bool _PL_get_xpce_reference(term_t t, xpceref_t *ref);
+// (skipped):: bool _PL_unify_xpce_reference(term_t t, xpceref_t *ref);
+// (skipped):: bool _PL_put_xpce_reference_i(term_t t, uintptr_t r);
+// (skipped):: bool _PL_put_xpce_reference_a(term_t t, atom_t name);
 
 PLX_ASIS(int                     , get_context                     , (struct pl_context_t *c, int thead_id), (c, thead_id))
 PLX_ASIS(int                     , step_context                    , (struct pl_context_t *c), (c))

@@ -151,7 +151,7 @@ template<typename C_t> [[nodiscard]] C_t PlWrap(C_t rc, qid_t qid = 0);
 // This is for functions that report errors but don't have an
 // indication of "fail" - that is, almost everything except for
 // functions like PL_unify_*() or PL_next_solution().
-template<typename C_T> void PlEx(C_T rc, qid_t qid = 0);
+template<typename C_t> void PlEx(C_t rc, qid_t qid = 0);
 
 // Check the return code: if "false", throw PlFail.
 inline void PlCheckFail(bool rc);

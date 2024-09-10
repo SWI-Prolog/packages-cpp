@@ -151,7 +151,7 @@ template<typename C_t> [[nodiscard]] C_t PlWrap(C_t rc, qid_t qid = 0);
 // This is for functions that report errors but don't have an
 // indication of "fail" - that is, almost everything except for
 // functions like PL_unify_*() or PL_next_solution().
-template<typename C_T> void PlEx(C_T rc, qid_t qid = 0);
+template<typename C_t> void PlEx(C_t rc, qid_t qid = 0);
 
 // Check the return code: if "false", throw PlFail.
 inline void PlCheckFail(bool rc);
@@ -748,7 +748,7 @@ public:
 
   void reset_term_refs() { Plx_reset_term_refs(unwrap()); }
 
-  int call(PlModule module = PlModule()) const { return Plx_call(unwrap(), module.unwrap()); }
+  bool call(PlModule module = PlModule()) const { return Plx_call(unwrap(), module.unwrap()); }
 
 private:
   bool eq(const char *s) const;
@@ -1892,7 +1892,7 @@ public:
   static void acquire(atom_t a)
   { PlAtom a_(a);
     auto data = cast_check(a_);
-    bool rc;
+    bool rc; // Uninitialized variable warning (some compilers)
     try
     { data->acquire(a_);
       rc = true;
@@ -1925,8 +1925,8 @@ public:
     // types - they should have been already compared by standard
     // order of types; but use cast_check() anyway (which will be
     // optimised away if NDEBUG).
-    bool rc_try = false;
-    int rc;
+    bool rc_try = false; // Uninitialized variable warning (some compilers)
+    int rc = 0;          // Uninitialized variable warning (some compilers)
     try
     { const auto a_data = cast(PlAtom(a));
       const auto b_data = cast(PlAtom(b));
@@ -1947,7 +1947,7 @@ public:
     if ( !data )
       // TODO: demangle typeid::name()
       return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), data) >= 0;
-    int rc;
+    int rc = -1; // Uninitialized variable warning (some compilers)
     try
     { rc = data->write(s, flags);
     }
@@ -1961,7 +1961,7 @@ public:
   { const auto data = cast(PlAtom(a));
     if ( !data )
       return false;
-    bool rc;
+    bool rc = false; // Uninitialized variable warning (some compilers)
     try
     { data->save(fd);
       rc = true;
@@ -1975,7 +1975,7 @@ public:
   static atom_t load(IOSTREAM *fd)
   { C_t ref;
     atom_t atom;
-    int rc_try;
+    int rc_try = false; // Uninitialized variable warning (some compilers)
     try
     { atom = ref.load(fd).unwrap();
       rc_try = true;

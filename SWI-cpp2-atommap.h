@@ -198,5 +198,4 @@ private:
   std::string insert_type_; // for PlPermissionError
 };
 
-
 #endif /*_SWI_CPP2_ATOMMAP_H*/

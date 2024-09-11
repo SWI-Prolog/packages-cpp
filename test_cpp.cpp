@@ -62,9 +62,11 @@ how the various predicates can be called from Prolog.
 #include <memory>
 #include "SWI-cpp2.h"
 #include "SWI-cpp2-atommap.h"
+#include "SWI-cpp2-flags.h"
 #include <errno.h>
 #include <math.h>
 #include <cassert>
+#include <cstdio> // for MyFileBlob
 #include <limits>
 #include <string>
 #include <map>
@@ -423,6 +425,18 @@ PREDICATE(cappend, 3)
   return A2.unify_term(l3);
 }
 
+static const PlOptionsFlag<int>
+open_query_options("open-query flag",
+                   { // {"debug",         PL_Q_DEBUG},
+                     // {"deterministic", PL_Q_DETERMINISTIC },
+                     {"normal",          PL_Q_NORMAL},
+                     {"nodebug",         PL_Q_NODEBUG},
+                     {"catch_exception", PL_Q_CATCH_EXCEPTION},
+                     {"pass_exception",  PL_Q_PASS_EXCEPTION},
+                     {"allow_exception", PL_Q_ALLOW_YIELD},
+                     {"ext_status",      PL_Q_EXT_STATUS} });
+
+
 // TODO: This doesn't do quite what's expected if there's an
 //       exception.  Instead of returning the exception to Prolog, it
 //       ends up in the debugger.
@@ -431,20 +445,12 @@ PREDICATE(cappend, 3)
 PREDICATE(cpp_call_, 3)
 { int flags = A2.as_int();
   int verbose = A3.as_bool();
-  std::string flag_str;
+  std::string flag_str = open_query_options.as_string(flags);
   PlStream strm(Scurrent_output);
-  // if ( flags & PL_Q_DEBUG )        flag_str.append(",debug");
-  // if ( flags & PL_Q_DETERMINISTIC) flag_str.append(",deterministic");
-  if ( flags & PL_Q_NORMAL )          flag_str.append(",normal");
-  if ( flags & PL_Q_NODEBUG )         flag_str.append(",nodebug");
-  if ( flags & PL_Q_CATCH_EXCEPTION)  flag_str.append(",catch_exception");
-  if ( flags & PL_Q_PASS_EXCEPTION)   flag_str.append(",pass_exception");
-  if ( flags & PL_Q_ALLOW_YIELD)      flag_str.append(",allow_exception");
-  if ( flags & PL_Q_EXT_STATUS)       flag_str.append(",ext_status");
   if ( flag_str.empty() )
     flag_str = "cpp_call";
   else
-    flag_str = std::string("cpp_call(").append(flag_str.substr(1)).append(")");
+    flag_str = "cpp_call(" + flag_str + ")";
   if ( verbose )
     strm.printf("%s: %s\n",  flag_str.c_str(), A1.as_string().c_str());
 
@@ -1096,9 +1102,9 @@ PREDICATE(unify_foo_string_2b, 1)
 
 PREDICATE(pl_write_atoms_cpp, 1)
 { auto l = A1;
-  PlTerm_var head;
-  PlTerm tail(l.copy_term_ref());
   PlStream strm(Scurrent_output);
+  PlTerm tail(l.copy_term_ref());
+  PlTerm_var head;
 
   while( tail.get_list_ex(head, tail) )
   { strm.printf("%s\n", head.as_string().c_str());
@@ -1643,6 +1649,156 @@ PREDICATE(portray_my_blob, 2)
 }
 
 
+// TODO: Add the following code to
+// pl2cpp2.doc \subsubsection{Sample PlBlob code (pointer)}
+
+struct MyFileBlob;
+
+static PL_blob_t my_file_blob = PL_BLOB_DEFINITION(MyFileBlob, "my_file_blob");
+
+static const PlOptionsFlag<int>
+MyFileBlob_options("MyFileBlob-options",
+                   { {"absolute", PL_FILE_ABSOLUTE},
+                     {"ospath",   PL_FILE_OSPATH},
+                     {"search",   PL_FILE_SEARCH},
+                     {"exist",    PL_FILE_EXIST},
+                     {"read",     PL_FILE_READ},
+                     {"write",    PL_FILE_WRITE},
+                     {"execute",  PL_FILE_EXECUTE},
+                     {"noerrors", PL_FILE_NOERRORS} });
+
+struct MyFileBlob : public PlBlob
+{ std::FILE* file_;
+
+  std::string mode_;
+  int flags_;
+  std::string filename_;
+  std::vector<char> buffer_; // used by read(), to avoid re-allocation
+
+  explicit MyFileBlob()
+    : PlBlob(&my_file_blob) { }
+
+  explicit MyFileBlob(PlTerm filename, PlTerm mode, PlTerm flags)
+    : PlBlob(&my_file_blob),
+      mode_(mode.as_string())
+  { flags_ = MyFileBlob_options.lookup_list(flags);
+    filename_ = filename.get_file_name(flags_);
+    file_ = fopen(filename_.c_str(), mode_.c_str());
+    if ( !file_ ) // TODO: get error code (might not be existence error)
+      throw PlExistenceError("my_file_blob_open", PlTerm_string(filename_));
+    // for debugging:
+    //   PlTerm_string(filename.as_string() + "\" => \"" +
+    //                 filename_ + "\", \"" + mode_ +
+    //                 ", flags=" + MyFileBlob_options.as_string(flags_) + "\")")
+  }
+
+  PL_BLOB_SIZE
+
+  std::string read(size_t count)
+  { assert(sizeof buffer_[0] == sizeof (char));
+    assert(sizeof (char) == 1);
+
+    buffer_.reserve(count);
+    return std::string(buffer_.data(),
+                       std::fread(buffer_.data(), sizeof buffer_[0], count, file_));
+  }
+
+  bool eof() const
+  { return std::feof(file_);
+  }
+
+  bool error() const
+  { return std::ferror(file_);
+  }
+
+  virtual ~MyFileBlob() noexcept
+  { if ( !close() )
+      // Can't use PL_warning()
+      Sdprintf("***ERROR: Close MyFileBlob failed: (%s)\n", filename_.c_str());
+  }
+
+  bool close() noexcept
+  { if ( !file_ )
+      return true;
+    int rc = std::fclose(file_);
+    file_ = nullptr;
+    return rc == 0;
+  }
+
+  PlException MyFileBlobError(const std::string error) const
+  { return PlGeneralError(PlCompound(error, PlTermv(symbol_term())));
+  }
+
+  int compare_fields(const PlBlob* _b_data) const override
+  { // dynamic_cast is safer than static_cast, but slower (see documentation)
+    // It's used here for testing (the documentation has static_cast)
+    auto b_data = dynamic_cast<const MyFileBlob*>(_b_data);
+    return filename_.compare(b_data->filename_);
+  }
+
+  bool write_fields(IOSTREAM *s, int flags) const override
+  { PlStream strm(s);
+    strm.printf(",");
+    return write_fields_only(strm);
+  }
+
+  bool write_fields_only(PlStream& strm) const
+  { // For debugging:
+    // strm.printf("%s mode=%s flags=%s", filename_.c_str(), mode_.c_str(),
+    //             MyFileBlob_options.as_string(flags_).c_str());
+    strm.printf("%s", filename_.c_str());
+    if ( !file_ )
+      strm.printf("-CLOSED");
+    return true;
+  }
+
+  bool portray(PlStream& strm) const
+  { strm.printf("MyFileBlob(");
+    write_fields_only(strm);
+    strm.printf(")");
+    return true;
+  }
+};
+
+PREDICATE(my_file_open, 4)
+{ auto ref = std::unique_ptr<PlBlob>(new MyFileBlob(A2, A3, A4));
+  return A1.unify_blob(&ref);
+}
+
+PREDICATE(my_file_close, 1)
+{ auto ref = PlBlobV<MyFileBlob>::cast_ex(A1, my_file_blob);
+  if ( !ref->close() ) // TODO: get the error code
+    throw ref->MyFileBlobError("my_file_blob_close_error");
+  return true;
+}
+
+PREDICATE(my_file_filename_atom, 2)
+{ auto ref = PlBlobV<MyFileBlob>::cast_ex(A1, my_file_blob);
+  return A2.unify_atom(ref->filename_);
+}
+
+PREDICATE(my_file_filename_string, 2)
+{ auto ref = PlBlobV<MyFileBlob>::cast_ex(A1, my_file_blob);
+  return A2.unify_string(ref->filename_);
+}
+
+PREDICATE(my_file_read, 3)
+{ auto ref = PlBlobV<MyFileBlob>::cast_ex(A1, my_file_blob);
+  return A3.unify_string(ref->read(A2.as_int64_t()));
+}
+
+// %! my_file_blob_portray(+Stream, +MyFileBlob) is det.
+// % Hook predicate for
+// %   user:portray(MyFileBlob) :-
+// %     blob(MyFileBlob, my_file_blob), !,
+// %     my_file_blob_portray(current_output, MyFileBlob).
+PREDICATE(my_file_blob_portray, 2)
+{ auto ref = PlBlobV<MyFileBlob>::cast_ex(A2, my_file_blob);
+  PlStream strm(A1, 0);
+  return ref->portray(strm);
+}
+
+
 static AtomMap<PlAtom, PlAtom> map_atom_atom("add", "atom_atom");
 
 PREDICATE(atom_atom_find, 2)
@@ -1873,59 +2029,40 @@ PREDICATE_NONDET(enum_map_str_str, 4)
   return false;
 }
 
-static
-void append_sep(std::string *str, unsigned int *flags,
-                const std::string& app, unsigned int one_flag)
-{ if ( (*flags & one_flag) == one_flag )
-  { str->append(",");
-    str->append(app);
-    *flags &= ~one_flag;
-  }
-}
+static const
+PlOptionsFlag<unsigned int>
+nchars_flags("nchars-flags",
+             // compound flags are first, so, e.g. CVT_NUMBER subsumes CVT_RATIONAL, CVT_FLOAT
+             { {"xinteger",        CVT_XINTEGER}, // must be before CVT_INTEGER, CVT_NUMBER
+               {"all",             CVT_ALL},
+               {"atomic",          CVT_ATOMIC},
+               {"number",          CVT_NUMBER},
+
+               {"atom",            CVT_ATOM},
+               {"string",          CVT_STRING},
+               {"integer",         CVT_INTEGER},
+               {"list",            CVT_LIST},
+               {"rational",        CVT_RATIONAL},
+               {"float",           CVT_FLOAT},
+               {"variable",        CVT_VARIABLE},
+               {"write",           CVT_WRITE},
+               {"write_canonical", CVT_WRITE_CANONICAL},
+               {"writeq",          CVT_WRITEQ},
+
+               {"exception",       CVT_EXCEPTION},
+               {"varnofail",       CVT_VARNOFAIL},
+
+               {"stack",           BUF_STACK},
+               {"malloc",          BUF_MALLOC},
+               {"allow_stack",     BUF_ALLOW_STACK},
+
+               {"utf8",            REP_UTF8},
+               {"mb",              REP_MB},
+               {"diff_list",       PL_DIFF_LIST} });
 
 static
 std::string nchars_flags_string(unsigned int flags)
-{ std::string result;
-
-  // "Compound" flags are first - they change `flags`,
-  // so that, e.g. "number" doesn't also output "rational,float,integer".
-  // But "xinteger" is special.
-  unsigned int flags_o = flags;
-  if( (flags & CVT_XINTEGER) == CVT_XINTEGER )
-  { result.append(",xinteger");
-    flags &= ~CVT_XINTEGER;
-  }
-  append_sep(&result, &flags, "all",             CVT_ALL);
-  append_sep(&result, &flags, "atomic",          CVT_ATOMIC);
-  append_sep(&result, &flags, "number",          CVT_NUMBER);
-
-  append_sep(&result, &flags, "atom",            CVT_ATOM);
-  append_sep(&result, &flags, "string",          CVT_STRING);
-  if ( !((flags_o & CVT_XINTEGER) == CVT_XINTEGER ) )
-    append_sep(&result, &flags, "integer",         CVT_INTEGER);
-  append_sep(&result, &flags, "list",            CVT_LIST);
-  append_sep(&result, &flags, "rational",        CVT_RATIONAL);
-  append_sep(&result, &flags, "float",           CVT_FLOAT);
-  append_sep(&result, &flags, "variable",        CVT_VARIABLE);
-  append_sep(&result, &flags, "write",           CVT_WRITE);
-  append_sep(&result, &flags, "write_canonical", CVT_WRITE_CANONICAL);
-  append_sep(&result, &flags, "writeq",          CVT_WRITEQ);
-
-  append_sep(&result, &flags, "exception",       CVT_EXCEPTION);
-  append_sep(&result, &flags, "varnofail",       CVT_VARNOFAIL);
-
-  append_sep(&result, &flags, "stack",           BUF_STACK);
-  append_sep(&result, &flags, "malloc",          BUF_MALLOC);
-  append_sep(&result, &flags, "allow_stack",     BUF_ALLOW_STACK);
-
-  append_sep(&result, &flags, "utf8",            REP_UTF8);
-  append_sep(&result, &flags, "mb",              REP_MB);
-  append_sep(&result, &flags, "diff_list",       PL_DIFF_LIST);
-
-  if ( flags )
-    throw PlDomainError("write-options-flag", PlTerm_integer(flags));
-
-  return result.empty() ? "" : result.substr(1);
+{ return nchars_flags.as_string(flags);
 }
 
 static const std::map<const std::string, unsigned int> write_option_to_flag =
@@ -1970,9 +2107,9 @@ static const std::map<const std::string, unsigned int> write_option_to_flag =
 
 static
 unsigned int nchars_flag(PlTerm list)
-{ PlTerm_tail tail(list);
+{ unsigned int flags = 0;
+  PlTerm_tail tail(list);
   PlTerm_var e;
-  unsigned int flags = 0;
   while ( tail.next(e) )
   { e.must_be_atomic();
     const auto it = write_option_to_flag.find(e.as_string());

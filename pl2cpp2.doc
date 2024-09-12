@@ -1130,7 +1130,7 @@ The methods are:
 
   \cfunction{void}{reset_term_refs}{} Wrapper for PL_reset_term_refs().
 
-  \cfunction{int}{call}{PlModule module} Wrapper for PL_call(unwrap()); \arg{module} defaults to ``null''.
+  \cfunction{bool}{call}{PlModule module} Wrapper for PL_call(unwrap()); \arg{module} defaults to ``null''. Throws a C++ exception if there's a Prolog error, otherwise returns the success or failure of the call.
 
 \end{description}
 
@@ -3692,10 +3692,11 @@ Same, locating the predicate in the named module.
 Translates \arg{goal} into a term and calls this term as the other
 PlCall() variations. Especially suitable for simple goals such as making
 Prolog load a file.
-    \cfunction{int}{PlTerm::call}{}
-    Wrapper for PL_call(), and throws an exception if there's an error.
+    \cfunction{bool}{PlTerm::call}{}
+    Wrapper for PL_call(), returning \const{true} or \const{false} for
+    the success/failure of the call; and throws an exception if there's an error.
     \exam{t.call()} is essentially the same as \exam{PlCall(t)}.
-    \cfunction{int}{PlTerm::call}{PlModule m}
+    \cfunction{bool}{PlTerm::call}{PlModule m}
     Same as PlTerm::call() but specifying the module.
 \end{description}
 

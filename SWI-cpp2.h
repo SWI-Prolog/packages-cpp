@@ -943,8 +943,11 @@ public:
   explicit PlPredicate(PlFunctor f, PlModule m)
     : WrappedC<predicate_t>(Plx_pred(f.unwrap(), m.unwrap()))
   { }
-  explicit PlPredicate(const char *name, int arity,  const char *module)
+  explicit PlPredicate(const char *name, int arity, const char *module)
     : WrappedC<predicate_t>(Plx_predicate(name, arity,  module))
+  { }
+  explicit PlPredicate(const std::string& name, int arity, const std::string& module)
+    : WrappedC<predicate_t>(Plx_predicate(name.c_str(), arity,  module.c_str()))
   { }
   void predicate_info(PlAtom *name, size_t *arity, PlModule *module)
   { atom_t n;

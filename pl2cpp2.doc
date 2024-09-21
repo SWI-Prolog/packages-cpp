@@ -175,6 +175,44 @@ More details on the rationale and how to port from version 1 to
 version 1 are given in \secref{cpp2-rationale} and
 \secref{cpp2-porting-1-2}.
 
+\section{A simple example}
+\label{sec:cpp2-foreign-example}
+
+Here is the ``simple example'' in the
+\href{https://www.swi-prolog.org/pldoc/man?section=foreign-example}{Foreign Language Interface},
+rewritten in C++. As before, it is compiled by
+
+\begin{code}
+  swipl-ld -o calc -goal true calc.cpp calc.pl
+\end{code}
+
+\begin{code}
+#include <string>
+#include <SWI-cpp2.h>
+
+int main(int argc, char **argv) {
+
+  PlEngine e(argv[0]);
+
+  // combine all the arguments in a single string
+  std::string expression;
+  for (int n = 1; n < argc; n++) {
+    if (n != 1) {
+      expression.append(" ");
+    }
+    expression.append(argv[n]);
+  }
+
+  // Lookup calc/1 and make the arguments and call
+
+  PlPredicate pred("calc", 1, "user");
+  PlTerm_string h0(expression);
+  PlQuery q(pred, PlTermv(h0), PL_Q_NORMAL);
+
+  return q.next_solution() ? 0 : 1;
+}
+\end{code}
+
 \section{Sample code (version 2)}
 \label{sec:cpp2-sample-code}
 

@@ -3343,22 +3343,27 @@ PREDICATE(write_list, 1)
 \label{sec:cpp2-pltermv}
 
 The class \ctype{PlTermv} represents an array of term-references.  This
-type is used to pass the arguments to a foreignly defined predicate,
+type is used to pass the arguments to a foreign defined predicate,
 construct compound terms (see
-\cfuncref{PlTerm::PlTerm}{const char *name}{PlTermv arguments})
+\cfuncref{PlTerm::PlTerm}{const char *name}{PlTermv arguments}),
 and to create queries (see \ctype{PlQuery}).
 
 The only useful member function is the overloading of \const{[]},
 providing (0-based) access to the elements.  Range checking is performed
 and raises a \except{domain_error} exception.
 
-The constructors for this class are below.
+The constructors for this class are below. Note that these can be
+error-prone because there's no distinction between \ctype{term_t} and
+\ctype{size_t}; the form of the constructor is determined by whether
+the first argument is an integer (\ctype{term_t} or \ctype{size_t}) or
+\ctype{PlTerm}.
 
 \begin{description}
-    \constructor{PlTermv}{int size}
+    \constructor{PlTermv}{size_t size}
 Create a new array of term-references, all holding variables.
-    \constructor{PlTermv}{int size, term_t t0}
+    \constructor{PlTermv}{size_t size, term_t t0}
 Convert a C-interface defined term-array into an instance.
+    Typyically, \arg{t0} was created using Pl_new_term_refs(size).
     \constructor{PlTermv}{PlTerm ...}
 Create a vector from 1 to 5 initialising arguments.  For example:
 
@@ -3374,10 +3379,14 @@ construction should be used:
 \begin{code}
 { PlTermv av(10);
 
-  av[0] = "hello";
+  av[0].put_term(PlTerm_atom("hello"));
+  av[1].put_term(PlTerm_integer(666));
   ...
 }
 \end{code}
+\emph{Important}: be sure that all the arguments are of type
+\ctype{PlTerm} - \exam{PlTermv(i)} is not the same as
+\exam{PlTermv(PlTerm_integer(i))}, and will result in a runtime error.
 \end{description}
 
 

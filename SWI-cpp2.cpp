@@ -631,7 +631,8 @@ bool
 PlTerm::eq(const char *s) const
 { char *s0;
 
-  if ( get_chars(&s0, CVT_ALL) )
+  PlStringBuffers _string_buffers; 
+  if ( _get_chars(&s0, CVT_ALL) )
     return strcmp(s0, s) == 0;
 
   throw PlTypeError("text", *this);
@@ -642,7 +643,8 @@ bool
 PlTerm::eq(const wchar_t *s) const
 { wchar_t *s0;
 
-  if ( Plx_get_wchars(unwrap(), nullptr, &s0, CVT_ALL) )
+  PlStringBuffers _string_buffers;
+  if ( _get_wchars(nullptr, &s0, CVT_ALL) )
     return wcscmp(s0, s) == 0;
 
   throw PlTypeError("text", *this);
@@ -653,8 +655,9 @@ bool
 PlTerm::eq(const std::string& s) const
 { char *s0;
 
+  PlStringBuffers _string_buffers;
   // Doesn't handle non-NUL terminated - but it's only used by deprecated operator ==
-  if ( get_chars(&s0, CVT_ALL) )
+  if ( _get_chars(&s0, CVT_ALL) )
     return s.compare(s0) == 0; 
 
   throw PlTypeError("text", *this);
@@ -763,6 +766,9 @@ PlTermv::PlTermv(PlTerm m0, PlTerm m1)
   : size_(2),
     a0_(Plx_new_term_refs(2))
 { PlEx<bool>(a0_ != (term_t)0);
+  // Commented out code is possibly less efficient:
+  // PlTerm(a0_+0).put_term(m0); // (*this)[0].put_term(m0) does an unnecessary range check
+  // PlTerm(a0_+1).put_term(m1);
   Plx_put_term(a0_+0, m0.unwrap());
   Plx_put_term(a0_+1, m1.unwrap());
 }

@@ -2141,9 +2141,10 @@ NAMED_PREDICATE("#", hash, 2)
 }
 
 PREDICATE(malloc_free, 2)
-{ // For verifying that example code of unique_ptr with PLfree() compiles
+{ // For verifying that example code of unique_ptr with PL_free() compiles
   std::unique_ptr<void, decltype(&PL_free)> ptr(PL_malloc(100), &PL_free);
 
+  PlStringBuffers _string_buffers;
   size_t len;
   char *str = nullptr;
   int rc = Plx_get_nchars(A1.unwrap(), &len, &str, BUF_MALLOC|CVT_ALL|CVT_WRITEQ|CVT_VARIABLE|REP_UTF8|CVT_EXCEPTION);

@@ -452,6 +452,7 @@ public:
 
   [[nodiscard]] bool get_atom(PlAtom *a) const { return Plx_get_atom(unwrap(), PlUnwrapAsPtr(a)); }
   [[nodiscard]] bool get_bool(int *value) const { return Plx_get_bool(unwrap(), value); }
+  [[deprecated("use get_chars(flags) returning std::string")]]
   [[nodiscard]] bool get_chars(char **s, unsigned int flags) const { return Plx_get_chars(unwrap(), s, flags); }
   [[nodiscard]] bool get_list_chars(char **s, unsigned int flags) const { return Plx_get_list_chars(unwrap(), s, flags); }
   [[nodiscard]] bool get_atom_nchars(size_t *len, char **a) const { return Plx_get_atom_nchars(unwrap(), len, a); }
@@ -459,7 +460,7 @@ public:
   [[deprecated("use get_nchars(flags) returning std::string")]]
   [[nodiscard]] bool get_nchars(size_t *len, char **s, unsigned int flags) const { return _get_nchars(len, s, flags); }
   const std::string get_nchars(unsigned int flags) const;
-  [[deprecated("use get_wchars(flags) returning std::string")]]
+  [[deprecated("use get_wchars(flags) returning std::wstring")]]
   [[nodiscard]] bool get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return _get_wchars(length, s, flags); }
   const std::wstring get_wchars(unsigned int flags) const;
   [[nodiscard]] bool get_integer(int *i) const { return Plx_get_integer(unwrap(), i); }
@@ -757,7 +758,8 @@ private:
   bool eq(const std::wstring& s) const;
   bool eq(PlAtom a) const;
 
-  // _get_nchars(), _get_wchars() are deprecated but are used internally (and safely):
+  // deprecated get_chars get_nchars(), get_wchars() are used internally (and safely):
+  [[nodiscard]] bool _get_chars(char **s, unsigned int flags) const { return Plx_get_chars(unwrap(), s, flags); }
   [[nodiscard]] bool _get_nchars(size_t *len, char **s, unsigned int flags) const { return Plx_get_nchars(unwrap(), len, s, flags); }
   [[nodiscard]] bool _get_wchars(size_t *length, pl_wchar_t **s, unsigned flags) const { return Plx_get_wchars(unwrap(), length, s, flags); }
 };
@@ -973,7 +975,7 @@ public:
   explicit PlTermv(size_t n = 0)
     : size_(n),
       a0_(n ? Plx_new_term_refs(n) : PlTerm::null)
-  { if ( size_  )
+  { if ( size_ )
       PlEx<bool>(a0_ != (term_t)0);
   }
   explicit PlTermv(size_t n, PlTerm t0)
@@ -986,7 +988,6 @@ public:
   PlTermv(const PlTermv&) = default;
   PlTermv& operator =(const PlTermv&) = default;
   ~PlTermv() = default;
-
 
   term_t termv() const
   { // Note that a0_ can be PlTerm::null if size_ == 0

@@ -948,7 +948,7 @@ test(file_blob, Read == "% -*- mode: Prolog; coding: utf-8 -*-\n\n") :-
     print(File), nl,
     absolute_file_name(my_program_home('test_cpp.pl'), Abs, [access(read)]),
     expected_file_name_my_program_home('test_cpp.pl', AbsPathOS_atom),
-    assertion(AbsPathOS_atom == Abs),
+    assertion(prolog_to_os_filename(Abs, AbsPathOS_atom)),
     my_file_filename_atom(File, Filename),
     assertion(Filename == Abs),
     my_file_read(File, 39, Read),
@@ -958,11 +958,10 @@ test(file_blob, Read == "% -*- mode: Prolog; coding: utf-8 -*-\n\n") :-
 %     expected_file_name_my_program_home('non-existent-file', F0),
 %     atom_string(F0, F),
 %     my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath]).
-test(file_blob) :-
+test(file_blob, error((existence_error(my_file_blob_open,PlF)))) :-
     expected_file_name_my_program_home_string('non-existent-file', F),
-    catch(my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath]),
-          E,
-          assertion(E =@= error(existence_error(my_file_blob_open,F),_))).
+    prolog_to_os_filename(PlF, F),
+    my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath]).
 test(file_blob, error(existence_error(source_sink,my_program_home('non-existent-file')))) :-
     my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath,read]).
 test(file_blob, error(existence_error(source_sink,my_program_home('non-existent-file')))) :-

@@ -22,7 +22,7 @@ swipl_examples(test_cpp.cpp test_ffi.c likes.cpp likes.pl README.md)
 
 pkg_doc(
     pl2cpp
-    SOURCES pl2cpp.doc pl2cpp2.doc
+    SOURCES pl2cpp.doc
     DEPENDS pkg_cpp_headers)
 
 # FFI tests. The `TEST_ONLY` for the plugin declaration prevents

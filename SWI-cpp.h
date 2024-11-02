@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2000-2022, University of Amsterdam
+    Copyright (c)  2000-2024, University of Amsterdam
                               VU University Amsterdam
 			      SWI-Prolog Solutions b.v.
     All rights reserved.
@@ -34,7 +34,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#warning "SWI-cpp.h is obsolete and replaced by SWI-cpp2.h"
+#warning "SWI-cpp.h is obsolete and replaced by SWI-cpp2.h"
 
 #ifndef _SWI_CPP_H
 #define _SWI_CPP_H

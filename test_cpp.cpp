@@ -2174,7 +2174,7 @@ PREDICATE(free_blob, 1)
 
 PREDICATE(nil_repr, 1)
 { char buf[100];
-  snprintf(buf, sizeof buf, "%p", nullptr);
+  snprintf(buf, sizeof buf, "%p", (void*) nullptr);
   return A1.unify_string(buf);
 }
 

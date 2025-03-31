@@ -61,7 +61,8 @@
 #endif
 
 /* Wrapper macros - each PL_*() function has a corresponding Plx_*() wrapper:
-     PLX_EXCE is for functions whose return code only indicates an error
+     PLX_EXCE is for functions whose return code only indicates an error; this error
+              is turned into a "throw".
      PLX_WRAP is for functions whose return code could mean either an error or failure
      PLX_ASIS and PLX_VOID are for functions that are used as-is
 */
@@ -469,14 +470,14 @@ PLX_ASIS(PLX_BOOL                , wchars_to_term                  , (const pl_w
 // In the following, some of the functions can return `false` without
 // a Prolog error; in these cases, a PlUnknownError is thrown.
 // If you wish finer control, use the PL_*() version of the call.
-PLX_EXCE(PLX_BOOL                , initialise                      , (int argc, char **argv), (argc, argv))
-PLX_EXCE(PLX_BOOL                , winitialise                     , (int argc, wchar_t **argv), (argc, argv))
+PLX_ASIS(PLX_BOOL                , initialise                      , (int argc, char **argv), (argc, argv))
+PLX_ASIS(PLX_BOOL                , winitialise                     , (int argc, wchar_t **argv), (argc, argv))
 PLX_ASIS(PLX_BOOL                , is_initialised                  , (int *argc, char ***argv), (argc, argv))
 PLX_EXCE(PLX_BOOL                , set_resource_db_mem             , (const unsigned char *data, size_t size), (data, size))
 PLX_ASIS(PLX_BOOL                , toplevel                        , (), ())
-PLX_EXCE(int                     , cleanup                         , (int status), (status))
+PLX_ASIS(int                     , cleanup                         , (int status), (status))
 PLX_VOID(void                    , cleanup_fork                    , (), ())
-PLX_ASIS(int                     , halt                            , (int status), (status))
+PLX_ASIS(PLX_BOOL                , halt                            , (int status), (status))
 
 PLX_ASIS(void *                  , dlopen                          , (const char *file, int flags), (file, flags))
 PLX_ASIS(const char *            , dlerror                         , (), ())

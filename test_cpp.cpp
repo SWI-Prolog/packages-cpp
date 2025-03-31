@@ -1401,7 +1401,36 @@ PREDICATE(cvt_i_bool, 2)
 
 // TODO: add tests for PL_cvt_i_*() (using PlTerm::integer())
 
-// TODO: add PlEngine tests
+int fake_main(int argc, char *argv[]) // TODO: add test that calls this.
+{ PlEngine e(argc, argv);
+  PlTermv av(1);
+  PlTerm_tail l(av[0]);
+
+  for(int i=0; i<argc; i++)
+    PlCheckFail(l.append(PlTerm_string(argv[i])));
+  PlCheckFail(l.close());
+
+  PlQuery q("entry", av);
+  try
+  { return q.next_solution() ? 0 : 1;
+  } catch ( PlException &ex )
+  { std::cerr << ex.what() << std::endl;
+    return 1;
+  }
+}
+
+int fake_main_legacy(int argc, char **argv) // TODO: add test that calls this.
+{ PlEngine e(argc, argv);
+  PlTermv av(1);
+  PlTerm_tail l(av[0]);
+
+  for(int i=0; i<argc; i++)
+    PlCheckFail(l.append(PlTerm_string(argv[i])));
+  PlCheckFail(l.close());
+
+  PlQuery q("entry", av);
+  return q.next_solution() ? 0 : 1;
+}
 
 PREDICATE(throw_domain_cpp0, 1)
 { return Plx_domain_error("footype", A1.unwrap());
@@ -1531,7 +1560,7 @@ struct MyConnection
 
 
 // The following code is taken from
-// pl2cpp2.doc \subsubsection{Sample PlBlob code}
+// pl2cpp.doc \subsubsection{Sample PlBlob code}
 // with some minor changes for testing
 
 struct MyBlob;
@@ -1650,7 +1679,7 @@ PREDICATE(portray_my_blob, 2)
 
 
 // TODO: Add the following code to
-// pl2cpp2.doc \subsubsection{Sample PlBlob code (pointer)}
+// pl2cpp.doc \subsubsection{Sample PlBlob code (pointer)}
 
 struct MyFileBlob;
 

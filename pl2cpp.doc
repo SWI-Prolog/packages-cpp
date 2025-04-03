@@ -651,7 +651,8 @@ from the PREDICATE() macros. This is a subclass of \ctype{PlExceptionBase},
 which is a subclass of \ctype{std::exception}.
     \classitem{PlFrame}
 This utility-class can be used to discard unused term-references as well
-as to do \jargon{data-backtracking}.
+as to do \jargon{data-backtracking}. It calls PL_open_foreign_frame()
+in its constructor and PL_close_foreign_frame() in its destructor.
     \classitem{PlEngine}
 This class is used in \jargon{embedded} applications (applications
 where the main control is held in C++).  It provides creation and
@@ -1106,12 +1107,12 @@ The methods are:
 
   \cfunction{const std::string}{PlTerm::as_string}{PlEncoding enc=ENC_OUTPUT}
     Calls PlTerm::get_nchars(CVT_ALL|CVT_WRITEQ|CVT_EXCEPTION).
-    This method is provided mainly for debugging.
+    This method is provided mainly for creating debugging messages.
     \emph{The definition is subject to change in future} - if you want precise
     control, use PlTerm::get_nchars().
   \cfunction{const std::wstring}{PlTerm::as_wstring}{}
     Calls PlTerm::get_wchars(CVT_ALL|CVT_WRITEQ|CVT_EXCEPTION).
-    This method is provided mainly for debugging.
+    This method is provided mainly for creating debugging messages.
     \emph{The definition is subject to change in future} - if you want precise
     control, use PlTerm::get_nchars().
 
@@ -1138,7 +1139,9 @@ The methods are:
   \cfunction{const std::string}{PlTerm::get_nchars}{unsigned int flags}
   Calls PL_get_nchars(..., flags) and converts the result to a \ctype{std::string}.
   The flags \const{BUF_MALLOC}, \const{BUF_STACK}, and \const{BUF_ALLOW_STACK}
-  are ignored and replaced by \const{BUF_DISCARDABLE}.
+  are ignored and replaced by \const{BUF_DISCARDABLE}. The call to PL_get_nchars()
+  is wrapped in a \ctype{PlStringBuffers} so that any generated string is
+  freed when the result is returned by copying to a \ctype{std::string}.
 
   \cfunction{const std::wstring}{PlTerm::get_wchars}{unsigned int flags}
   Calls PL_get_wchars(..., flags) and converts the result to a \ctype{std::wstring}.
@@ -2317,8 +2320,8 @@ encoding and exception handling.
 
 Roughly, the modern API is PL_get_nchars(), PL_unify_chars() and
 PL_put_chars() on terms. There is only half of the API for atoms as
-PL_new_atom_mbchars() and PL-atom_mbchars(), which take an encoding,
-length and char*.
+PL_new_atom_mbchars() and PL_atom_mbchars(), which take an encoding,
+length and \ctype{char*}.
 
 For return values, \ctype{char*} is dangerous because it can point to
 local or stack memory. For this reason, wherever possible, the C++ API
@@ -2372,7 +2375,7 @@ PREDICATE(w_atom_cpp, 2)
 \ctype{PlStream} can be used to get a stream from a Prolog term, or to
 lock the stream so that other threads cannot interleave their
 output. With either usage, \ctype{PlStream} is a \jargon{RAII} class
-that ensure the matchin PL_release_stream() is done, and also handles
+that ensure the matching PL_release_stream() is done, and also handles
 some subtle problems with C++ exceptions.
 
 The methods are:
@@ -3353,17 +3356,22 @@ calls the prolog predicate entry/1 with it.
 
 \begin{code}
 int
-main(int argc, char **argv)
+main(int argc, char *argv[])
 { PlEngine e(argv[0]);
   PlTermv av(1);
   PlTerm_tail l(av[0]);
 
   for(int i=0; i<argc; i++)
-    PlCheckFail(l.append(argv[i]));
+    PlCheckFail(l.append(PlTerm_string(argv[i])));
   PlCheckFail(l.close());
 
-  PlQuery q("entry", av);
-  return q.next_solution() ? 0 : 1;
+  PlQuery q("writeln", av);
+  try
+  { return q.next_solution() ? 0 : 1;
+  } catch ( PlException &ex )
+  { std::cerr << ex.what() << std::endl;
+    return 1;
+  }
 }
 \end{code}
     \cfunction{int}{PlTerm_tail::close}{}
@@ -4215,30 +4223,91 @@ turned into a Prolog exception. See \secref{cpp2-exceptions-notes}.
 \label{sec:cpp2-plexception}
 
 This subclass of \ctype{PlExceptionBase} is used to represent
-exceptions.  Currently defined methods are:
+exceptions.
+
+\subsubsection{PlException class hierarchy}
+\label{sec:cpp2-plexception-hierarchy}
+The various exceptions are arranged into a hierarchy as follows.  For
+\ctype{PlException}, there are convenience functions that create and
+wrap a Prolog term, similar to the PL_domain_error(), etc.  The
+hierarchy allows \exam{catch} statements to easily handle
+combinations.
+
+A \ctype{PlException} object contains a Prolog term, so its
+what() method must be called either within a Prolog predicate
+or within the context of a \ctype{PlEngine} (and \ctype{PlFrame};
+see \secref{cpp2-embedding}).
+The term is copied so that it is available outside of the
+context of the frame that created it.
+\begin{code}
+std::exception
+*-- PlExceptionBase
+    *-- PlException
+    |   *.. PlDomainError()
+    |   *.. PlExistenceError()
+    |   *.. PlGeneralError()
+    |   *.. PlInstantiationError()
+    |   *.. PlPermissionError()
+    |   *.. PlRepresentationError()
+    |   *.. PlResourceError()
+    |   *.. PlTypeError()
+    |   *.. PlUninstantiationError()
+    |   *.. PlUnknownError()
+    *-- PlExceptionFailBase
+    |   *-- PlExceptionFail
+    |   *-- PlFail
+    *-- PlEngineInitialisationFailed
+    *-- PlOpenForeignFrameFailed
+\end{code}
+
+Note that everything under \ctype{PlException} can contain a Prolog
+term; if the what() method is called, it must be within the context of
+a Prolog frame. If you wish to pass the exception outside the frame,
+you can use the set_what_str() method to avoid evaluating the term
+after it has been freed by Prolog:
+
+\begin{code}
+  try
+  { PlCall("p(123)");
+      ...
+  } catch ( PlException &ex )
+  { ex.set_what_str();
+    throw; // rethrow the exception
+  }
+\end{code}
+
+Currently defined methods are:
 
 \begin{description}
     \constructor{PlException}{const PlTerm \&t}
 Create an exception from a general Prolog term.  This provides the
 interface for throwing any Prolog terms as an exception.
+    \cfunction{char*}{what}{}
+    See ctype{std::exception::what()}. Note that if this is called
+    outside the Prolog frame where the exception was created, there
+    must have been a call to PlException::set_what_str() inside
+    the Prolog frame.
     \cfunction{std::string}{as_string}{}
 The exception is translated into a message as produced by
-print_message/2.  The character data is stored in a ring.  Example:
+print_message/2. Note that if this is called
+    outside the Prolog frame where the exception was created, there
+    must have been a call to PlException::set_what_str() inside
+    the Prolog frame. See also std::exception::what().
 
 \begin{code}
   ...;
   try
   { PlCall("consult(load)");
-  } catch ( PlException& ex )
+  } catch ( const PlException& ex )
   { cerr << ex.as_string() << endl;
   }
 \end{code}
     \cfunction{int}{plThrow}{}
 Used in the PREDICATE() wrapper to pass the exception to Prolog.  See
-PL_raise_exeption().
+PL_raise_exception().
+    \cfunction{void}{set_what_str}{}
 
 \end{description}
-
 
 
 \subsubsection{The function PlTypeError}
@@ -4298,6 +4367,7 @@ Initialises the Prolog engine.  The application should make sure to
 pass \exam{argv[0]} from its main function, which is needed in the
 Unix version to find the running executable.  See PL_initialise()
 for details.
+If initialisation fails, PL_halt(1) is called.
     \constructor{PlEngine}{char *argv0}
 Simple constructure using the main constructor with the specified
 argument for \exam{argv[0]}.
@@ -4542,6 +4612,3 @@ predicates.
 \printindex
 
 \end{document}
-
-
-

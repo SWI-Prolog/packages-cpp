@@ -1,4 +1,5 @@
 /* Translation of calc.c example to C++
+   (the "-goal true" in the following turns off the banner)
 
    swipl-ld -o calc -goal true calc.cpp calc.pl && ./calc 1 + 2 + 3
  */

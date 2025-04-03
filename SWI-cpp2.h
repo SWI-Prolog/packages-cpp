@@ -100,15 +100,31 @@ class PlBlob;
 // PlExceptionBase is used for try-catch that handles the exceptions
 // defined in this header file but excludes the standard C++
 // exceptions.
+
 class PlExceptionBase : public std::exception
 {
+public:
+  virtual const char* what() const noexcept override
+  { return "PlExceptionBase";
+  }
+
+protected:
+  explicit PlExceptionBase() { }
 };
 
-// PlExceptionFail is for PlFail and PlExceptionFail in
-// PREDICATE_CATCH but excludes PlException
+// PlExceptionFailBase is for PlFail and PlExceptionFail in
+// PREDICATE_CATCH (excluding PlException). This is a "control flow"
+// exception that is caught by PREDICATE_CATCH.
 
-class PlExceptionFailBase : PlExceptionBase
+class PlExceptionFailBase: public PlExceptionBase
 {
+public:
+  virtual const char* what() const noexcept override
+  { return "PlExceptionFailBase";
+  }
+
+protected:
+  explicit PlExceptionFailBase() {}
 };
 
 // PlFail is a pseudo-exception for quick exit on failure, for use by
@@ -117,12 +133,13 @@ class PlExceptionFailBase : PlExceptionBase
 // a subclass of PlException. See the documentation for more details
 // on how this works with returning Prolog failure and returning
 // exceptions.
+
 class PlFail : public PlExceptionFailBase
 {
 public:
   explicit PlFail() {}
 
-  virtual const char* what() const throw() override
+  virtual const char* what() const noexcept override
   { return "PlFail";
   }
 };
@@ -133,10 +150,8 @@ public:
 class PlExceptionFail : public PlExceptionFailBase
 {
 public:
-  explicit PlExceptionFail() {}
-
-  virtual const char* what() const throw() override
-  { return "PlExceptionFail";
+  virtual const char* what() const noexcept override
+  { return "PlExceptionFailBase";
   }
 };
 
@@ -1196,12 +1211,9 @@ private:
 		 *	      EXCEPTIONS	*
 		 *******************************/
 
-// Note: PlException, because it implements std::exception::what(),
-//       isn't just a simple wrapper; it has the full virutal methods
-//       overhead and also contains a std::string for the message that
-//       what() generates. If you want something lightweight, you
-//       should create the PlException object only if you need to do a
-//       "throw".
+// PlException is used for all Prolog errors except for
+// PlExceptionBase and PlFail. (PlExceptionBase is for wrapping terms
+// that represent the exception)
 
 class PlException : public PlExceptionBase
 {
@@ -1236,7 +1248,8 @@ public:
   { erase();
   }
 
-  virtual const char* what() const throw() override;
+  // Warning: the following requires a SWI-Prolog frame: // TODO: NOSUBMIT: document
+  virtual const char* what() const noexcept override;
 
   virtual PlTerm term() const
   { return term_rec_.term();
@@ -1256,11 +1269,11 @@ public:
   // '$messages':message_to_string/2.
   PlTerm string_term() const;
 
+  void set_what_str(PlEncoding enc=ENC_OUTPUT);
+
 protected:
   explicit PlException(term_t ex)
     : term_rec_(PlTerm(ex)) { }
-
-  void set_what_str();
 
   void erase();
 
@@ -1408,12 +1421,24 @@ public:
 		 *	 CALLING PROLOG		*
 		 *******************************/
 
+class PlOpenForeignFrameFailed : public PlExceptionBase
+{public:
+  virtual const char* what() const noexcept override
+  { return "PlOpenForeignFrameFailed";
+  }
+};
+
 class PlFrame : public WrappedC<fid_t>
 {
 public:
   PlFrame()
     : WrappedC<fid_t>(Plx_open_foreign_frame())
-  { }
+  {
+  }
+
+  void open()
+  { reset(WrappedC<fid_t>(Plx_open_foreign_frame()));
+  }
 
   void discard()
   { if ( not_null() )
@@ -1471,7 +1496,8 @@ public:
     : WrappedC<qid_t>(qid)
   { }
 
-  // The return code from next_solution can be (if called with PL_Q_EXT_STATUS):
+  // The return code from next_solution can be
+  // (if PL_open_query() was called with PL_Q_EXT_STATUS):
   //    TRUE
   //    FALSE
   //    PL_S_NOT_INNER
@@ -1480,6 +1506,7 @@ public:
   //    PL_S_TRUE
   //    PL_S_LAST
   // Because of this, you shouldn't use PlCheckFail(q.next_solution())
+  // if the flag to the PlQuery constructor is PL_Q_EXT_STATUS.
   [[nodiscard]] int next_solution();
 
   PlTerm exception() const
@@ -1534,7 +1561,7 @@ private:
 PlQuery PlCurrentQuery();
 
 
-// TODO: PlQueryEngine() from Plx_query_engine9)
+// TODO: PlQueryEngine() from Plx_query_engine()
 
 // TODO: PlAssert(PlTerm, PlModule, flags) from Plx_assert()
 
@@ -1551,28 +1578,60 @@ int PlCall(PlTerm goal, int flags = PL_Q_PASS_EXCEPTION);
 		 *	      ENGINE		*
 		 *******************************/
 
+class PlEngineInitialisationFailed : public PlExceptionBase
+{public:
+  virtual const char* what() const noexcept override
+  { return "PlEngineInitialisationFailed";
+  }
+};
+
+class PlEngineCleanupFailed : public PlExceptionBase
+{public:
+  PlEngineCleanupFailed() = delete;
+  explicit PlEngineCleanupFailed(int status_and_flags, int rc)
+    : status_and_flags_(status_and_flags), rc_(rc)
+  { }
+  virtual const char* what() const noexcept override;
+
+private:
+  int status_and_flags_;
+  int rc_;
+};
+
 class PlEngine
 {
 public:
   PlEngine(int argc, char **argv)
-  { Plx_initialise(argc, argv);
+  { if ( !Plx_initialise(argc, argv) )
+    { (void)Plx_halt(1);
+      throw PlEngineInitialisationFailed();
+    }
   }
   PlEngine(int argc, wchar_t **argv)
-  { Plx_winitialise(argc, argv);
+  { if ( !Plx_winitialise(argc, argv) )
+    { (void)Plx_halt(1);
+      throw PlEngineInitialisationFailed();
+    }
   }
 
   PlEngine(char *av0)
   { av[0] = av0;
     av[1] = nullptr;
 
-    Plx_initialise(1, av);
+    if ( !Plx_initialise(1, av) )
+    { (void)Plx_halt(1);
+      throw PlEngineInitialisationFailed();
+    }
   }
 
   PlEngine(wchar_t *av0)
   { w_av[0] = av0;
     w_av[1] = nullptr;
 
-    Plx_winitialise(1, w_av);
+    if ( !Plx_winitialise(1, w_av) )
+    { (void)Plx_halt(1);
+      throw PlEngineInitialisationFailed();
+    }
   }
 
   // TODO: figure out copy/move semantics and implement
@@ -1581,15 +1640,17 @@ public:
   PlEngine& operator =(const PlEngine&) = delete;
   PlEngine& operator =(PlEngine&&) = delete;
 
-  void cleanup(int status_and_flags = 0) {
-    Plx_cleanup(status_and_flags);
+  void cleanup(int status_and_flags = 0) // Can throw exception
+  { int rc = Plx_cleanup(status_and_flags);
+    if ( rc != PL_CLEANUP_SUCCESS )
+      throw PlEngineCleanupFailed(status_and_flags, rc);
   }
 
   ~PlEngine() noexcept(false)
   { // cleanup() can throw a C++ exception - throwing an exception
     // from a destructor is "potentially dangerous" but it's necessary
     // to ensure proper behaviour in Prolog.
-      cleanup();
+    cleanup();
   }
 
 private:

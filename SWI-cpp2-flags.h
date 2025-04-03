@@ -41,7 +41,7 @@
 
 #include "SWI-cpp2.h"
 
-// TODO: add documentation to pl2cpp2.doc
+// TODO: add documentation to pl2cpp.doc
 
 /* WARNING: experimetal code, subject to change
 

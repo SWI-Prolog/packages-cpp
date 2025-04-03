@@ -828,8 +828,8 @@ PlException::string_term() const
 { PlFrame fr;
   // Note that the result is a *term*, so it's unencoded (wchar_t
   // or equivalent) and will be encoded when it's output.
-// TODO: remove USE_PRINT_MESSAGE code (obsolete)
-//       - or use with_output_to(string(String), print_message(error, ...))
+  // TODO: remove USE_PRINT_MESSAGE code (obsolete)
+  //       - or use with_output_to(string(String), print_message(error, ...))
 #ifdef USE_PRINT_MESSAGE
   PlTermv av(2);
   PlCheckFail(av[0].unify_term(PlCompound("print_message",
@@ -873,11 +873,9 @@ PlException::what() const throw()
 
 _SWI_CPP2_CPP_inline
 void
-PlException::set_what_str()
+PlException::set_what_str(PlEncoding enc)
 { if ( what_str_.empty() )
-  { // Doing a query inside a query is ... problematic:
-    // TODO: const_cast<PlException*>(this)->what_str_ = string_term().as_string();
-    what_str_ = term().as_string();
+  { what_str_ = term().as_string(enc);
   }
 }
 
@@ -914,6 +912,31 @@ PlQuery::next_solution()
   close_destroy();
   return rval;
 }
+
+_SWI_CPP2_CPP_inline
+const char*
+PlEngineCleanupFailed::what() const noexcept
+{ std::string str("PlEngineCleanupFailed(" +
+                  std::to_string(status_and_flags_) + "):");
+  switch( rc_ ) // See comment in ~PlEngine()
+  { case PL_CLEANUP_SUCCESS:
+      str += "success";
+      break;
+    case PL_CLEANUP_CANCELED:
+      str += "canceled";
+      break;
+    case PL_CLEANUP_FAILED:
+      str += "failed";
+      break;
+    case PL_CLEANUP_RECURSIVE:
+      str += "recursive";
+      break;
+    default: // shouldn't happen
+      str += "rc=" + std::to_string(rc_);
+  }
+  return str.c_str();
+}
+
 
 
 		 /*******************************

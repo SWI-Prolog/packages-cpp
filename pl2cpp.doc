@@ -4239,7 +4239,7 @@ or within the context of a \ctype{PlEngine} (and \ctype{PlFrame};
 see \secref{cpp2-embedding}).
 The term is copied so that it is available outside of the
 context of the frame that created it.
-\begin{code}
+\begin{verbatim}
 std::exception
 *-- PlExceptionBase
     *-- PlException
@@ -4258,7 +4258,7 @@ std::exception
     |   *-- PlFail
     *-- PlEngineInitialisationFailed
     *-- PlOpenForeignFrameFailed
-\end{code}
+\end{verbatim}
 
 Note that everything under \ctype{PlException} can contain a Prolog
 term; if the what() method is called, it must be within the context of

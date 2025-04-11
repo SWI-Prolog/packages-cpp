@@ -1588,14 +1588,15 @@ class PlEngineInitialisationFailed : public PlExceptionBase
 class PlEngineCleanupFailed : public PlExceptionBase
 {public:
   PlEngineCleanupFailed() = delete;
-  explicit PlEngineCleanupFailed(int status_and_flags, int rc)
-    : status_and_flags_(status_and_flags), rc_(rc)
-  { }
-  virtual const char* what() const noexcept override;
+  explicit PlEngineCleanupFailed(int status_and_flags, int rc);
+  virtual const char* what() const noexcept override
+  { return what_str_.c_str();
+  }
 
-private:
+protected:
   int status_and_flags_;
   int rc_;
+  std::string what_str_; // keeps copy of what() so that c_str() works
 };
 
 class PlEngine
@@ -2079,7 +2080,9 @@ class PlBlob
 {
 public:
   explicit PlBlob(const PL_blob_t* _blob_t)
-    : blob_t_(_blob_t), symbol_(PlAtom(PlAtom::null)) { }
+    : blob_t_(_blob_t),
+      symbol_(PlAtom(PlAtom::null))
+  { }
   explicit PlBlob() = delete;
   explicit PlBlob(const PlBlob&) = delete;
   explicit PlBlob(PlBlob&&) = delete;

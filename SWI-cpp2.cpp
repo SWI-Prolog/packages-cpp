@@ -658,7 +658,7 @@ PlTerm::eq(const std::string& s) const
   PlStringBuffers _string_buffers;
   // Doesn't handle non-NUL terminated - but it's only used by deprecated operator ==
   if ( _get_chars(&s0, CVT_ALL) )
-    return s.compare(s0) == 0; 
+    return s.compare(s0) == 0;
 
   throw PlTypeError("text", *this);
 }
@@ -914,29 +914,31 @@ PlQuery::next_solution()
 }
 
 _SWI_CPP2_CPP_inline
-const char*
-PlEngineCleanupFailed::what() const noexcept
-{ std::string str("PlEngineCleanupFailed(" +
-                  std::to_string(status_and_flags_) + "):");
+PlEngineCleanupFailed::PlEngineCleanupFailed(int status_and_flags, int rc)
+  : status_and_flags_(status_and_flags),
+    rc_(rc),
+    what_str_("PlEngineCleanupFailed(" +
+              std::to_string(status_and_flags_) + "):")
+{ // TODO: it would be better to build the string lazily in what(),
+  //       what_str_.empty(); but what() is a const method, so
+  //       requires ugly casts.
   switch( rc_ ) // See comment in ~PlEngine()
   { case PL_CLEANUP_SUCCESS:
-      str += "success";
+      what_str_ += "success";
       break;
     case PL_CLEANUP_CANCELED:
-      str += "canceled";
+      what_str_ += "canceled";
       break;
     case PL_CLEANUP_FAILED:
-      str += "failed";
+      what_str_ += "failed";
       break;
     case PL_CLEANUP_RECURSIVE:
-      str += "recursive";
+      what_str_ += "recursive";
       break;
     default: // shouldn't happen
-      str += "rc=" + std::to_string(rc_);
+      what_str_ += "rc=" + std::to_string(rc_);
   }
-  return str.c_str();
 }
-
 
 
 		 /*******************************

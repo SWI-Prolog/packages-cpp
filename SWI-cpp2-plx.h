@@ -485,7 +485,7 @@ PLX_ASIS(void *                  , dlsym                           , (void *hand
 PLX_ASIS(int                     , dlclose                         , (void *handle), (handle))
 
 // TODO: document PL_dispatch(), PL_add_to_protocol, etc.
-PLX_ASIS(int                     , dispatch                        , (int fd, int wait), (fd, wait))
+PLX_ASIS(int                     , dispatch                        , (IOSTREAM *fd, int wait), (fd, wait))
 PLX_VOID(void                    , add_to_protocol                 , (const char *buf, size_t count), (buf, count))
 PLX_ASIS(char *                  , prompt_string                   , (int fd), (fd))
 PLX_VOID(void                    , write_prompt                    , (int dowrite), (dowrite))

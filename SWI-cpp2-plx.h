@@ -487,9 +487,9 @@ PLX_ASIS(int                     , dlclose                         , (void *hand
 // TODO: document PL_dispatch(), PL_add_to_protocol, etc.
 PLX_ASIS(int                     , dispatch                        , (IOSTREAM *fd, int wait), (fd, wait))
 PLX_VOID(void                    , add_to_protocol                 , (const char *buf, size_t count), (buf, count))
-PLX_ASIS(char *                  , prompt_string                   , (int fd), (fd))
-PLX_VOID(void                    , write_prompt                    , (int dowrite), (dowrite))
-PLX_VOID(void                    , prompt_next                     , (int fd), (fd))
+PLX_ASIS(char *                  , prompt_string                   , (IOSTREAM *fd), (fd))
+PLX_VOID(void                    , write_prompt                    , (bool dowrite), (dowrite))
+PLX_VOID(void                    , prompt_next                     , (IOSTREAM *fd), (fd))
 PLX_ASIS(char *                  , atom_generator                  , (const char *prefix, int state), (prefix, state))
 PLX_ASIS(pl_wchar_t*             , atom_generator_w                , (const pl_wchar_t *pref, pl_wchar_t *buffer, size_t buflen, int state), (pref, buffer, buflen, state))
 

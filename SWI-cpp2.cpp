@@ -301,7 +301,7 @@ PlAtom::wchars() const
 
 _SWI_CPP2_CPP_inline
 bool PlBlob::write(IOSTREAM *s, int flags) const
-{ if ( Sfprintf(s, "<%s>(%p", blob_t_->name, this) < 0 )
+{ if ( Sfprintf(s, "<%s>(%p", blob_t_->name, static_cast<const void*>(this)) < 0 )
     return false;
   { bool rc = true;
     try
@@ -318,7 +318,7 @@ bool PlBlob::write(IOSTREAM *s, int flags) const
 
 _SWI_CPP2_CPP_inline
 void PlBlob::save(IOSTREAM *fd) const
-{ (void)PL_warning("Cannot save reference to <%s>(%p)", blob_t_->name, this);
+{ (void)PL_warning("Cannot save reference to <%s>(%p)", blob_t_->name, static_cast<const void*>(this));
   throw PlFail();
 }
 

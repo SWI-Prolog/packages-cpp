@@ -138,8 +138,8 @@ PREDICATE(hello3, 2)
   // character in it. In addition, a NUL ('\0') in the atom will cause
   // the rest of the atom to not be printed.
 
-  int len = Ssnprintf(buf, sizeof buf,
-		      "Hello3 %Ws\n", atom_a1.as_wstring().c_str());
+  int len = SsnprintfX(buf, sizeof buf,
+		       "Hello3 %Ws\n", atom_a1.as_wstring().c_str());
   if ( len >= 0 )
     // TODO: use len when fixed: https://github.com/SWI-Prolog/swipl-devel/issues/1074
     return A2.unify_chars(PL_STRING|REP_UTF8, strlen(buf), buf);
@@ -1580,7 +1580,7 @@ struct MyBlob : public PlBlob
       connection(std::make_unique<MyConnection>(connection_name)),
       blob_name(connection_name)
   { if ( !connection ) // make_unique should have thrown exception if it can't allocate
-      PL_api_error("MyBlob(%s) connection=%p", blob_name.c_str(), connection.get());
+      PL_api_error("MyBlob(%s) connection=%p", blob_name.c_str(), static_cast<const void*>(connection.get()));
     if ( !connection->open() )
       throw MyBlobError("my_blob_open_error");
     if ( name_contains("FAIL_new") ) // Test error handling
@@ -2203,7 +2203,7 @@ PREDICATE(free_blob, 1)
 
 PREDICATE(nil_repr, 1)
 { char buf[100];
-  snprintf(buf, sizeof buf, "%p", (void*) nullptr);
+  snprintf(buf, sizeof buf, "%p", static_cast<const void*>(nullptr));
   return A1.unify_string(buf);
 }
 

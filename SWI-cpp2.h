@@ -2012,7 +2012,7 @@ public:
   { const auto data = cast(PlAtom(a));
     if ( !data )
       // TODO: demangle typeid::name()
-      return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), data) >= 0;
+      return Sfprintf(s, "<%s>(%p)", typeid(C_t).name(), static_cast<const void*>(data)) >= 0;
     int rc = -1; // Uninitialized variable warning (some compilers)
     try
     { rc = data->write(s, flags);

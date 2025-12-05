@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
   PlPredicate pred("calc", 1, "user");
   PlTerm_string h0(expression);
-  PlQuery q(pred, PlTermv(h0), PL_Q_NORMAL);
+  PlQuery q(pred, PlTermv(h0));
 
-  return q.next_solution() ? 0 : 1;
+  return PlWrap<int>(q.next_solution()) ? 0 : 1;
 }

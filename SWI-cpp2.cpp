@@ -835,7 +835,7 @@ PlException::string_term() const
   PlCheckFail(av[0].unify_term(PlCompound("print_message",
                                           PlTermv("error", term()))));
   PlQuery q("$write_on_string", av);
-  if ( q.next_solution() )
+  if ( PlWrap<int>(q.next_solution()) )
     return av[1];
 #else
   // '$messages':message_to_string(error(existence_error(procedure,unknown_predicate/1),context(system:call/1,_)), Str).
@@ -843,7 +843,7 @@ PlException::string_term() const
   PlTermv av(2);
   PlCheckFail(av[0].unify_term(term()));
   PlQuery q("$messages", "message_to_string", av);
-  if ( q.next_solution() )
+  if ( PlWrap<int>(q.next_solution()) )
     return av[1];
 #endif
   // TODO: return term_.as_string()

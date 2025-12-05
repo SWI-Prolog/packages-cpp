@@ -221,7 +221,7 @@ PREDICATE(list_modules, 1)
   PlTermv av(1);
 
   PlQuery q("current_module", av);
-  while( q.next_solution() )
+  while( PlWrap<int>(q.next_solution()) )
     buffer << av[0].as_string() << endl;
 
   q.cut();
@@ -239,7 +239,7 @@ PREDICATE(average, 3)			/* average(+Templ, :Goal, -Average) */
      PlQuery q("call", av);
   */
   PlQuery q("call", PlTermv(A2));
-  while( q.next_solution() )
+  while( PlWrap<int>(q.next_solution()) )
   { sum += A1.as_long();
     n++;
   }
@@ -249,7 +249,7 @@ PREDICATE(average, 3)			/* average(+Templ, :Goal, -Average) */
 
 PREDICATE(call_cpp, 2)
 { PlQuery q(A1.as_string(), PlTermv(A2));
-  PlCheckFail(q.next_solution());
+  PlCheckFail(PlWrap<int>(q.next_solution()));
   // There's no need for calling q.cut() - it's done implicitly by the
   // query's destructor.
   return true;
@@ -257,7 +257,7 @@ PREDICATE(call_cpp, 2)
 
 PREDICATE(call_cut, 1)
 { PlQuery q(A1.as_string(), PlTermv());
-  PlCheckFail(q.next_solution());
+  PlCheckFail(PlWrap<int>(q.next_solution()));
   q.cut(); // This tests that ~PlQuery() behaves correctly if cut() had been called
   return true;
 }
@@ -1412,7 +1412,7 @@ int fake_main(int argc, char *argv[]) // TODO: add test that calls this.
 
   PlQuery q("entry", av);
   try
-  { return q.next_solution() ? 0 : 1;
+  { return PlWrap<int>(q.next_solution()) ? 0 : 1;
   } catch ( PlException &ex )
   { std::cerr << ex.what() << std::endl;
     return 1;
@@ -1429,7 +1429,7 @@ int fake_main_legacy(int argc, char **argv) // TODO: add test that calls this.
   PlCheckFail(l.close());
 
   PlQuery q("entry", av);
-  return q.next_solution() ? 0 : 1;
+  return PlWrap<int>(q.next_solution()) ? 0 : 1;
 }
 
 PREDICATE(throw_domain_cpp0, 1)

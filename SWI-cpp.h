@@ -703,25 +703,25 @@ public:
 __inline int
 PlCall(const char *predicate, const PlTermv &args)
 { PlQuery q(predicate, args);
-  return q.next_solution();
+  return PlWrap<int>(q.next_solution());
 }
 
 __inline int
 PlCall(const char *module, const char *predicate, const PlTermv &args)
 { PlQuery q(module, predicate, args);
-  return q.next_solution();
+  return PlWrap<int>(q.next_solution());
 }
 
 __inline int
 PlCall(const char *goal)
 { PlQuery q("call", PlTermv(PlCompound(goal)));
-  return q.next_solution();
+  return PlWrap<int>(q.next_solution());
 }
 
 __inline int
 PlCall(const wchar_t *goal)
 { PlQuery q("call", PlTermv(PlCompound(goal)));
-  return q.next_solution();
+  return PlWrap<int>(q.next_solution());
 }
 
 
@@ -1157,13 +1157,13 @@ __inline PlException::operator const char *(void)
   av[0] = PlCompound("print_message",
 		     PlTermv("error", ref));
   PlQuery q("$write_on_string", av);
-  if ( q.next_solution() )
+  if ( PlWrap<int>(q.next_solution()) )
     return (char *)av[1];
 #else
   PlTermv av(2);
   av[0] = PlTerm(ref);
   PlQuery q("$messages", "message_to_string", av);
-  if ( q.next_solution() )
+  if ( PlWrap<int>(q.next_solution()) )
     return static_cast<char*>(av[1]);
 #endif
   return "[ERROR: Failed to generate message.  Internal error]\n";
@@ -1178,13 +1178,13 @@ __inline PlException::operator const wchar_t *(void)
   av[0] = PlCompound("print_message",
 		     PlTermv("error", ref));
   PlQuery q("$write_on_string", av);
-  if ( q.next_solution() )
+  if ( PlWrap<int>(q.next_solution()) )
     return (wchar_t *)av[1];
 #else
   PlTermv av(2);
   av[0] = PlTerm(ref);
   PlQuery q("$messages", "message_to_string", av);
-  if ( q.next_solution() )
+  if ( PlWrap<int>(q.next_solution()) )
     return static_cast<wchar_t*>(av[1]);
 #endif
   return L"[ERROR: Failed to generate message.  Internal error]\n";

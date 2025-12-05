@@ -2,7 +2,7 @@
 #include <iostream>
 
 int
-main(int argc, char **argv) // TODO: char *argv[]
+main(int argc, char *argv[])
 { PlEngine e(argv[0]);
   // PlEngine can throw PlEngineInitialisationFailed or
   //                    PlOpenForeignFrameFailed

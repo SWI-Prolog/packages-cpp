@@ -260,7 +260,7 @@ int main(int argc, char **argv) {
   PlTerm_string h0(expression);
   PlQuery q(pred, PlTermv(h0), PL_Q_NORMAL);
 
-  return q.next_solution() ? 0 : 1;
+  return PlWrap<int>(q.next_solution()) ? 0 : 1;
 }
 \end{code}
 
@@ -2622,11 +2622,14 @@ binds \arg{Var} and will unify \arg{Average} with average of the
 
 \ctype{PlQuery} takes the name of a predicate and the goal-argument
 vector as arguments. From this information it deduces the arity and
-locates the predicate. The method PlQuery::next_solution() yields
-\const{true} if there was a solution and \const{false} otherwise. If
-the goal yields a Prolog exception, it is mapped into a C++ exception.
-A return to Prolog does an implicit ``cut'' (PL_cut_query()); this
-can also be done explicitly by the PlQuery::cut() method.
+glocates the predicate. The method PlQuery::next_solution() yields
+\const{true} if there was a solution and \const{false} otherwise (other
+values are possible if the flag \const{PL_Q_EXT_STATUS} was specified
+in the constructor. If the goal yields a Prolog exception, you can
+handle this and convert the Prolog exception to a C++ exception using
+`PlWrap<int>(...)`.  A return to Prolog does an implicit ``cut''
+(PL_cut_query()); this can also be done explicitly by the
+PlQuery::cut() method.
 
 \begin{code}
 PREDICATE(average, 3) /* average(+Templ, :Goal, -Average) */
@@ -2634,7 +2637,7 @@ PREDICATE(average, 3) /* average(+Templ, :Goal, -Average) */
   long n = 0;
 
   PlQuery q("call", PlTermv(A2));
-  while( q.next_solution() )
+  while( PlWrap<int>(q.next_solution()) )
   { sum += A1.as_long();
     n++;
   }
@@ -2900,7 +2903,7 @@ unify_zero(term_t a1)
 }
 \end{code}
 
-\subsection{PlCheckFail(), and PlEx() convenience functions}
+\subsection{PlCheckFail(), PlEx(), PlWrap<int>() convenience functions}
 \label{sec:cpp2-plcheck}
 
 If one of the C PL_*() functions in \file{SWI-Prolog.h} returns
@@ -2916,6 +2919,13 @@ PlEx() calls PL_exception() to see if there is a
 Prolog exception; if so, the Prolog exception is converted to a
 \ctype{PlException} object, which is then thrown.  For more details on
 the C++ exceptions, see \secref{cpp2-exceptions}.
+
+PlWrap<int>() is similar to PlEx() except that it returns the result
+of the call. This is useful for PlQuery::next_solution(), which
+doesn't do a check for whether the `false` return value is due to a
+failed query or an exception (PlQuery::next_solution() can return
+values other than \const{true} or \const{false} if the \class{PlQuery}
+object was created with the \const{PL_Q_EXT_STATUS} flag.
 
 \begin{description}
 \cfunction{void}{PlCheckFail}{bool rc}
@@ -3358,18 +3368,24 @@ calls the prolog predicate entry/1 with it.
 int
 main(int argc, char *argv[])
 { PlEngine e(argv[0]);
-  PlTermv av(1);
-  PlTerm_tail l(av[0]);
+  try
+  { PlTermv av(1);
+    PlTerm_tail l(av[0]);
 
-  for(int i=0; i<argc; i++)
-    PlCheckFail(l.append(PlTerm_string(argv[i])));
-  PlCheckFail(l.close());
+    try
+    { for(int i=0; i<argc; i++)
+        PlCheckFail(l.append(PlTerm_string(argv[i])));
+      PlCheckFail(l.close());
+    } catch ( const PlFail &ex )
+    { std::cerr << "ERROR: append failed." << std::endl;
+      return 253;
+    }
 
   PlQuery q("writeln", av);
   try
-  { return q.next_solution() ? 0 : 1;
-  } catch ( PlException &ex )
-  { std::cerr << ex.what() << std::endl;
+  { return PlWrap<int>(q.next_solution()) ? 0 : 1;
+  } catch ( const PlException &ex )
+  { std::cerr << "ERROR: " << ex.what() << std::endl;
     return 1;
   }
 }
@@ -3774,7 +3790,7 @@ PREDICATE(list_modules, 0)
 { PlTermv av(1);
 
   PlQuery q("current_module", av);
-  while( q.next_solution() )
+  while( PlWrap<int>(q.next_solution()) )
     cout << av[0].as_string() << endl;
 
   return true;
@@ -3927,7 +3943,7 @@ assertWord(const char *word)
 
   av[0] = PlCompound("word", PlTermv(word));
   PlQuery q("assert", av);
-  PlCheckFail(q.next_solution());
+  PlCheckFail(PlWrap<int>(q.next_solution()));
 }
 \end{code}
 

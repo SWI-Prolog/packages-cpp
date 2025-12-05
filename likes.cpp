@@ -29,13 +29,13 @@ body(int argc, char **argv)
 
       cout << "Happy people:" << endl;
       PlQuery q("happy", av);
-      while( q.next_solution() )
+      while( PlWrap<int>(q.next_solution()) )
 	cout << "\t" << av[0].as_string() << endl;
     } else
     { PlTerm_var whom;
       PlQuery q("likes", PlTermv(PlTerm_atom(argv[0]), whom));
       cout << argv[0] << " likes:" << endl;
-      while( q.next_solution() )
+      while( PlWrap<int>(q.next_solution()) )
 	cout << "\t" << whom.as_string() << endl;
     }
   } else if ( argc == 2 )

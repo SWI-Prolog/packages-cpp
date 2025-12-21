@@ -533,7 +533,7 @@ PLX_ASIS(int                     , get_thread_alias                , (int tid, a
 // TODO: document thread_attach_engine; make PLX_WRAP version (tid < 0)
 PLX_ASIS(int                     , thread_attach_engine            , (PL_thread_attr_t *attr), (attr))
 PLX_EXCE(int                     , thread_destroy_engine           , (), ())
-PLX_ASIS(int                     , thread_at_exit                  , (void (*function)(void *), void *closure, int global), (function, closure, global))
+PLX_ASIS(int                     , thread_at_exit                  , (int (*function)(void *, unsigned long), void *closure, int global), (function, closure, global))
 PLX_ASIS(int                     , thread_raise                    , (int tid, int sig), (tid, sig))
 
 // JW: disabled.  Claims these functions are not present in Windows, blocking the build.

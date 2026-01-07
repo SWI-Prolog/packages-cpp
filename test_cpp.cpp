@@ -114,6 +114,14 @@ PREDICATE(hello, 2)
   return A2.unify_string(buffer.str());
 }
 
+PREDICATE(helloex, 0)
+{ throw PlUnknownError("an exception");
+}
+
+PREDICATE(helloex, 1)
+{ throw PlUnknownError(A1);
+}
+
 PREDICATE(hello2, 2)
 { PlAtom atom_a1(A1.as_atom());
   std::stringstream buffer;

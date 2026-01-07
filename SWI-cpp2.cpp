@@ -267,11 +267,15 @@ PlResourceError(const std::string& resource)
 _SWI_CPP2_CPP_inline
 PlException
 PlUnknownError(const std::string& description)
-{ // For PlWrap()
-  return PlGeneralError(PlCompound("unknown_error",
-                                   PlTermv(PlTerm_atom(description))));
+{ return PlUnknownError(PlTerm_atom(description));
 }
 
+_SWI_CPP2_CPP_inline
+PlException
+PlUnknownError(PlTerm description)
+{  return PlGeneralError(PlCompound("unknown_error",
+                                    PlTermv(description)));
+}
 
 
 

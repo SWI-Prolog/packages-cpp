@@ -1306,6 +1306,8 @@ PlException PlResourceError(const std::string& resource);
 
 PlException PlUnknownError(const std::string& description);
 
+PlException PlUnknownError(PlTerm description);
+
 void PlWrap_fail(qid_t qid);
 
 template<typename C_t> C_t

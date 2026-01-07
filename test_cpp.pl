@@ -92,6 +92,11 @@ test(hello, Out == "hello hello hello") :-
     % hello :- write('hello hello hello')
     with_output_to(string(Out), hello).
 
+test(helloex, error(unknown_error('an exception'))) :-
+    helloex.
+test(helloex, error(unknown_error(foo(bar)))) :-
+    helloex(foo(bar)).
+
 test(hello, Out == "Hello WORLD\nHello WORLD\nHello WORLD\nHello WORLD\nHello WORLD\n") :-
     hello("WORLD", Out).
 test(hello, error(representation_error(encoding))) :-

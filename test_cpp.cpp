@@ -1727,7 +1727,7 @@ struct MyFileBlob : public PlBlob
   { assert(sizeof buffer_[0] == sizeof (char));
     assert(sizeof (char) == 1);
 
-    buffer_.reserve(count);
+    buffer_.resize(count);
     return std::string(buffer_.data(),
                        std::fread(buffer_.data(), sizeof buffer_[0], count, file_));
   }

@@ -56,6 +56,7 @@ how the various predicates can be called from Prolog.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #define _CRT_SECURE_NO_WARNINGS 1
+#define _CRT_NONSTDC_NO_DEPRECATE 1
 #define PROLOG_MODULE "user"
 #include <iostream>
 #include <sstream>

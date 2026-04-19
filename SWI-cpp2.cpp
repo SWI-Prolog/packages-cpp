@@ -722,8 +722,8 @@ PlCompound::PlCompound(const std::wstring& text)
 }
 
 _SWI_CPP2_CPP_inline
-PlCompound::PlCompound(const char *functor, const PlTermv& args)
-{ functor_t f = Plx_new_functor(Plx_new_atom(functor), args.size());
+PlCompound::PlCompound(const char *functor, const PlTermv& args, PlEncoding rep)
+{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars((int) rep, -1, functor), args.size());
   PlEx<bool>(f != (functor_t)0);
   Plx_cons_functor_v(unwrap(), f, args.termv());
 }
@@ -736,8 +736,8 @@ PlCompound::PlCompound(const wchar_t *functor, const PlTermv& args)
 }
 
 _SWI_CPP2_CPP_inline
-PlCompound::PlCompound(const std::string& functor, const PlTermv& args)
-{ functor_t f = Plx_new_functor(Plx_new_atom_nchars(functor.size(), functor.data()), args.size());
+PlCompound::PlCompound(const std::string& functor, const PlTermv& args, PlEncoding rep)
+{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars((int) rep, functor.size(), functor.data()), args.size());
   Plx_cons_functor_v(unwrap(), f, args.termv());
 }
 

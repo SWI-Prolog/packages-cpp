@@ -715,10 +715,14 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
    *********************************************************************/
   PlTerm_var t_var;
   PlTerm_atom t_atom1("abc");
+  PlTerm_atom t_atom1a("abc", PlEncoding::UTF8);
   PlTerm_atom t_atom2(L"ABC");
+  PlTerm_atom t_atom2a("ABC", PlEncoding::UTF8);
   PlTerm_atom t_atom3(PlAtom("an atom"));
   PlTerm_atom p_atom4(std::string("abc"));
   PlTerm_atom p_atom5(std::wstring(L"世界"));
+  PlTerm_atom p_atom5a(std::string("世界"), PlEncoding::UTF8);
+  
   PlTerm_term_t t_t(Plx_new_term_ref());
   PlTerm_term_t t_null(PlTerm::null);
   PlTerm t_t2(Plx_new_term_ref());
@@ -749,6 +753,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
 
   PlTerm_string t_string1("abc");
   PlTerm_string t_string2(L"世界");
+  PlTerm_string t_string3("世界", PlEncoding::UTF8);
   const char codes[] = {81,82,83,0};
   PlTerm_list_codes s02(codes);
   PlTerm_list_chars s03("mno");
@@ -776,8 +781,14 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
 
   PlAtom atom1("atom1");
   PlAtom atom2(L"原子2");
+  PlAtom atom2a("原子2", PlEncoding::UTF8);
+  PlAtom atom2b(2, "原子2", PlEncoding::UTF8);
+  // PlAtom atom2c(PlEncoding::UTF8, 2, "原子2"); // deprecated
   PlAtom atom3(std::string("atom3"));
   PlAtom atom4(std::wstring(L"原子4"));
+  PlAtom atom4a(std::string("原子4"), PlEncoding::UTF8);
+  std::string s4b("原子4");
+  // PlAtom atom4b(PlEncoding::UTF8, s4b); // deprecated
   PlAtom a5a(t_atom1.as_atom());
   PlAtom atom_null(PlAtom::null);
   // The following are unsafe (the as_string() is deleted in the statement):
@@ -910,6 +921,15 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   // TODO: the rest of the methods
   strm.release();
 
+  PlFunctor f1(std::string("functor1"), 1, ENC_INPUT);
+  PlFunctor f2(std::string("世界2"), 2, PlEncoding::UTF8);
+  PlFunctor f3(std::wstring(L"世界3"), 3);
+  PlFunctor f4(PlAtom("世界", PlEncoding::UTF8), 4);
+
+  PlCompound c5("functor5", PlTermv(t_int1, t_int2), PlEncoding::UTF8);
+  PlCompound c6(L"世界6", PlTermv(t_int1, t_int2));
+  PlCompound c7(std::string("世界7"), PlTermv(t_int1, t_int2), PlEncoding::UTF8);
+  PlCompound c8(std::wstring(L"世界8"), PlTermv(t_int1, t_int2));
   return true;
 }
 

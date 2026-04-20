@@ -723,7 +723,7 @@ PlCompound::PlCompound(const std::wstring& text)
 
 _SWI_CPP2_CPP_inline
 PlCompound::PlCompound(const char *functor, const PlTermv& args, PlEncoding rep)
-{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars((int) rep, -1, functor), args.size());
+{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars(static_cast<int>(rep), static_cast<size_t>(-1), functor), args.size());
   PlEx<bool>(f != (functor_t)0);
   Plx_cons_functor_v(unwrap(), f, args.termv());
 }
@@ -737,7 +737,7 @@ PlCompound::PlCompound(const wchar_t *functor, const PlTermv& args)
 
 _SWI_CPP2_CPP_inline
 PlCompound::PlCompound(const std::string& functor, const PlTermv& args, PlEncoding rep)
-{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars((int) rep, functor.size(), functor.data()), args.size());
+{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars(static_cast<int>(rep), functor.size(), functor.data()), args.size());
   Plx_cons_functor_v(unwrap(), f, args.termv());
 }
 
@@ -863,8 +863,8 @@ PlException::as_string(PlEncoding enc) const
   // allocating the std::string) even though we specify "throw()" -
   // telling the truth "noexcept(false)" results in a compilation
   // error.
-  (void)enc; // TODO: use this
-  const_cast<PlException*>(this)->set_what_str();
+  (void)enc; // TODO: use this (MG: see next line
+  const_cast<PlException*>(this)->set_what_str(/* enc? */);
   return what_str_;
 }
 

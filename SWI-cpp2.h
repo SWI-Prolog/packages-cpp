@@ -66,6 +66,7 @@ particularly integer conversions.
 #include <string>
 #include <cassert>
 #include <memory>
+#include <type_traits>
 #include <typeinfo>
 
 #if INT_MAX != 0x7fffffff
@@ -721,7 +722,8 @@ public:
 
 
   [[nodiscard]] bool unify_blob(const PlBlob* blob) const;
-  [[nodiscard]] bool unify_blob(std::unique_ptr<PlBlob>* blob) const;
+  template<typename T>
+  [[nodiscard]] bool unify_blob(std::unique_ptr<T>* blob) const;
   [[nodiscard]] bool unify_blob(const void *blob, size_t len, const PL_blob_t *type) const
   { return Plx_unify_blob(unwrap(), const_cast<void*>(blob), len, const_cast<PL_blob_t*>(type)); }
 

@@ -1683,7 +1683,7 @@ struct MyBlob : public PlBlob
 
 // %! create_my_blob(+Name: atom, -MyBlob) is det.
 PREDICATE(create_my_blob, 2)
-{ auto ref = std::unique_ptr<PlBlob>(new MyBlob(A1.as_atom().as_string()));
+{ auto ref = std::unique_ptr<MyBlob>(new MyBlob(A1.as_atom().as_string()));
   return A2.unify_blob(&ref);
 }
 
@@ -1822,7 +1822,7 @@ struct MyFileBlob : public PlBlob
 };
 
 PREDICATE(my_file_open, 4)
-{ auto ref = std::unique_ptr<PlBlob>(new MyFileBlob(A2, A3, A4));
+{ auto ref = std::unique_ptr<MyFileBlob>(new MyFileBlob(A2, A3, A4));
   return A1.unify_blob(&ref);
 }
 
@@ -2020,7 +2020,7 @@ public:
 
 // %! create_map_str_str(-Map) is det.
 PREDICATE(create_map_str_str, 1)
-{ auto ref = std::unique_ptr<PlBlob>(new MapStrStr());
+{ auto ref = std::unique_ptr<MapStrStr>(new MapStrStr());
   return A1.unify_blob(&ref);
 }
 

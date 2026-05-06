@@ -1611,7 +1611,8 @@ current C++ API for blobs takes advantage of this - in particular,
 there are two methods for unifying a blob:
 \begin{itemize}
 \item PlTerm::unify_blob(const PlBlob* blob) - does no memory management
-\item PlTerm::unify_blob(std::unique_std<PlBlob>* blob) - if
+\item PlTerm::unify_blob(std::unique_ptr<T>* blob) - a function template,
+    where \arg{T} must derive from \ctype{PlBlob}.  If
     unification fails or raises an error, the memory is automatically freed;
     otherwise the memory's ownership is transferred to Prolog, which may
     garbage collect the blob by calling the blob's destructor.
@@ -1637,8 +1638,8 @@ The current C++ API assumes that the C++ blob is allocated on the
 heap. If the programmer wishes to use the stack,
 they can use \ctype{std::unique_ptr} to automatically delete the
 object if an error is thrown -
-PlTerm::unify_blob(std::unique_ptr<PlBlob>*) prevents the automatic
-deletion if unification succeeds.
+PlTerm::unify_blob(std::unique_ptr<T>*) prevents the automatic
+deletion if unification succeeds (where \arg{T} derives from \ctype{PlBlob}).
 
 A \ctype{unique_ptr} needs a bit of care when it is passed as an
 argument. The unique_ptr::get() method can be used to get the ``raw''
@@ -1653,8 +1654,9 @@ local variable. For example, the code for unify_blob() is something
 like:
 
 \begin{code}
-bool PlTerm::unify_blob(std::unique_ptr<PlBlob>* b) const
-{ std::unique_ptr<PlBlob> blob(std::move(*b));
+template<typename T>
+bool PlTerm::unify_blob(std::unique_ptr<T>* b) const
+{ std::unique_ptr<T> blob(std::move(*b));
   if ( !unify_blob(blob.get()) )
     return false;
   (void)blob.release();
@@ -1691,7 +1693,7 @@ TL;DR: Use PL_BLOB_DEFINITION() to define the blob with the flag
 \const{PL_BLOB_NOCOPY} and the default \ctype{PlBlob} wrappers; define
 your struct as a subclass of \ctype{PlBlob} with no copy constructor,
 move constructor, or assignment operator; create a blob using
-\exam{std::unique_ptr<PlBlob>(new ...)}, call PlTerm::unify_blob().
+\exam{std::unique_ptr<MyBlob>(new MyBlob(...))} (or \exam{std::make_unique<MyBlob>(...)}), call PlTerm::unify_blob().
 Optionally, define one or more of: compare_fields(), write_fields(),
 save(), load() methods (these are described after the sample code).
 
@@ -1707,7 +1709,7 @@ the following:
 \begin{itemize}
 \item Creates the blob using
      \begin{code}
-auto ref = std::unique_ptr<PlBlob>(new MyBlob>(...))}
+auto ref = std::unique_ptr<MyBlob>(new MyBlob(...));
       \end{code}
       or
       \begin{code}
@@ -1719,16 +1721,9 @@ auto ref = std::make_unique<MyBlob>(...);
 return PlTerm::unify_blob(&ref);
       \end{code}
       If unification fails or throws an exception, the object is automatically
-      freed and its destructor is called.
-
-      If make_unique() was used to create the pointer, you need to call
-      PlTerm::unify_blob() as follows, because C++'s type inferencing can't figure
-      out that this is a covariant type:
-      \begin{code}
-std::unique_ptr<PlBlob> refb(ref.release());
-// refb now "owns" the ptr - from here on, ref == nullptr
-return A2.unify_blob(&refb);
-      \end{code}
+      freed and its destructor is called.  PlTerm::unify_blob() is a function
+      template, so passing a \ctype{std::unique_ptr<MyBlob>*} works directly;
+      no upcast to \ctype{std::unique_ptr<PlBlob>*} is needed.
 
       If unification succeeds, Prolog calls:
       \begin{itemize}
@@ -1911,7 +1906,7 @@ PREDICATE(create_my_blob, 2)
   // deleted if an error happens - the auto-deletion is disabled by
   // ref.release() inside unify_blob() before returning success.
 
-  auto ref = std::unique_ptr<PlBlob>(new MyBlob(A1.as_atom().as_string()));
+  auto ref = std::unique_ptr<MyBlob>(new MyBlob(A1.as_atom().as_string()));
   return A2.unify_blob(&ref);
 }
 
@@ -2077,28 +2072,21 @@ PREDICATE(portray_my_blob, 2)
 
   \begin{itemize}
 
-  \item \exam{std::unique_ptr<PlBlob>()} creates a MyBlob that is
+  \item \exam{std::unique_ptr<MyBlob>()} creates a MyBlob that is
       deleted when it goes out of scope. If an exception occurs
       between the creation of the blob or if the call to unify_blob()
       fails, the pointer will be automatically freed (and the
       \ctype{MyBlob} destructor will be called).
 
-      PlTerm::unify_blob() is called with a pointer to a
-      \ctype{std::unique_ptr}, which takes ownership of the object by
-      calling std::unique_ptr<PlBlob>::release() and passes the
+      PlTerm::unify_blob() is a function template; it is called with a
+      pointer to a \ctype{std::unique_ptr<MyBlob>}, takes ownership of
+      the object by calling std::unique_ptr::release() and passes the
       pointer to Prolog, which then owns it.  This also sets \arg{ref}
       to \const{nullptr}, so any attempt to use \arg{ref} after a call
       to PlTerm::unify_blob() will be an error.
 
-      If you wish to create a \ctype{MyBlob} object instead of a
-      \ctype{PlBlob} object, a slightly different form is used:
-      \begin{code}
-auto ref = std::make_unique<MyBlob>(...);
-  ...
-std::unique_ptr<PlBlob> refb(ref.release());
-PlCheckFail(A2.unify_blob(&refb));
-return true;
-      \end{code}
+      \ctype{std::make_unique<MyBlob>(...)} can also be used to create
+      \arg{ref}; it can be passed to PlTerm::unify_blob() directly.
 
   \end{itemize}
 
@@ -2231,7 +2219,7 @@ struct MyFileBlob : public PlBlob
 };
 
 PREDICATE(my_file_open, 4)
-{ auto ref = std::unique_ptr<PlBlob>(new MyFileBlob(A2, A3, A4));
+{ auto ref = std::unique_ptr<MyFileBlob>(new MyFileBlob(A2, A3, A4));
   return A1.unify_blob(&ref);
 }
 
@@ -3072,11 +3060,12 @@ See also \secref{cpp2-plframe}.
     \nodescription
     \cfunction{bool}{PlTerm::unify_blob}{PlBlob* blob}
     \nodescription
-    \cfunction{bool}{PlTerm::unify_blob}{std::unique_ptr<PlBlob>* blob}
+    \cfunction{bool}{PlTerm::unify_blob}{std::unique_ptr<T>* blob}
+    A function template, where \arg{T} must derive from \ctype{PlBlob}.
     Does a call to PL_unify_blob() and, if successful, calls
-    std::unique_ptr<PlBlob>::release() to pass ownership to the Prolog blob;
-    on failure or error, deletes the pointer (ad calls its destructor).
-    After either success and failure, \exam{*blob==nullptr}.
+    std::unique_ptr::release() to pass ownership to the Prolog blob;
+    on failure or error, deletes the pointer (and calls its destructor).
+    After either success or failure, \exam{*blob==nullptr}.
     \cfunction{bool}{PlTerm::unify_blob}{void *blob, size_t len, PL_blob_t *type}
     \nodescription
     \cfunction{bool}{PlTerm::unify_chars}{int flags, size_t len, const char *s}

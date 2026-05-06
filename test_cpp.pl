@@ -112,6 +112,18 @@ test(hello3, Out == "Hello3 世界弐\n") :-
 test(hello4, Out == hello(world)) :-
     hello4(Out).
 
+test(hello5, [Out1, Out2, Out3] == [abc, 世界, 世界]) :-
+    hello5(Out1, Out2, Out3).
+
+test(hello6, [Out1, Out2, Out3] == [abc, 世界, 世界]) :-
+    hello6(Out1, Out2, Out3).
+
+test(hello7, [Out1, Out2, Out3] == ["abc", "世界", "世界"]) :-
+    hello7(Out1, Out2, Out3).
+
+test(hello8, [Out1, Out2, Out3] == [abc(世界, 世界), 世界(世界, abc), 世界(abc, 世界)]) :-
+    hello8(Out1, Out2, Out3).
+
 test(call_cpp, Out == "hello(foo)\n") :-
     with_output_to(string(Out), call_cpp(writeln(hello(foo)))).
 test(call_cpp, Out == "hello(世界四)\n") :-

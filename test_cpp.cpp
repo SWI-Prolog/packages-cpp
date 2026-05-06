@@ -166,6 +166,34 @@ PREDICATE(hello4, 1)
   return hello_world.unify_term(hello_world_compound);
 }
 
+PREDICATE(hello5, 3)
+{ PlCheckFail(A1.unify_atom("abc"));
+  PlCheckFail(A2.unify_atom(std::wstring(L"世界")));
+  PlCheckFail(A3.unify_chars(PL_ATOM|REP_UTF8, -1, "世界"));
+  return true;
+}
+
+PREDICATE(hello6, 3)
+{ PlCheckFail(A1.unify_atom(PlAtom("abc")));
+  PlCheckFail(A2.unify_atom(PlAtom(std::wstring(L"世界"))));
+  PlCheckFail(A3.unify_atom(PlAtom(std::string("世界"), PlEncoding::UTF8)));
+  return true;
+}
+
+PREDICATE(hello7, 3)
+{ PlCheckFail(A1.unify_string("abc"));
+  PlCheckFail(A2.unify_wstring(L"世界"));
+  PlCheckFail(A3.unify_chars(PL_STRING|REP_UTF8, -1, "世界"));
+  return true;
+}
+
+PREDICATE(hello8, 3)
+{ PlCheckFail(A1.unify_term(PlCompound("abc", PlTermv(PlTerm_atom(L"世界"), PlTerm_atom("世界", PlEncoding::UTF8)), PlEncoding::UTF8)));
+  PlCheckFail(A2.unify_term(PlCompound(L"世界", PlTermv(PlTerm_atom("世界", PlEncoding::UTF8), PlTerm_atom("abc", PlEncoding::UTF8)))));
+  PlCheckFail(A3.unify_term(PlCompound("世界", PlTermv(PlTerm_atom("abc", PlEncoding::UTF8), PlTerm_atom(L"世界")), PlEncoding::UTF8)));
+  return true;
+}
+
 // TODO: add tests
 PREDICATE(as_string, 2)
 { return A2.unify_string(A1.as_string());
@@ -1125,6 +1153,12 @@ PREDICATE(unify_foo_string_2a, 1)
 // 1.0 sec
 PREDICATE(unify_foo_string_2b, 1)
 { PlTerm_string foo(std::string("foo"));
+  return A1.unify_term(foo);
+}
+
+// 1.0 sec
+PREDICATE(unify_foo_string_2c, 1)
+{ PlTerm_string foo("世界", PlEncoding::UTF8);
   return A1.unify_term(foo);
 }
 

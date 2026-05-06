@@ -690,15 +690,13 @@ public:
   // All the unify_*() methods check for an exception (and throw), so
   // the return code is whether the unification succeeded or not.
   // TODO: replace PL_unify_*() with PL_unify_string() and flags, where appropriate
-  // TODO: encodings for char*, std::string (MG: see below)
+  // TODO: encodings for char*, std::string
   [[nodiscard]] bool unify_term(PlTerm t2)               const { return Plx_unify(unwrap(), t2.unwrap()); }
   [[nodiscard]] bool unify_atom(PlAtom a)                const { return Plx_unify_atom(unwrap(), a.unwrap()); }
-  [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s) const { return Plx_unify_chars(unwrap(), flags, len, s); }
-  // MG: The line above would read as 
-  // unify_chars(int flags, size_t len, const char *s, PlEncoding rep=ENC_INPUT) const 
-  // { return Plx_unify_chars(unwrap(), flags | rep, len, s); }
-  // Do we need this? I tend to yes, because rep can be set as the default
-  [[nodiscard]] bool unify_chars(int flags, const std::string& s) const { return Plx_unify_chars(unwrap(), flags, s.size(), s.data()); }
+  [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s, PlEncoding rep=ENC_INPUT) const 
+    { return Plx_unify_chars(unwrap(), flags | static_cast<int>(rep), len, s); }
+  [[nodiscard]] bool unify_chars(int flags, const std::string& s, PlEncoding rep=ENC_INPUT) const 
+    { return Plx_unify_chars(unwrap(), flags | static_cast<int>(rep), s.size(), s.data()); }
   [[nodiscard]] bool unify_atom(const char*           v) const { return Plx_unify_atom_chars(unwrap(), v); }
   [[nodiscard]] bool unify_atom(const wchar_t*        v) const { return Plx_unify_wchars(unwrap(), PL_ATOM, static_cast<size_t>(-1), v); }
   [[nodiscard]] bool unify_atom(const std::string&    v) const { return Plx_unify_atom_nchars(unwrap(), v.size(), v.data()); }

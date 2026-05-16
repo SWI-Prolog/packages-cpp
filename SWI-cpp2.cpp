@@ -693,6 +693,14 @@ PlTerm::eq(PlAtom a) const
 		 *******************************/
 
 _SWI_CPP2_CPP_inline
+PlCompound::PlCompound(const char *text, PlEncoding enc)
+{ term_t t = Plx_new_term_ref();
+  PlEx<bool>(t != (term_t)0);
+  PlEx<int>(Plx_put_term_from_chars(t, static_cast<int>(enc)|CVT_EXCEPTION, -1, text));
+  Plx_put_term(unwrap(), t);
+}
+
+_SWI_CPP2_CPP_inline
 PlCompound::PlCompound(const wchar_t *text)
 { term_t t = Plx_new_term_ref();
   if ( !Plx_wchars_to_term(text, t) )
@@ -722,8 +730,8 @@ PlCompound::PlCompound(const std::wstring& text)
 }
 
 _SWI_CPP2_CPP_inline
-PlCompound::PlCompound(const char *functor, const PlTermv& args)
-{ functor_t f = Plx_new_functor(Plx_new_atom(functor), args.size());
+PlCompound::PlCompound(const char *functor, const PlTermv& args, PlEncoding rep)
+{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars(static_cast<int>(rep), static_cast<size_t>(-1), functor), args.size());
   PlEx<bool>(f != (functor_t)0);
   Plx_cons_functor_v(unwrap(), f, args.termv());
 }
@@ -736,8 +744,8 @@ PlCompound::PlCompound(const wchar_t *functor, const PlTermv& args)
 }
 
 _SWI_CPP2_CPP_inline
-PlCompound::PlCompound(const std::string& functor, const PlTermv& args)
-{ functor_t f = Plx_new_functor(Plx_new_atom_nchars(functor.size(), functor.data()), args.size());
+PlCompound::PlCompound(const std::string& functor, const PlTermv& args, PlEncoding rep)
+{ functor_t f = Plx_new_functor(Plx_new_atom_mbchars(static_cast<int>(rep), functor.size(), functor.data()), args.size());
   Plx_cons_functor_v(unwrap(), f, args.termv());
 }
 
@@ -863,8 +871,7 @@ PlException::as_string(PlEncoding enc) const
   // allocating the std::string) even though we specify "throw()" -
   // telling the truth "noexcept(false)" results in a compilation
   // error.
-  (void)enc; // TODO: use this
-  const_cast<PlException*>(this)->set_what_str();
+  const_cast<PlException*>(this)->set_what_str(enc);
   return what_str_;
 }
 

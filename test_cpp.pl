@@ -112,6 +112,18 @@ test(hello3, Out == "Hello3 世界弐\n") :-
 test(hello4, Out == hello(world)) :-
     hello4(Out).
 
+test(hello5, [Out1, Out2, Out3] == [abc, 世界, 世界]) :-
+    hello5(Out1, Out2, Out3).
+
+test(hello6, [Out1, Out2, Out3] == [abc, 世界, 世界]) :-
+    hello6(Out1, Out2, Out3).
+
+test(hello7, [Out1, Out2, Out3] == ["abc", "世界", "世界"]) :-
+    hello7(Out1, Out2, Out3).
+
+test(hello8, [Out1, Out2, Out3] == [abc(世界, 世界), 世界(世界, abc), 世界(abc, 世界)]) :-
+    hello8(Out1, Out2, Out3).
+
 test(call_cpp, Out == "hello(foo)\n") :-
     with_output_to(string(Out), call_cpp(writeln(hello(foo)))).
 test(call_cpp, Out == "hello(世界四)\n") :-
@@ -185,20 +197,33 @@ test(call_cut, error(existence_error(procedure,call_cut_test/0))) :-
     call_cut("call_cut_test").
 
 test(term_1, Term == hello(world)) :-
-    term(Term).
+    term1(Term).
+test(term_1, Term == 世界(world)) :-
+    term2(Term).
+test(term_1, Term == hello(世界)) :-
+    term3(Term).
 
 test(term_2, Result == 'hello world') :-
-    term(atom, Result).
+    term1(atom, Result).
 test(term_2, Result == "hello world") :-
-    term(string, Result).
+    term1(string, Result).
 test(term_2, Result == [104,101,108,108,111,32,119,111,114,108,100]) :-
-    term(code_list, Result).
+    term1(code_list, Result).
 test(term_2, Result == [h,e,l,l,o,' ',w,o,r,l,d]) :-
-    term(char_list, Result).
-test(term_1, Result == hello(world)) :-
-    term(term, Result).
-test(term_1, error(domain_error(type,foo))) :-
-    term(foo, _Result).
+    term1(char_list, Result).
+test(term_2, Result == hello(world)) :-
+    term1(term, Result).
+test(term_2, error(domain_error(type,foo))) :-
+    term1(foo, _Result).
+
+test(term_2, Result == 世界) :-
+    term2(atom, Result).
+test(term_2, Result == "世界") :-
+    term2(string, Result).
+test(term_2, Result == hello(世界)) :-
+    term2(term, Result).
+test(term_2, error(domain_error(type,foo))) :-
+    term2(foo, _Result).
 
 test(can_unify, [true(X\==Y)]) :-
     can_unify(f(X), f(Y)).

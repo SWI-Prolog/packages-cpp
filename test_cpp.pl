@@ -197,20 +197,33 @@ test(call_cut, error(existence_error(procedure,call_cut_test/0))) :-
     call_cut("call_cut_test").
 
 test(term_1, Term == hello(world)) :-
-    term(Term).
+    term1(Term).
+test(term_1, Term == 世界(world)) :-
+    term2(Term).
+test(term_1, Term == hello(世界)) :-
+    term3(Term).
 
 test(term_2, Result == 'hello world') :-
-    term(atom, Result).
+    term1(atom, Result).
 test(term_2, Result == "hello world") :-
-    term(string, Result).
+    term1(string, Result).
 test(term_2, Result == [104,101,108,108,111,32,119,111,114,108,100]) :-
-    term(code_list, Result).
+    term1(code_list, Result).
 test(term_2, Result == [h,e,l,l,o,' ',w,o,r,l,d]) :-
-    term(char_list, Result).
-test(term_1, Result == hello(world)) :-
-    term(term, Result).
-test(term_1, error(domain_error(type,foo))) :-
-    term(foo, _Result).
+    term1(char_list, Result).
+test(term_2, Result == hello(world)) :-
+    term1(term, Result).
+test(term_2, error(domain_error(type,foo))) :-
+    term1(foo, _Result).
+
+test(term_2, Result == 世界) :-
+    term2(atom, Result).
+test(term_2, Result == "世界") :-
+    term2(string, Result).
+test(term_2, Result == hello(世界)) :-
+    term2(term, Result).
+test(term_2, error(domain_error(type,foo))) :-
+    term2(foo, _Result).
 
 test(can_unify, [true(X\==Y)]) :-
     can_unify(f(X), f(Y)).

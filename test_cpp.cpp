@@ -332,11 +332,19 @@ PREDICATE(term_to_string, 2)
   return true;
 }
 
-PREDICATE(term, 1)
+PREDICATE(term1, 1)
 { return A1.unify_term(PlCompound("hello", PlTermv(PlAtom("world"))));
 }
 
-PREDICATE(term, 2)
+PREDICATE(term2, 1)
+{ return A1.unify_term(PlCompound("世界", PlTermv(PlAtom("world")), PlEncoding::UTF8));
+}
+
+PREDICATE(term3, 1)
+{ return A1.unify_term(PlCompound("hello", PlTermv(PlAtom("世界", PlEncoding::UTF8))));
+}
+
+PREDICATE(term1, 2)
 { static PlAtom ATOM_atom("atom");
   PlAtom a(A1.as_atom());
 
@@ -350,6 +358,20 @@ PREDICATE(term, 2)
     return A2.unify_list_chars("hello world"); // TODO: deprecated
   if ( A1.as_string() == "term" )
     return A2.unify_term(PlCompound("hello(world)"));
+
+  throw PlDomainError("type", A1);
+}
+
+PREDICATE(term2, 2)
+{ static PlAtom ATOM_atom("atom");
+  PlAtom a(A1.as_atom());
+
+  if ( a.unwrap() == ATOM_atom.unwrap() )
+    return A2.unify_atom("世界", PlEncoding::UTF8);
+  if ( A1.as_string() == "string" )
+    return A2.unify_string("世界", PlEncoding::UTF8);
+  if ( A1.as_string() == "term" )
+    return A2.unify_term(PlCompound("hello(世界)", PlEncoding::UTF8));
 
   throw PlDomainError("type", A1);
 }

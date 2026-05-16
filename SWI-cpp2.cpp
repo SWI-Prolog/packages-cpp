@@ -693,6 +693,14 @@ PlTerm::eq(PlAtom a) const
 		 *******************************/
 
 _SWI_CPP2_CPP_inline
+PlCompound::PlCompound(const char *text, PlEncoding enc)
+{ term_t t = Plx_new_term_ref();
+  PlEx<bool>(t != (term_t)0);
+  PlEx<int>(Plx_put_term_from_chars(t, static_cast<int>(enc)|CVT_EXCEPTION, -1, text));
+  Plx_put_term(unwrap(), t);
+}
+
+_SWI_CPP2_CPP_inline
 PlCompound::PlCompound(const wchar_t *text)
 { term_t t = Plx_new_term_ref();
   if ( !Plx_wchars_to_term(text, t) )
@@ -863,8 +871,7 @@ PlException::as_string(PlEncoding enc) const
   // allocating the std::string) even though we specify "throw()" -
   // telling the truth "noexcept(false)" results in a compilation
   // error.
-  (void)enc; // TODO: use this (MG: see next line
-  const_cast<PlException*>(this)->set_what_str(/* enc? */);
+  const_cast<PlException*>(this)->set_what_str(enc);
   return what_str_;
 }
 

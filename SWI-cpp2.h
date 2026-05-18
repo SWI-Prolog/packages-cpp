@@ -308,7 +308,7 @@ public:
   { }
   explicit PlAtom(size_t len, const char *s, PlEncoding rep=ENC_INPUT)
     : WrappedC<atom_t>(Plx_new_atom_mbchars(static_cast<int>(rep), len, s))
-  { } 
+  { }
   [[deprecated("use PlAtom(size_t, const char*, PlEncoding)")]] explicit PlAtom(PlEncoding rep, size_t len, const char *s)
     : WrappedC<atom_t>(Plx_new_atom_mbchars(static_cast<int>(rep), len, s))
   { }
@@ -412,7 +412,7 @@ public:
   explicit PlFunctor(PlAtom name, size_t arity)
     : WrappedC<functor_t>(Plx_new_functor(name.unwrap(), arity)) { }
 
-  [[deprecated("use PlPredicate")]] predicate_t pred(module_t m) const 
+  [[deprecated("use PlPredicate")]] predicate_t pred(module_t m) const
   { predicate_t p = Plx_pred(unwrap(), m);
     return p;
   }
@@ -699,11 +699,11 @@ public:
   // TODO: replace PL_unify_*() with PL_unify_string() and flags, where appropriate
   [[nodiscard]] bool unify_term(PlTerm t2)               const { return Plx_unify(unwrap(), t2.unwrap()); }
   [[nodiscard]] bool unify_atom(PlAtom a)                const { return Plx_unify_atom(unwrap(), a.unwrap()); }
-  [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s, PlEncoding rep=ENC_INPUT) const 
+  [[nodiscard]] bool unify_chars(int flags, size_t len, const char *s, PlEncoding rep=ENC_INPUT) const
     { return Plx_unify_chars(unwrap(), flags | static_cast<int>(rep), len, s); }
-  [[nodiscard]] bool unify_chars(int flags, const std::string& s, PlEncoding rep=ENC_INPUT) const 
+  [[nodiscard]] bool unify_chars(int flags, const std::string& s, PlEncoding rep=ENC_INPUT) const
     { return Plx_unify_chars(unwrap(), flags | static_cast<int>(rep), s.size(), s.data()); }
-  [[nodiscard]] bool unify_atom(const char* v, PlEncoding rep=ENC_INPUT) const 
+  [[nodiscard]] bool unify_atom(const char* v, PlEncoding rep=ENC_INPUT) const
     { return Plx_unify_chars(unwrap(), PL_ATOM | static_cast<int>(rep), static_cast<size_t>(-1), v); }
   [[nodiscard]] bool unify_atom(const wchar_t*        v) const { return Plx_unify_wchars(unwrap(), PL_ATOM, static_cast<size_t>(-1), v); }
   [[nodiscard]] bool unify_atom(const std::string&    v) const { return Plx_unify_atom_nchars(unwrap(), v.size(), v.data()); }
@@ -903,10 +903,10 @@ public:
   //       For now, these are safe only with ASCII (PlEncoding::Latin1):
   explicit PlTerm_atom(atom_t a)                 { Plx_put_atom(unwrap(), a); }
   explicit PlTerm_atom(PlAtom a)                 { Plx_put_atom(unwrap(), a.unwrap()); }
-  explicit PlTerm_atom(const char *text, PlEncoding rep=ENC_INPUT) 
+  explicit PlTerm_atom(const char *text, PlEncoding rep=ENC_INPUT)
     { Plx_put_chars(unwrap(), PL_ATOM | static_cast<int>(rep), static_cast<size_t>(-1), text); }
   explicit PlTerm_atom(const wchar_t *text)      { PlEx<bool>(Plx_unify_wchars(unwrap(), PL_ATOM, static_cast<size_t>(-1), text)); }
-  explicit PlTerm_atom(const std::string& text, PlEncoding rep=ENC_INPUT)  
+  explicit PlTerm_atom(const std::string& text, PlEncoding rep=ENC_INPUT)
     { Plx_put_chars(unwrap(), PL_ATOM | static_cast<int>(rep), text.size(), text.data()); }
   explicit PlTerm_atom(const std::wstring& text) { PlEx<int>(Plx_unify_wchars(unwrap(), PL_ATOM, text.size(), text.data())); }
 };
@@ -977,12 +977,11 @@ public:
   explicit PlPredicate(PlFunctor f, PlModule m)
     : WrappedC<predicate_t>(Plx_pred(f.unwrap(), m.unwrap()))
   { }
-  explicit PlPredicate(const char *name, int arity, const char *module, PlEncoding rep=ENC_INPUT)
-    : WrappedC<predicate_t>(module == NULL ? Plx_pred(PlFunctor(name, arity, rep).unwrap(), Plx_context())
-			    : Plx_pred(PlFunctor(name, arity, rep).unwrap(), PlModule(module, rep).unwrap()))
+  explicit PlPredicate(const char *name, int arity, const char *module)
+    : WrappedC<predicate_t>(Plx_predicate(name, arity,  module))
   { }
-  explicit PlPredicate(const std::string& name, int arity, const std::string& module, PlEncoding rep=ENC_INPUT)
-    : WrappedC<predicate_t>(Plx_pred(PlFunctor(name, arity, rep).unwrap(), PlModule(module, rep).unwrap()))
+  explicit PlPredicate(const std::string& name, int arity, const std::string& module)
+    : WrappedC<predicate_t>(Plx_predicate(name.c_str(), arity,  module.c_str()))
   { }
   void predicate_info(PlAtom *name, size_t *arity, PlModule *module)
   { atom_t n;
@@ -1067,15 +1066,15 @@ class PlTerm_string : public PlTerm
 public:
   PlTerm_string(const char *text, PlEncoding rep=ENC_INPUT)
   { Plx_put_chars(unwrap(), PL_STRING | static_cast<int>(rep), static_cast<size_t>(-1), text); }
-  PlTerm_string(const char *text, size_t len, PlEncoding rep=ENC_INPUT) 
+  PlTerm_string(const char *text, size_t len, PlEncoding rep=ENC_INPUT)
   { Plx_put_chars(unwrap(), PL_STRING | static_cast<int>(rep), len, text); }
-  PlTerm_string(const wchar_t *text) 
+  PlTerm_string(const wchar_t *text)
   { PlEx<int>(Plx_unify_wchars(unwrap(), PL_STRING, static_cast<size_t>(-1), text)); }
-  PlTerm_string(const wchar_t *text, size_t len) 
+  PlTerm_string(const wchar_t *text, size_t len)
   { PlEx<int>(Plx_unify_wchars(unwrap(), PL_STRING, len, text));}
   PlTerm_string(const std::string& text, PlEncoding rep=ENC_INPUT) // here
   { Plx_put_chars(unwrap(), PL_STRING | static_cast<int>(rep), text.size(), text.data()); }
-  PlTerm_string(const std::wstring& text) 
+  PlTerm_string(const std::wstring& text)
   { PlEx<int>(Plx_unify_wchars(unwrap(), PL_STRING, text.size(), text.data())); }
 };
 

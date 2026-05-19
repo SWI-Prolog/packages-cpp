@@ -1180,11 +1180,11 @@ The methods are:
     of \ctype{PlFrame}, and PlFrame::rewind() should be called.
   \cfunction{bool}{PlTerm::unify_atom}{PlAtom a} Wrapper of PL_unify_atom(), throwing
      an exception on error.
-  \cfunction{bool}{PlTerm::unify_chars}{int flags, size_t len, const char *s} Wrapper of PL_unify_chars(), throwing an exception on error.
-  \cfunction{bool}{PlTerm::unify_chars}{int flags, const std::string\& s} Wrapper of PL_unify_chars(), throwing an exception on error.
-  \cfunction{bool}{PlTerm::unify_atom}{const char*           v} Wrapper of PL_unify_atom_chars(), throwing an exception on error.
+  \cfunction{bool}{PlTerm::unify_chars}{int flags, size_t len, const char *s, PlEncoding rep=ENC_INPUT} Wrapper of PL_unify_chars(), throwing an exception on error.  \arg{rep} is OR-ed into \arg{flags} (see \secref{cpp2-rationale-strings}).
+  \cfunction{bool}{PlTerm::unify_chars}{int flags, const std::string\& s, PlEncoding rep=ENC_INPUT} Wrapper of PL_unify_chars(), throwing an exception on error.
+  \cfunction{bool}{PlTerm::unify_atom}{const char*           v, PlEncoding rep=ENC_INPUT} Wrapper of PL_unify_chars() with \const{PL_ATOM}, throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_atom}{const wchar_t*        v} Wrapper of PL_unify_wchars(), throwing an exception on error.
-  \cfunction{bool}{PlTerm::unify_atom}{const std::string\&    v} Wrapper of PL_unify_atom_nchars(), throwing an exception on error.
+  \cfunction{bool}{PlTerm::unify_atom}{const std::string\&    v, PlEncoding rep=ENC_INPUT} Wrapper of PL_unify_chars() with \const{PL_ATOM}, throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_atom}{const std::wstring\&   v} Wrapper of PL_unify_wchars(), throwing an exception on error.
   % bool unify_list_codes(const char*     v) const { return Plx_unify_list_codes(unwrap(), v); } // TODO: [[deprecated]]
   % bool unify_list_chars(const char*     v) const { return Plx_unify_list_chars(unwrap(), v); } // TODO: [[deprecated]]
@@ -1201,7 +1201,7 @@ The methods are:
   \cfunction{bool}{PlTerm::unify_integer}{unsigned long long v} Wrapper of PL_unify_uint64(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_integer}{unsigned short     v} Wrapper of PL_unify_uint64(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_float}{double               v} Wrapper of PL_unify_float(), throwing an exception on error.
-  \cfunction{bool}{PlTerm::unify_string}{const std::string\&  v} Wrapper of PL_unify_string_nchars(), throwing an exception on error.
+  \cfunction{bool}{PlTerm::unify_string}{const std::string\&  v, PlEncoding rep=ENC_INPUT} Wrapper of PL_unify_chars() with \const{PL_STRING}, throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_string}{const std::wstring\& v} Wrapper of PL_unify_wchars(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_functor}{PlFunctor          f} Wrapper of PL_unify_functor(), throwing an exception on error.
   \cfunction{bool}{PlTerm::unify_pointer}{void *ptr} Wrapper of PL_unify_pointer(), throwing an exception on error. An alternative to this is to use a blob that wraps a pointer - see \secref{cpp2-blobs-sample-code-pointer}.
@@ -2311,9 +2311,11 @@ family is more friendly when it comes to different input, output,
 encoding and exception handling.
 
 Roughly, the modern API is PL_get_nchars(), PL_unify_chars() and
-PL_put_chars() on terms. There is only half of the API for atoms as
-PL_new_atom_mbchars() and PL_atom_mbchars(), which take an encoding,
-length and \ctype{char*}.
+PL_put_chars() on terms, and PL_new_atom_mbchars() and
+PL_atom_mbchars() for atoms, all of which take an encoding, length and
+\ctype{char*}.  The C++ API routes its \ctype{std::string} and
+\ctype{char*} text through these, selected by a \ctype{PlEncoding}
+argument (see \secref{cpp2-rationale-strings}).
 
 For return values, \ctype{char*} is dangerous because it can point to
 local or stack memory. For this reason, wherever possible, the C++ API
@@ -2766,12 +2768,41 @@ compilers have optimizations that reduce the overheads of using
 \ctype{std::string}); but for performance-critical code, the C
 functions can still be used.
 
-There still remains the problems of Unicode and encodings.
-\ctype{std::wstring} is one way of dealing with this. And for
-interfaces that use \ctype{std::string}, an encoding can be
-specified.\footnote{As of 2023-04, this had only been partially
-implemented}. Some of the details for this - such as the
-default encoding - may change slightly in the future.
+Unicode and encodings are handled as follows.  \ctype{std::wstring}
+and \ctype{wchar_t*} carry full Unicode and need no encoding.  For
+interfaces that use \ctype{std::string} or \ctype{char*} the byte
+encoding is given by an optional \ctype{PlEncoding} argument:
+
+\begin{code}
+typedef enum class PlEncoding
+{ Latin1 = REP_ISO_LATIN_1,
+  UTF8   = REP_UTF8,
+  Locale = REP_MB
+} PlEncoding;
+static constexpr PlEncoding ENC_INPUT  = PlEncoding::Latin1;
+static constexpr PlEncoding ENC_OUTPUT = PlEncoding::Locale;
+\end{code}
+
+Methods that \emph{construct} Prolog text from \ctype{std::string} or
+\ctype{char*} (the \ctype{PlAtom}, \ctype{PlTerm_atom},
+\ctype{PlTerm_string} and \ctype{PlCompound} constructors and the
+\exam{PlTerm::unify_*()} methods) default to \const{ENC_INPUT}
+(\const{PlEncoding::Latin1}), which is byte-compatible with the
+pre-encoding API.  Methods that \emph{return} text
+(\exam{PlTerm::as_string()}, \exam{PlAtom::as_string()}) default to
+\const{ENC_OUTPUT} (\const{PlEncoding::Locale}).  Pass
+\const{PlEncoding::UTF8} explicitly when the \ctype{char*} or
+\ctype{std::string} holds UTF-8.
+
+Identifiers that are normally program constants rather than data
+derived from arbitrarily encoded external input --- the names passed
+to \ctype{PlModule} and \ctype{PlPredicate} --- are hard-wired to
+UTF-8, matching the PL_predicate() C~API, and therefore
+take no \ctype{PlEncoding} argument.
+
+The earlier argument order \exam{PlAtom(PlEncoding, len, s)} and
+\exam{PlAtom(PlEncoding, std::string\&)} is \exam{[[deprecated]]} in
+favour of the trailing-\ctype{PlEncoding} forms.
 
 \section{Porting from version 1 to version 2}
 \label{sec:cpp2-porting-1-2}
@@ -3231,14 +3262,14 @@ the argument is not compound.
 Yields the actual type of the term as PL_term_type(). Return values are
 \const{PL_VARIABLE}, \const{PL_FLOAT}, \const{PL_INTEGER},
 \const{PL_ATOM}, \const{PL_STRING} or \const{PL_TERM}
-  \cfunction{std::string}{as_string}{PlEncoding enc=EncLocale}
+  \cfunction{std::string}{as_string}{PlEncoding enc=ENC_OUTPUT}
   Returns the string representation of the atom.
   See PlAtom::as_string() for an explanation of the encodings
   and caveats about std::string::c_str().
-  \cfunction{std::string}{atomic_as_string}{PlEncoding enc=EncLocale}
+  \cfunction{std::string}{atomic_as_string}{PlEncoding enc=ENC_OUTPUT}
 As PlTerm::as_string(), but throws an exception if the term
 isn't atomic (see atomic/1).
-  \cfunction{std::string}{atom_or_string_as_string}{PlEncoding enc=EncLocale}
+  \cfunction{std::string}{atom_or_string_as_string}{PlEncoding enc=ENC_OUTPUT}
 As PlTerm::as_string(), but throws an exception if the term
 isn't an atom or a string.
 
@@ -3263,13 +3294,18 @@ generally preferred to use blobs for storing arbitrary C-data structures
 \begin{description}
     \constructor{PlTerm_string}{const wchar_t *text}
     \nodescription
-    \constructor{PlTerm_string}{const char *text}
+    \constructor{PlTerm_string}{const char *text, PlEncoding rep=ENC_INPUT}
 Create a SWI-Prolog string object from a 0-terminated C-string.  The
-\arg{text} is copied.
+\arg{text} is copied.  \arg{rep} gives the byte encoding (see
+\secref{cpp2-rationale-strings}).
 
     \constructor{PlTerm_string}{const wchar_t *text, size_t len}
     \nodescription
-    \constructor{PlTerm_string}{const char *text, size_t len}
+    \constructor{PlTerm_string}{const char *text, size_t len, PlEncoding rep=ENC_INPUT}
+    \nodescription
+    \constructor{PlTerm_string}{const std::string\& text, PlEncoding rep=ENC_INPUT}
+    \nodescription
+    \constructor{PlTerm_string}{const std::wstring\& text}
 Create a SWI-Prolog string object from a C-string with specified length.
 The \arg{text} may contain 0-characters and is copied.
 \end{description}
@@ -3308,25 +3344,65 @@ a term from a string; it is similar to (=..)/2
 \begin{description}
     \constructor{PlCompound}{const wchar_t *text}
     \nodescription
-    \constructor{PlCompound}{const char *text}
+    \constructor{PlCompound}{const char *text, PlEncoding enc=ENC_INPUT}
     \nodescription
     \constructor{PlCompound}{const std::wstring\& text}
     \nodescription
-    \constructor{PlCompound}{const std::string\& text}{PlEncoding enc=ENC_INPUT}
+    \constructor{PlCompound}{const std::string\& text, PlEncoding enc=ENC_INPUT}
 Create a term by parsing (as read/1) the \arg{text}.  If the \arg{text}
 is not valid Prolog syntax, a \except{syntax_error} exception is raised.
 Otherwise a new term-reference holding the parsed text is created.
+For the \ctype{char*} and \ctype{std::string} forms \arg{enc} gives
+the byte encoding (see \secref{cpp2-rationale-strings}).
 
     \constructor{PlCompound}{const wchar_t *functor, PlTermv args}
     \nodescription
     \constructor{PlCompound}{const char *functor, PlTermv args}
+    \nodescription
+    \constructor{PlCompound}{const std::string\& functor, PlTermv args}
 Create a compound term with the given name from the given vector of
-arguments.  See \ctype{PlTermv} for details.  The example below
+arguments.  See \ctype{PlTermv} for details.  The \arg{functor} name
+is a program object and is interpreted as UTF-8, consistent with
+\ctype{PlFunctor} (see \secref{cpp2-plfunctor}); unlike the
+text-parsing constructors above it takes no \ctype{PlEncoding}
+argument.  The example below
 creates the Prolog term \exam{hello(world)}.
 
 \begin{code}
 PlCompound("hello", PlTermv(PlAtom("world")))
 \end{code}
+\end{description}
+
+
+\subsection{The class PlFunctor}
+\label{sec:cpp2-plfunctor}
+
+\ctype{PlFunctor} wraps \ctype{functor_t}, the internal representation
+of a \arg{name}/\arg{arity} pair.  A functor name is a program object
+rather than arbitrarily encoded external data and is therefore
+hard-wired to UTF-8, consistent with \ctype{PlModule} and
+\ctype{PlPredicate} (and the PL_predicate() C~API); these constructors
+take no \ctype{PlEncoding} argument.
+
+\begin{description}
+    \constructor{PlFunctor}{functor_t handle}
+Create from a C-interface functor handle (\ctype{functor_t}).  Used
+internally and for integration with the C-interface.
+    \constructor{PlFunctor}{const char *name, size_t arity}
+    \nodescription
+    \constructor{PlFunctor}{const std::string\& name, size_t arity}
+    \nodescription
+    \constructor{PlFunctor}{const std::wstring\& name, size_t arity}
+Create a functor from \arg{name} and \arg{arity}.  The \ctype{char*}
+and \ctype{std::string} \arg{name} is interpreted as UTF-8.  See
+PL_new_functor() and PL_new_atom_mbchars().
+    \constructor{PlFunctor}{PlAtom name, size_t arity}
+Create a functor from an existing \ctype{PlAtom} and \arg{arity}.  See
+PL_new_functor().
+    \cfunction{bool}{is_null}{}
+    \nodescription
+    \cfunction{bool}{not_null}{}
+Test whether the wrapped \ctype{functor_t} handle is null.
 \end{description}
 
 
@@ -3547,16 +3623,23 @@ the need for global atom constructors.
     \constructor{PlAtom}{atom_t handle}
 Create from C-interface atom handle (\ctype{atom_t}).  Used internally and for
 integration with the C-interface.
-    \constructor{PlAtom}{const char_t *text}
+    \constructor{PlAtom}{const char *text, PlEncoding rep=ENC_INPUT}
     \nodescription
-    \constructor{PlAtom}{const wchar *text}
+    \constructor{PlAtom}{size_t len, const char *s, PlEncoding rep=ENC_INPUT}
     \nodescription
-    \constructor{PlAtom}{const std::string\& text}
+    \constructor{PlAtom}{const wchar_t *text}
+    \nodescription
+    \constructor{PlAtom}{const std::string\& text, PlEncoding rep=ENC_INPUT}
     \nodescription
     \constructor{PlAtom}{const std::wstring\& text}
 Create an atom from a string.  The \arg{text} is copied if a new atom
-is created. See PL_new_atom(), PL_new_atom_wchars(),
-PL_new_atom_nchars(), PL_new_atom_wchars().
+is created.  For the \ctype{char*} and \ctype{std::string} forms
+\arg{rep} gives the byte encoding (see \secref{cpp2-rationale-strings});
+it defaults to \const{ENC_INPUT}.  See PL_new_atom_mbchars() and
+PL_new_atom_wchars().  The constructors
+\exam{PlAtom(PlEncoding, len, s)} and \exam{PlAtom(PlEncoding,
+std::string\&)} are \exam{[[deprecated]]} in favour of the
+trailing-\ctype{PlEncoding} forms above.
     \constructor{PlAtom}{const PlTerm \&t}
 If \arg{t} represents an atom, the new instance represents this
 atom.  Otherwise a \except{type_error} is thrown.
@@ -3590,7 +3673,7 @@ was created.
     \cfunction{void}{reset}{}
 Sets the handle to an invalid valid - a subsequent call to is_null()
 will return \const{true}.
-    \cfunction{const std::string}{as_string}{PlEncoding enc=EncLocale}
+    \cfunction{const std::string}{as_string}{PlEncoding enc=ENC_OUTPUT}
 Returns the string representation of the atom.\footnote{If you wish
 to return a \ctype{char*} from a function, you should not do
 \exam{return t.as_string().c_str()} because that will return a pointer
@@ -3601,12 +3684,17 @@ the runtime address sanitizer when run with
 This does not
 quote or escape any characters that would need to be escaped
 if the atom were to be input to the Prolog parser. The possible values
-for \exam{enc} are:
+for \exam{enc} are (see \secref{cpp2-rationale-strings}):
   \begin{itemize}
-    \item \exam{EncLatin1} - throws an exception if cannot be represented in ASCII.
-    \item \exam{EncUTF8}
-    \item \exam{EncLocale} - uses the locale to determine the representation.
+    \item \const{PlEncoding::Latin1} - throws an exception if the text
+          cannot be represented in ISO~Latin-1.
+    \item \const{PlEncoding::UTF8} - UTF-8.
+    \item \const{PlEncoding::Locale} - uses the locale to determine the
+          representation.
   \end{itemize}
+The constants \const{ENC_INPUT} (\const{PlEncoding::Latin1}) and
+\const{ENC_OUTPUT} (\const{PlEncoding::Locale}) name the defaults used
+for constructing and returning text respectively.
     \cfunction{const std:wstring}{as_wstring}{}
 Returns the string representation of the atom. This does not
 quote or escape any characters that would need to be escaped
@@ -4611,11 +4699,11 @@ compatibility with the SWI-Prolog kernel. This makes it possible to
 have different versions of the header file with few compatibility
 consequences.
 
-As of 2023-04, some details remain to be decided, mostly to do
-with encodings. A few methods have a \ctype{PlEncoding} optional
-parameter (e.g., PlTerm::as_string()), but this hasn't yet been
-extended to all methods that take or return a string. Also, the
-details of how the default encoding is set have not yet been decided.
+The methods that take or return a \ctype{std::string} or \ctype{char*}
+accept an optional \ctype{PlEncoding} argument, with the default
+encoding policy described in \secref{cpp2-rationale-strings}.  Names
+passed to \ctype{PlModule} and \ctype{PlPredicate} are hard-wired to
+UTF-8.
 
 As of 2023-04, the various error convenience classes do not fully
 match what the equivalent C functions do. That is, \exam{throw

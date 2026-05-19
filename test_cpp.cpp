@@ -189,9 +189,9 @@ PREDICATE(hello7, 3)
 }
 
 PREDICATE(hello8, 3)
-{ PlCheckFail(A1.unify_term(PlCompound("abc", PlTermv(PlTerm_atom(L"世界"), PlTerm_atom("世界", PlEncoding::UTF8)), PlEncoding::UTF8)));
+{ PlCheckFail(A1.unify_term(PlCompound("abc", PlTermv(PlTerm_atom(L"世界"), PlTerm_atom("世界", PlEncoding::UTF8)))));
   PlCheckFail(A2.unify_term(PlCompound(L"世界", PlTermv(PlTerm_atom("世界", PlEncoding::UTF8), PlTerm_atom("abc", PlEncoding::UTF8)))));
-  PlCheckFail(A3.unify_term(PlCompound("世界", PlTermv(PlTerm_atom("abc", PlEncoding::UTF8), PlTerm_atom(L"世界")), PlEncoding::UTF8)));
+  PlCheckFail(A3.unify_term(PlCompound("世界", PlTermv(PlTerm_atom("abc", PlEncoding::UTF8), PlTerm_atom(L"世界")))));
   return true;
 }
 
@@ -338,7 +338,7 @@ PREDICATE(term1, 1)
 }
 
 PREDICATE(term2, 1)
-{ return A1.unify_term(PlCompound("世界", PlTermv(PlAtom("world")), PlEncoding::UTF8));
+{ return A1.unify_term(PlCompound("世界", PlTermv(PlAtom("world"))));
 }
 
 PREDICATE(term3, 1)
@@ -972,14 +972,14 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   // TODO: the rest of the methods
   strm.release();
 
-  PlFunctor f1(std::string("functor1"), 1, ENC_INPUT);
-  PlFunctor f2(std::string("世界2"), 2, PlEncoding::UTF8);
+  PlFunctor f1(std::string("functor1"), 1);  // names are UTF-8
+  PlFunctor f2(std::string("世界2"), 2);
   PlFunctor f3(std::wstring(L"世界3"), 3);
   PlFunctor f4(PlAtom("世界", PlEncoding::UTF8), 4);
 
-  PlCompound c5("functor5", PlTermv(t_int1, t_int2), PlEncoding::UTF8);
+  PlCompound c5("functor5", PlTermv(t_int1, t_int2));  // functor names are UTF-8
   PlCompound c6(L"世界6", PlTermv(t_int1, t_int2));
-  PlCompound c7(std::string("世界7"), PlTermv(t_int1, t_int2), PlEncoding::UTF8);
+  PlCompound c7(std::string("世界7"), PlTermv(t_int1, t_int2));
   PlCompound c8(std::wstring(L"世界8"), PlTermv(t_int1, t_int2));
   return true;
 }

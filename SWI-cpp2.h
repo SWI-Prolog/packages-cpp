@@ -388,16 +388,20 @@ public:
   explicit PlFunctor(functor_t v)
     : WrappedC<functor_t>(v) { }
 
-  explicit PlFunctor(const char *name, size_t arity, PlEncoding rep=ENC_INPUT)
+  // Functor names, like module and predicate names, are program
+  // objects rather than arbitrarily encoded external data and are
+  // therefore hard-wired to UTF-8 (consistent with PlModule and
+  // PL_predicate()).
+  explicit PlFunctor(const char *name, size_t arity)
     : WrappedC<functor_t>(null)
-  { PlAtom a(name, rep);
+  { PlAtom a(name, PlEncoding::UTF8);
     reset_wrapped(Plx_new_functor(a.unwrap(), arity));
     Plx_unregister_atom(a.unwrap());
   }
 
-  explicit PlFunctor(const std::string& name, size_t arity, PlEncoding rep=ENC_INPUT)
+  explicit PlFunctor(const std::string& name, size_t arity)
     : WrappedC<functor_t>(null)
-  { PlAtom a(name, rep);
+  { PlAtom a(name, PlEncoding::UTF8);
     reset_wrapped(Plx_new_functor(a.unwrap(), arity));
     Plx_unregister_atom(a.unwrap());
   }
@@ -428,11 +432,11 @@ public:
   explicit PlModule(module_t m = 0)
     : WrappedC<module_t>(m)
   { }
-  explicit PlModule(const char *name, PlEncoding rep=ENC_INPUT)
-    : WrappedC<module_t>(Plx_new_module(PlAtom(name, rep).unwrap()))
+  explicit PlModule(const char *name)
+    : WrappedC<module_t>(Plx_new_module(PlAtom(name, PlEncoding::UTF8).unwrap()))
   { }
-  explicit PlModule(const std::string& name, PlEncoding rep=ENC_INPUT)
-    : WrappedC<module_t>(Plx_new_module(PlAtom(name, rep).unwrap()))
+  explicit PlModule(const std::string& name)
+    : WrappedC<module_t>(Plx_new_module(PlAtom(name, PlEncoding::UTF8).unwrap()))
   { }
   explicit PlModule(PlAtom name)
     : WrappedC<module_t>(Plx_new_module(name.unwrap()))
@@ -1054,9 +1058,11 @@ public:
   explicit PlCompound(const wchar_t *text);
   explicit PlCompound(const std::string& text, PlEncoding enc=ENC_INPUT);
   explicit PlCompound(const std::wstring& text);
-  PlCompound(const char *functor, const PlTermv& args, PlEncoding rep=ENC_INPUT);
+  // Functor names are program objects and are hard-wired to UTF-8
+  // (consistent with PlFunctor, PlModule and PL_predicate()).
+  PlCompound(const char *functor, const PlTermv& args);
   PlCompound(const wchar_t *functor, const PlTermv& args);
-  PlCompound(const std::string& functor, const PlTermv& args, PlEncoding rep=ENC_INPUT);
+  PlCompound(const std::string& functor, const PlTermv& args);
   PlCompound(const std::wstring& functor, const PlTermv& args);
 };
 

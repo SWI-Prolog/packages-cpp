@@ -428,11 +428,11 @@ public:
   explicit PlModule(module_t m = 0)
     : WrappedC<module_t>(m)
   { }
-  explicit PlModule(const char *name, PlEncoding rep=ENC_INPUT)
-    : WrappedC<module_t>(Plx_new_module(PlAtom(name, rep).unwrap()))
+  explicit PlModule(const char *name)
+    : WrappedC<module_t>(Plx_new_module(PlAtom(name, PlEncoding::UTF8).unwrap()))
   { }
-  explicit PlModule(const std::string& name, PlEncoding rep=ENC_INPUT)
-    : WrappedC<module_t>(Plx_new_module(PlAtom(name, rep).unwrap()))
+  explicit PlModule(const std::string& name)
+    : WrappedC<module_t>(Plx_new_module(PlAtom(name, PlEncoding::UTF8).unwrap()))
   { }
   explicit PlModule(PlAtom name)
     : WrappedC<module_t>(Plx_new_module(name.unwrap()))

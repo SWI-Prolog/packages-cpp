@@ -833,7 +833,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlAtom atom1("atom1");
   PlAtom atom2(L"原子2");
   PlAtom atom2a("原子2", PlEncoding::UTF8);
-  PlAtom atom2b(2, "原子2", PlEncoding::UTF8);
+  PlAtom atom2b(7, "原子2", PlEncoding::UTF8);
   // PlAtom atom2c(PlEncoding::UTF8, 2, "原子2"); // deprecated
   PlAtom atom3(std::string("atom3"));
   PlAtom atom4(std::wstring(L"原子4"));

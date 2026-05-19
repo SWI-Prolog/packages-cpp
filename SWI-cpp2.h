@@ -706,7 +706,7 @@ public:
   [[nodiscard]] bool unify_atom(const char* v, PlEncoding rep=ENC_INPUT) const
     { return Plx_unify_chars(unwrap(), PL_ATOM | static_cast<int>(rep), static_cast<size_t>(-1), v); }
   [[nodiscard]] bool unify_atom(const wchar_t*        v) const { return Plx_unify_wchars(unwrap(), PL_ATOM, static_cast<size_t>(-1), v); }
-  [[nodiscard]] bool unify_atom(const std::string&    v) const { return Plx_unify_atom_nchars(unwrap(), v.size(), v.data()); }
+  [[nodiscard]] bool unify_atom(const std::string&    v, PlEncoding rep=ENC_INPUT) const { return Plx_unify_chars(unwrap(), static_cast<int>(rep)|PL_ATOM, v.size(), v.data()); }
   [[nodiscard]] bool unify_atom(const std::wstring&   v) const { return Plx_unify_wchars(unwrap(), PL_ATOM, v.size(), v.data()); }
   [[nodiscard]] bool unify_list_codes(const char*     v) const { return Plx_unify_list_codes(unwrap(), v); } // TODO: [[deprecated]]
   [[nodiscard]] bool unify_list_chars(const char*     v) const { return Plx_unify_list_chars(unwrap(), v); } // TODO: [[deprecated]]

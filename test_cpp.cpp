@@ -166,10 +166,11 @@ PREDICATE(hello4, 1)
   return hello_world.unify_term(hello_world_compound);
 }
 
-PREDICATE(hello5, 3)
+PREDICATE(hello5, 4)
 { PlCheckFail(A1.unify_atom("abc"));
   PlCheckFail(A2.unify_atom(std::wstring(L"世界")));
   PlCheckFail(A3.unify_chars(PL_ATOM|REP_UTF8, -1, "世界"));
+  PlCheckFail(A4.unify_atom(std::string("世界"), PlEncoding::UTF8));
   return true;
 }
 
@@ -772,7 +773,7 @@ PREDICATE(ensure_PlTerm_forward_declarations_are_implemented, 0)
   PlTerm_atom p_atom4(std::string("abc"));
   PlTerm_atom p_atom5(std::wstring(L"世界"));
   PlTerm_atom p_atom5a(std::string("世界"), PlEncoding::UTF8);
-  
+
   PlTerm_term_t t_t(Plx_new_term_ref());
   PlTerm_term_t t_null(PlTerm::null);
   PlTerm t_t2(Plx_new_term_ref());

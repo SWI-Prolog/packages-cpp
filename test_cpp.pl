@@ -112,8 +112,8 @@ test(hello3, Out == "Hello3 世界弐\n") :-
 test(hello4, Out == hello(world)) :-
     hello4(Out).
 
-test(hello5, [Out1, Out2, Out3] == [abc, 世界, 世界]) :-
-    hello5(Out1, Out2, Out3).
+test(hello5, [Out1, Out2, Out3, Out4] == [abc, 世界, 世界, 世界]) :-
+    hello5(Out1, Out2, Out3, Out4).
 
 test(hello6, [Out1, Out2, Out3] == [abc, 世界, 世界]) :-
     hello6(Out1, Out2, Out3).

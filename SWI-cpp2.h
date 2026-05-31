@@ -66,7 +66,6 @@ particularly integer conversions.
 #include <string>
 #include <cassert>
 #include <memory>
-#include <type_traits>
 #include <typeinfo>
 
 #if INT_MAX != 0x7fffffff
@@ -91,11 +90,11 @@ particularly integer conversions.
 #endif
 
 class PlAtom;
-class PlTerm;
-class PlTermv;
+class PlBlob;
 class PlRecord;
 class PlRecordExternalCopy;
-class PlBlob;
+class PlTerm;
+class PlTermv;
 
 
 // PlExceptionBase is used for try-catch that handles the exceptions
@@ -180,7 +179,8 @@ inline void PlCheckFail(bool rc);
 		 * COMMON OPERATIONS (TEMPLATE) *
 		 *******************************/
 
-template <typename C_t> class WrappedC
+// Thin wrapper for a SWI-Prolog C type "C_t":
+template<typename C_t> class WrappedC
 {
 private:
   C_t C_ = null; // The wrapped value - access by unwrap(), unwrap_as_ptr(), or PlUnwrapAsPtr()
@@ -203,7 +203,7 @@ public:
   // This simple wrapper class doesn't need a move constructor or
   // move operator =.
 
-  ~WrappedC() { }
+  ~WrappedC() { }  // do nothing: C++ lifetimes don't match Prolog lifetimes
 
   operator bool() const = delete; // Use not_null(), is_null() instead
   bool operator ==(WrappedC<C_t> o) const { return C_ == o.C_; }
@@ -219,14 +219,16 @@ public:
   void reset_wrapped(C_t v) { C_ = v; }
 };
 
-// TODO: use PlEncoding wherever a method takes a char* or std::string.
+// Define an enum for the various text representations for the
+// "get/put/unify string" methods:
+
 // TODO: #define SWI_DEFAULT_TEXT_ENCODING EncUTF8
 //       (set outside SWI-cpp2.h, with an appropriate default)
-// For the various "get/put/unify string" methods:
 typedef enum class PlEncoding
 { Latin1 = REP_ISO_LATIN_1,
   UTF8   = REP_UTF8,
-  Locale = REP_MB
+  Locale = REP_MB,
+  RepFn  = REP_FN
 } PlEncoding;
 static constexpr PlEncoding ENC_INPUT = PlEncoding::Latin1; // TODO: EncUTF8?
 static constexpr PlEncoding ENC_OUTPUT = PlEncoding::Locale;
@@ -236,6 +238,7 @@ static constexpr PlEncoding ENC_OUTPUT = PlEncoding::Locale;
 		 *  PL_STRINGS_{MARK,RELEASE}   *
 		 *******************************/
 
+// Thin RAII wrapper for PL_STRINGS_{MARK,RELEASE}
 class PlStringBuffers
 { // This class depends on the details of PL_STRINGS_MARK() and PL_STRINGS_RELEASE().
 private:
@@ -255,11 +258,11 @@ public:
 		 *  PL_{acquire,release}_stream *
 		 *******************************/
 
-// TODO: document this.
-// In brief, this is RAII for PL_{acquire,release_stream}.
+// Thin RAII wrapper for PL_{acquire,release_stream}.
 // To use:
 //    PlAcquireStream strm(other_stream);
 //    Sfprintf(strm, ...);
+// TODO: document this in pl2cpp.plx.
 
 class PlAcquireStream
 {
@@ -289,6 +292,7 @@ private:
 		 *	 PROLOG CONSTANTS	*
 		 *******************************/
 
+// Thin wrapper for SWI-Prolog C type atom_t:
 class PlAtom : public WrappedC<atom_t>
 {
 public:
@@ -382,6 +386,7 @@ private:
   }
 };
 
+// Thin wrapper for SWI-Prolog C type functor_t:
 class PlFunctor : public WrappedC<functor_t>
 {
 public:
@@ -425,7 +430,7 @@ public:
   size_t arity() const { return Plx_functor_arity(unwrap()); }
 };
 
-
+// Thin wrapper for SWI-Prolog C type module_t:
 class PlModule : public WrappedC<module_t>
 {
 public:
@@ -453,6 +458,7 @@ public:
 		 *     GENERIC PROLOG TERM	*
 		 *******************************/
 
+// Thin wrapper for SWI-Prolog C type term_t:
 class PlTerm : public WrappedC<term_t>
 {
 protected:
@@ -469,7 +475,7 @@ public:
   // The following constructor is the same as to PlTerm_term_t(); the
   // latter is for consistency with other constructors
   // (PlTerm_integer(), etc.)  and the former is to make some template
-  // programming eaiser.
+  // programming easier.
   explicit PlTerm(term_t t)
     : WrappedC<term_t>(t)
   { }
@@ -737,10 +743,9 @@ public:
   [[nodiscard]] bool unify_list(PlTerm h, PlTerm t)      const { return Plx_unify_list(unwrap(), h.unwrap(), t.unwrap()); }
   [[nodiscard]] bool unify_bool(bool val)                const { return Plx_unify_bool(unwrap(), val); }
 
-
   [[nodiscard]] bool unify_blob(const PlBlob* blob) const;
-  template<typename T>
-  [[nodiscard]] bool unify_blob(std::unique_ptr<T>* blob) const;
+  template<typename MyBlob>
+  [[nodiscard]] bool unify_blob(std::unique_ptr<MyBlob>* blob) const;
   [[nodiscard]] bool unify_blob(const void *blob, size_t len, const PL_blob_t *type) const
   { return Plx_unify_blob(unwrap(), const_cast<void*>(blob), len, const_cast<PL_blob_t*>(type)); }
 
@@ -799,10 +804,9 @@ private:
 };
 
 
-// PlTermScoped is an *experimental* interface, which may change
-// in the future. It implements a PlTerm that is automatically
-// freed when it goes out of scope. The API is similar to
-// std::unique_ptr.
+// PlTermScoped is an *experimental* interface, which may change in
+// the future. It implements a PlTerm that is automatically freed when
+// it goes out of scope. The API is similar to std::unique_ptr.
 
 class PlTermScoped : public PlTerm
 {
@@ -900,6 +904,9 @@ namespace std
 }
 
 
+// Used to create a PlTerm (term_t) from an atom (PlAtom or atom_t)
+// with shortcuts for creating the atom from a string. Not to be
+// confused with PlCompound and PlTerm_string):
 class PlTerm_atom : public PlTerm
 {
 public:
@@ -922,12 +929,14 @@ PlAtom::write(IOSTREAM *s, int flags) const {
   return PlTerm_atom(*this).write(s, 1200, flags & ~PL_WRT_NEWLINE);
 }
 
+// Used to create a PlTerm (term_t) that is a var (new_term_ref)
 class PlTerm_var : public PlTerm
 {
 public:
   explicit PlTerm_var() { } // PlTerm() calls Pl_new_term_ref()
 };
 
+// Use to create a PlTerm (term_t) from a term (deprecated)
 class PlTerm_term_t : public PlTerm
 {
 public:
@@ -936,6 +945,7 @@ public:
     : PlTerm(t) {}
 };
 
+// Used to create a PlTerm (term_t) that is an integer
 class PlTerm_integer : public PlTerm
 {
 public:
@@ -953,12 +963,14 @@ public:
   explicit PlTerm_integer(unsigned short     v) { Plx_put_uint64(unwrap(), v); }
 };
 
+// Used to create a PlTerm (term_t) that is a float
 class PlTerm_float : public PlTerm
 {
 public:
   explicit PlTerm_float(double v) { Plx_put_float(unwrap(), v);  }
 };
 
+// Used to create a PlTerm (term_t) that is a (blob) pointer):
 // TODO: deprecate PlTerm_pointer and replace by C++ interface to blobs
 //       (see also PlAtom::blob_data(), PlTerm::as_pointer())
 class PlTerm_pointer : public PlTerm
@@ -969,7 +981,7 @@ public:
 
 inline PlModule PlContext();
 
-
+// Thin wrapper for SWI-Prolog C type predicate_t:
 class PlPredicate : public WrappedC<predicate_t>
 {
 public:
@@ -1001,6 +1013,7 @@ public:
 		 *	   TERM VECTOR		*
 		 *******************************/
 
+// Thin wrapper for an array of SWI-Prolog C type term_t:
 class PlTermv
 {
 private:
@@ -1051,6 +1064,9 @@ public:
 		 *	 SPECIALISED TERMS	*
 		 *******************************/
 
+// Thin wrapper for SWI-Prolog C type term_t from the string
+// representation (not to be confused with PlTerm_atom and
+// PlTerm_string):
 class PlCompound : public PlTerm
 {
 public:
@@ -1066,7 +1082,8 @@ public:
   PlCompound(const std::wstring& functor, const PlTermv& args);
 };
 
-
+// Used to create a PlTerm (term_t) that is a string (not to
+// be confused with PlCompound and PlTerm_atom):
 class PlTerm_string : public PlTerm
 {
 public:
@@ -1084,7 +1101,7 @@ public:
   { PlEx<int>(Plx_unify_wchars(unwrap(), PL_STRING, text.size(), text.data())); }
 };
 
-
+// Used to create a PlTerm (term_t) from a list of codes
 class PlTerm_list_codes : public PlTerm
 {
 public:
@@ -1093,7 +1110,7 @@ public:
   PlTerm_list_codes(const wchar_t *text) { PlEx<int>(Plx_unify_wchars(unwrap(), PL_CODE_LIST, static_cast<size_t>(-1), text)); }
 };
 
-
+// Used to create a PlTerm (term_t) from a list of chars
 class PlTerm_list_chars : public PlTerm
 {
 public:
@@ -1102,7 +1119,7 @@ public:
   PlTerm_list_chars(const wchar_t *text) { PlEx<int>(Plx_unify_wchars(unwrap(), PL_CHAR_LIST, static_cast<size_t>(-1), text)); }
 };
 
-
+// Thin wrapper for SWI-Prolog C type record_t:
 class PlRecord : public WrappedC<record_t>
 {
 public:
@@ -1158,7 +1175,8 @@ public:
   }
 };
 
-
+// Used as a deleter for std::shared_ptr<PlRecord> or
+// std::unique_ptr<PlRecord>:
 class PlRecordDeleter
 {
 public:
@@ -1168,7 +1186,8 @@ public:
   }
 };
 
-
+// Thin wrapper for SWI-Prolog external records (see
+// PL_record_external()):
 class PlRecordExternalCopy
 {
 private:
@@ -1376,6 +1395,7 @@ PlCheckFail(bool rc)
 		 *             LISTS		*
 		 *******************************/
 
+// Used to iterate through a list
 class PlTerm_tail : public PlTerm
 {
 public:
@@ -1397,7 +1417,7 @@ public:
 		 *	     REGISTER		*
 		 *******************************/
 
-
+// Thin wrapper around SWI-Prolog C type control_t:
 class PlControl : public WrappedC<control_t>
 {
 public:
@@ -1412,7 +1432,7 @@ public:
 
   [[nodiscard]] PlPredicate foreign_context_predicate() const { return PlPredicate(Plx_foreign_context_predicate(unwrap())); }
 
-  template <typename ContextType>
+  template<typename ContextType>
   [[nodiscard]]
   std::unique_ptr<ContextType>
   context_unique_ptr()
@@ -1421,7 +1441,7 @@ public:
 
 };
 
-
+// Thin wrapper around SWI-Prolog PL_register_foreign_in_module():
 class PlRegister
 {
 public:
@@ -1470,6 +1490,7 @@ class PlOpenForeignFrameFailed : public PlExceptionBase
   }
 };
 
+// Thin wrapper around SWI-Prolog C type fid_t:
 class PlFrame : public WrappedC<fid_t>
 {
 public:
@@ -1508,7 +1529,7 @@ public:
 
 [[nodiscard]] bool PlRewindOnFail(std::function<bool()> f);
 
-
+// Thin wrapper around SWI-Prolog C type qid_t:
 class PlQuery : public WrappedC<qid_t>
 {
 public:
@@ -1641,6 +1662,7 @@ protected:
   std::string what_str_; // keeps copy of what() so that c_str() works
 };
 
+// Thin wrapper around SWI-Prolog PL_initialise():
 class PlEngine
 {
 public:
@@ -1706,7 +1728,7 @@ private:
 		 *  PL_{get,acquire,release}_stream *
 		 ***********************************/
 
-
+// Thin wrapper around SWI-Prolog C type IOSTREAM:
 class PlStream
 {
 public:
@@ -1924,7 +1946,8 @@ private:
 		 *     NONDET HELPERS		*
 		 *******************************/
 
-template <typename ContextType>
+// Deprecated
+template<typename ContextType>
 // TODO: [[deprecated("Use PlControl::context_unique_ptr")]]
 class PlForeignContextPtr
 {
@@ -2129,6 +2152,7 @@ public:
 #define PL_BLOB_SIZE \
   virtual size_t blob_size_() const override { return sizeof *this; }
 
+// Thin wrapper around SWI-Prolog C type blob_t:
 class PlBlob
 {
 public:

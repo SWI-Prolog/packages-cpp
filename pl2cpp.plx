@@ -71,7 +71,7 @@ cause unexpected implicit conversions.\footnote{If
 there is an implicit conversion operator from \ctype{PlTerm} to
 \ctype{term_t} and also to \ctype{char*}, then the \const{[]} operator
 is ambiguous if \exam{f} is overloaded to accept a \ctype{term_t} or
-\ctype{char*} in the code \exam{PlTerm t=...; f(t[0])}.  }
+\ctype{char*} in the code \exam{PlTerm t=\ldots; f(t[0])}.  }
 
 Prolog errors are now converted to C++ exceptions (which contain
 the exception term rather being a subclass of \ctype{PlTerm} as in
@@ -128,7 +128,7 @@ of code. More specifically:
 \item
     The \ctype{PlException} class is now a subclass of \ctype{std::exception}
     and encapsulates a Prolog error.
-    Prolog errors are converted into \exam{throw PlException(...)}.
+    Prolog errors are converted into \exam{throw PlException(\ldots)}.
     If the user code does not catch the \ctype{PlException}, the PREDICATE()
     macro converts the error to a Prolog error upon return to the
     Prolog caller.
@@ -179,8 +179,8 @@ of code. More specifically:
     \ctype{PlString} has been renamed to \ctype{PlTerm_string} to make it clear
     that it's a term that contains a Prolog string.
   \item
-    More \exam{PL_...(term_t, ...)} methods have been added to \ctype{PlTerm},
-    and \exam{PL_...(atom_t,  ...)} methods have been added to \ctype{PlAtom}.
+    More \exam{PL_\ldots(term_t, \ldots)} methods have been added to \ctype{PlTerm},
+    and \exam{PL_\ldots(atom_t,  \ldots)} methods have been added to \ctype{PlAtom}.
     Where appropriate, the arguments use \ctype{PlTerm}, \ctype{PlAtom}, etc.
     instead of \ctype{term_t}, \ctype{atom_t}, etc.
   \item
@@ -190,12 +190,14 @@ of code. More specifically:
     The wrapped C types fields (\ctype{term_t}, \ctype{atom_t}, etc.)
     have been renamed from \exam{handle}, \exam{ref}, etc. to
     \exam{C_}.\footnote{This is done by subclassing from
-    \ctype{Wrapped<term_t>}, \ctype{Wrapped<atom_t>}, etc., which
-    define the field \exam{C_}, standard constructors, the methods
+    \ctype{Wrapped<term_t>}, \ctype{Wrapped<atom_t>}, etc.
+    defining the standard constructors, the methods
     is_null(), not_null(), reset(), reset(v), reset_wrapped(v),
-    plus the constant \const{null}.} This value can be accessed by
+    plus the constant \const{null}.} This C value can be accessed using
     the unwrap() and unwrap_as_ptr() methods.
-    There is also a ``friend'' function PlUnwrapAsPtr().
+    There is also a ``friend'' function PlUnwrapAsPtr() that also ensures
+    the return value is set to \const{WrappedC<\ldots>.null} as
+    appropriate.
   \item
     A convenience function \exam{PlControl::context_unique_ptr<ContextType>()}
     has been added, to simplify dynamic memory allocation in
@@ -422,7 +424,12 @@ Prolog variables are dynamically typed and all information is passed
 around using the C-interface type \ctype{term_t}. In C++,
 \ctype{term_t} is embedded in the \jargon{lightweight} class
 \ctype{PlTerm}.  Other lightweight classes, such as \ctype{PlAtom} for
-\ctype{atom_t} are also provided.  Constructors and operator
+\ctype{atom_t} are also provided (also \ctype{PlFunctor},
+\ctype{PlModule}, \ctype{PlTerm}, \ctype{PlPredicate},
+\ctype{PlRecord}, \ctype{PlControl}, \ctype{PlFrame},
+\ctype{PlQuery}).\footnote{The template \ctype{WrappedC<\ldots>} is
+used for this.}
+Constructors and operator
 definitions provide flexible operations and integration with
 important C-types (\ctype{char*}, \ctype{wchar_t*}, \ctype{long} and
 \ctype{double}), plus the C++-types (\ctype{std::string},
@@ -1141,14 +1148,14 @@ The methods are:
      Wrapper of PL_get_pointer_ex(), throwing an exception if the term isn't a blob.
 
   \cfunction{const std::string}{PlTerm::get_nchars}{unsigned int flags}
-  Calls PL_get_nchars(..., flags) and converts the result to a \ctype{std::string}.
+  Calls PL_get_nchars(\ldots, flags) and converts the result to a \ctype{std::string}.
   The flags \const{BUF_MALLOC}, \const{BUF_STACK}, and \const{BUF_ALLOW_STACK}
   are ignored and replaced by \const{BUF_DISCARDABLE}. The call to PL_get_nchars()
   is wrapped in a \ctype{PlStringBuffers} so that any generated string is
   freed when the result is returned by copying to a \ctype{std::string}.
 
   \cfunction{const std::wstring}{PlTerm::get_wchars}{unsigned int flags}
-  Calls PL_get_wchars(..., flags) and converts the result to a \ctype{std::wstring}.
+  Calls PL_get_wchars(\ldots, flags) and converts the result to a \ctype{std::wstring}.
   The flags \const{BUF_MALLOC}, \const{BUF_STACK}, and \const{BUF_ALLOW_STACK}
   are ignored and replaced by \const{BUF_DISCARDABLE}.
 
@@ -1588,7 +1595,7 @@ Instead, it's easier to use \ctype{std::unique_ptr}, which takes
 care of every return or exception path:
 \begin{code}
 MyData *foo(int some_value) {
-  std::unique_ptr<MyData> data(new MyData(...));
+  auto data = std::make_unique<MyData>(...);
   data->some_field = some_value;
   if (! data->validate() )
     throw std::runtime_error("Failed to validate data");
@@ -1611,8 +1618,8 @@ current C++ API for blobs takes advantage of this - in particular,
 there are two methods for unifying a blob:
 \begin{itemize}
 \item PlTerm::unify_blob(const PlBlob* blob) - does no memory management
-\item PlTerm::unify_blob(std::unique_ptr<T>* blob) - a function template,
-    where \arg{T} must derive from \ctype{PlBlob}.  If
+\item PlTerm::unify_blob(std::unique_ptr<MyBlob>* blob) - a function template,
+    where \arg{MyBlob} must derive from \ctype{PlBlob}.  If
     unification fails or raises an error, the memory is automatically freed;
     otherwise the memory's ownership is transferred to Prolog, which may
     garbage collect the blob by calling the blob's destructor.
@@ -1623,7 +1630,7 @@ there are two methods for unifying a blob:
 \ctype{unique_ptr} allows specifying the delete function. For example,
 the following can be used to manage memory created with PL_malloc():
 \begin{code}
-  std::unique_ptr<void, decltype(&PL_free)> ptr(PL_malloc(...), &PL_free);
+  std::unique_ptr<void, decltype(&PL_free)> ptr(PL_malloc(\ldots), &PL_free);
 \end{code}
 or, when memory is allocated within a PL_*() function (in this case,
 using the Plx_*() wrapper for PL_get_nchars()):
@@ -1638,8 +1645,9 @@ The current C++ API assumes that the C++ blob is allocated on the
 heap. If the programmer wishes to use the stack,
 they can use \ctype{std::unique_ptr} to automatically delete the
 object if an error is thrown -
-PlTerm::unify_blob(std::unique_ptr<T>*) prevents the automatic
-deletion if unification succeeds (where \arg{T} derives from \ctype{PlBlob}).
+PlTerm::unify_blob(std::unique_ptr<MyBlob>*) prevents automatic
+deletion if unification succeeds (where \arg{MyBlob} derives from
+\ctype{PlBlob}).
 
 A \ctype{unique_ptr} needs a bit of care when it is passed as an
 argument. The unique_ptr::get() method can be used to get the ``raw''
@@ -1654,9 +1662,9 @@ local variable. For example, the code for unify_blob() is something
 like:
 
 \begin{code}
-template<typename T>
-bool PlTerm::unify_blob(std::unique_ptr<T>* b) const
-{ std::unique_ptr<T> blob(std::move(*b));
+template<typename MyBlob>
+bool PlTerm::unify_blob(std::unique_ptr<MyBlob>* b) const
+{ std::unique_ptr<MyBlob> blob(std::move(*b));
   if ( !unify_blob(blob.get()) )
     return false;
   (void)blob.release();
@@ -1693,7 +1701,8 @@ TL;DR: Use PL_BLOB_DEFINITION() to define the blob with the flag
 \const{PL_BLOB_NOCOPY} and the default \ctype{PlBlob} wrappers; define
 your struct as a subclass of \ctype{PlBlob} with no copy constructor,
 move constructor, or assignment operator; create a blob using
-\exam{std::unique_ptr<MyBlob>(new MyBlob(...))} (or \exam{std::make_unique<MyBlob>(...)}), call PlTerm::unify_blob().
+\exam{std::make_unique<MyBlob>(\ldots)},
+call PlTerm::unify_blob().
 Optionally, define one or more of: compare_fields(), write_fields(),
 save(), load() methods (these are described after the sample code).
 
@@ -1709,7 +1718,7 @@ the following:
 \begin{itemize}
 \item Creates the blob using
      \begin{code}
-auto ref = std::unique_ptr<MyBlob>(new MyBlob(...));
+auto ref = std::make_unique<MyBlob>(...);
       \end{code}
       or
       \begin{code}
@@ -1906,7 +1915,7 @@ PREDICATE(create_my_blob, 2)
   // deleted if an error happens - the auto-deletion is disabled by
   // ref.release() inside unify_blob() before returning success.
 
-  auto ref = std::unique_ptr<MyBlob>(new MyBlob(A1.as_atom().as_string()));
+  auto ref = std::make_unique<MyBlob>(A1.as_atom().as_string());
   return A2.unify_blob(&ref);
 }
 
@@ -2007,7 +2016,7 @@ PREDICATE(portray_my_blob, 2)
       only Prolog function that can be called is
       PlAtom::unregister_ref(); and the MyBlob::close() method must
       not throw an exception.\footnote{It isn't enough to just catch
-      exceptions; for example, if the code throws \exam{PlUnknownError("...")},
+      exceptions; for example, if the code throws \exam{PlUnknownError("\ldots")},
       that will try to create a Prolog term,
       which will crash because the environment for creating terms is
       not available.}  Because there is no mechanism for reporting an
@@ -2072,7 +2081,7 @@ PREDICATE(portray_my_blob, 2)
 
   \begin{itemize}
 
-  \item \exam{std::unique_ptr<MyBlob>()} creates a MyBlob that is
+  \item \exam{std::make_unique<MyBlob>()} creates a MyBlob that is
       deleted when it goes out of scope. If an exception occurs
       between the creation of the blob or if the call to unify_blob()
       fails, the pointer will be automatically freed (and the
@@ -2085,7 +2094,7 @@ PREDICATE(portray_my_blob, 2)
       to \const{nullptr}, so any attempt to use \arg{ref} after a call
       to PlTerm::unify_blob() will be an error.
 
-      \ctype{std::make_unique<MyBlob>(...)} can also be used to create
+      \ctype{std::make_unique<MyBlob>(\ldots)} can also be used to create
       \arg{ref}; it can be passed to PlTerm::unify_blob() directly.
 
   \end{itemize}
@@ -2219,7 +2228,7 @@ struct MyFileBlob : public PlBlob
 };
 
 PREDICATE(my_file_open, 4)
-{ auto ref = std::unique_ptr<MyFileBlob>(new MyFileBlob(A2, A3, A4));
+{ auto ref = std::make_unique<MyFileBlob>(A2, A3, A4);
   return A1.unify_blob(&ref);
 }
 
@@ -2621,7 +2630,7 @@ glocates the predicate. The method PlQuery::next_solution() yields
 values are possible if the flag \const{PL_Q_EXT_STATUS} was specified
 in the constructor. If the goal yields a Prolog exception, you can
 handle this and convert the Prolog exception to a C++ exception using
-`PlWrap<int>(...)`.  A return to Prolog does an implicit ``cut''
+`PlWrap<int>(\ldots)`.  A return to Prolog does an implicit ``cut''
 (PL_cut_query()); this can also be done explicitly by the
 PlQuery::cut() method.
 
@@ -2777,7 +2786,8 @@ encoding is given by an optional \ctype{PlEncoding} argument:
 typedef enum class PlEncoding
 { Latin1 = REP_ISO_LATIN_1,
   UTF8   = REP_UTF8,
-  Locale = REP_MB
+  Locale = REP_MB,
+  RepFn  = REP_FN
 } PlEncoding;
 static constexpr PlEncoding ENC_INPUT  = PlEncoding::Latin1;
 static constexpr PlEncoding ENC_OUTPUT = PlEncoding::Locale;
@@ -3036,7 +3046,7 @@ by PlTerm::PlTerm(void*).
 \end{description}
 
 In addition, the Prolog type (\const{PL_VARIABLE},
-\const{PL_ATOM}, ... \const{PL_DICT})
+\const{PL_ATOM}, \ldots, \const{PL_DICT})
 can be determined using the type() method. There are also boolean
 methods that check the type:
 \begin{description}
@@ -3091,8 +3101,8 @@ See also \secref{cpp2-plframe}.
     \nodescription
     \cfunction{bool}{PlTerm::unify_blob}{PlBlob* blob}
     \nodescription
-    \cfunction{bool}{PlTerm::unify_blob}{std::unique_ptr<T>* blob}
-    A function template, where \arg{T} must derive from \ctype{PlBlob}.
+    \cfunction{bool}{PlTerm::unify_blob}{std::unique_ptr<MyBlob>* blob}
+    A function template, where \arg{MyBlob} must derive from \ctype{PlBlob}.
     Does a call to PL_unify_blob() and, if successful, calls
     std::unique_ptr::release() to pass ownership to the Prolog blob;
     on failure or error, deletes the pointer (and calls its destructor).
@@ -3508,7 +3518,7 @@ Create a new array of term-references, all holding variables.
     \constructor{PlTermv}{size_t size, term_t t0}
 Convert a C-interface defined term-array into an instance.
     Typyically, \arg{t0} was created using Pl_new_term_refs(size).
-    \constructor{PlTermv}{PlTerm ...}
+    \constructor{PlTermv}{PlTerm \ldots}
 Create a vector from 1 to 5 initialising arguments.  For example:
 
 \begin{code}
@@ -4458,7 +4468,7 @@ type.
 A \jargon{domain error} expresses that a term satisfies the basic
 Prolog type expected, but is unacceptable to the restricted domain
 expected by some operation.  For example, the standard Prolog open/3
-call expect an \const{io_mode} (read, write, append, ...). If an integer
+call expect an \const{io_mode} (read, write, append, \ldots). If an integer
 is provided, this is a \jargon{type error}, if an atom other than one
 of the defined io-modes is provided it is a \jargon{domain error}.
 

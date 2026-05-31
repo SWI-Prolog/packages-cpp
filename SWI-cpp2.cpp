@@ -346,12 +346,15 @@ bool PlTerm::unify_blob(const PlBlob* blob) const
                             blob->blob_size_(), blob->blob_t_);
 }
 
-template<typename T>
+template<typename MyBlob>
 _SWI_CPP2_CPP_inline
-bool PlTerm::unify_blob(std::unique_ptr<T>* b) const
-{ static_assert(std::is_base_of<PlBlob, T>::value,
-                "T must derive from PlBlob");
-  std::unique_ptr<T> blob(std::move(*b));
+bool PlTerm::unify_blob(std::unique_ptr<MyBlob>* b) const
+{ // Parameter `b` should be std::unique_ptr<PlBlob>* but C++ can't
+  // figure out the derefenced type, requiring awkward
+  // static_cast<>s. Instead, do this check:
+  static_assert(std::is_base_of<PlBlob, MyBlob>::value,
+                "unique_ptr<...> must derive from PlBlob");
+  std::unique_ptr<MyBlob> blob(std::move(*b));
   if ( !unify_blob(blob.get()) )
     return false;
   (void)blob.release(); // Pass ownership to the Prolog blob (`this`)

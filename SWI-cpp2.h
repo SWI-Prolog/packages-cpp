@@ -1822,6 +1822,17 @@ private:
 	  } catch ( const PlException& ex ) \
 	  { ex.plThrow(); \
             error_action; \
+	  } catch ( ... ) \
+	  { /* Backstop for exceptions we cannot match by type.  Notably, on \
+	       macOS a foreign extension built with GCC/libstdc++ runs in a \
+	       process that also loads the system libc++/libc++abi.  As \
+	       operator new is a coalesced weak symbol it resolves to libc++, \
+	       so `new` throws a libc++ std::bad_alloc whose type_info differs \
+	       from the libstdc++ one named in the catch above and slips \
+	       through.  Without this clause such an exception reaches \
+	       std::terminate() and aborts the process. */ \
+	    PlUnknownError("C++ exception").plThrow(); \
+            error_action; \
 	  }
 
 #define NAMED_PREDICATE(plname, name, arity) \

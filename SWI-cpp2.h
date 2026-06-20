@@ -1446,7 +1446,7 @@ class PlRegister
 {
 public:
   PlRegister(const char *module, const char *name, int arity,
-	    foreign_t (f)(term_t t0, int a, control_t ctx))
+	    foreign_t (f)(term_t t0, size_t a, control_t ctx))
   { PlEx<bool>(PL_register_foreign_in_module(module, name, arity, reinterpret_cast<pl_function_t>(f), PL_FA_VARARGS));
   }
 
@@ -1467,7 +1467,7 @@ public:
 
   // for non-deterministic calls
   PlRegister(const char *module, const char *name, int arity,
-	     foreign_t (f)(term_t t0, int a, control_t ctx), short flags)
+	     foreign_t (f)(term_t t0, size_t a, control_t ctx), short flags)
   { PlEx<bool>(PL_register_foreign_in_module(module, name, arity, reinterpret_cast<pl_function_t>(f), flags));
   }
 

@@ -1053,7 +1053,7 @@ test(nchars, S-FS-FS2 == "123"-"atomic"-"atomic") :-
     get_nchars_string(123, F, S, FS2).
 test(nchars, S-F == "123"-"atomic") :-
     get_nchars_string(123, [atomic], S, F).
-test(nchars, error(type_error(atomic,f(a)))) :-
+test(nchars, error(type_error(string,f(a)))) :-
     get_nchars_string(f(a), [atomic], _, _).
 test(nchars, S-F == "+(a,b)"-"all,write_canonical") :-
     get_nchars_string(a+b, [write_canonical,all], S, F).

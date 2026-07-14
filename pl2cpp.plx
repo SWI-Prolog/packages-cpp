@@ -239,11 +239,26 @@ rewritten in C++. As before, it is compiled by
   swipl-ld -o calc -goal true calc.cpp calc.pl
 \end{code}
 
+The Prolog file is simple:
+
+\begin{code}
+calc(String) :-
+    term_string(Expr, String),
+    A is Expr,
+    writeln(A).
+\end{code}
+
+The C part of the application parses the command line options,
+initialises the Prolog engine, locates the \verb$calc/1$ predicate and calls
+it.  The code is in \figref{calccpp}.
+
+\begin{figure}
 \begin{code}
 #include <string>
 #include <SWI-cpp2.h>
 
-int main(int argc, char **argv) {
+int
+main(int argc, char **argv) {
 
   PlEngine e(argv[0]);
 
@@ -265,6 +280,9 @@ int main(int argc, char **argv) {
   return PlWrap<int>(q.next_solution()) ? 0 : 1;
 }
 \end{code}
+\caption{C++ source for the calc application}
+\label{fig:calccpp}
+\end{figure}
 
 \section{Sample code}
 \label{sec:cpp2-sample-code}

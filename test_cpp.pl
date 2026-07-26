@@ -893,13 +893,15 @@ test(blob) :-
     create_my_blob('foo', A),
     with_output_to(string(Astr), write(current_output, A)),
     assertion(string_concat("<my_blob>(", _, Astr)), % The pointer part is implementation-defined
+    assertion(\+ blob_released(A)),
     free_blob(A),
+    assertion(blob_released(A)),
+    % A released blob does not reach its own write(): that would
+    % dereference the object that is gone.  It prints as
+    % <Type>(freed), using the registered blob type name.
     with_output_to(string(Astr_freed), write(current_output, A)),
-    nil_repr(Nil),
-    format(string(Rstr), ">(~w)", [Nil]),
-    % The name part implementation-defined (e.g., mangled type name)
-    assertion(string_concat("<", _, Astr_freed)),
-    assertion(string_concat(_, Rstr, Astr_freed)).
+    assertion(Astr_freed == "<my_blob>(freed)"),
+    assertion(blob(A, my_blob)).
 
 % The following attempts to test the handling of close errors in the
 % "release" callback, which calls ~MyBlob. It doesn't throw an error

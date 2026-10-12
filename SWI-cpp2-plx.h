@@ -60,6 +60,10 @@
 #define PLX_BOOL int
 #endif
 
+#if !defined(PL_ARITY_AS_SIZE) || !defined(PL_ARITY_AS_SIZE)
+#error SWI-cpp2.h requires PL_ARITY_AS_SIZE
+#endif
+
 /* Wrapper macros - each PL_*() function has a corresponding Plx_*() wrapper:
      PLX_EXCE is for functions whose return code only indicates an error; this error
               is turned into a "throw".
@@ -119,7 +123,11 @@ PLX_EXCE(int                     , close_query                     , (qid_t qid)
 PLX_EXCE(int                     , cut_query                       , (qid_t qid), (qid))
 PLX_ASIS(qid_t                   , current_query                   , (), ())
 PLX_ASIS(PL_engine_t             , query_engine                    , (qid_t qid), (qid))
+PLX_ASIS(term_t                  , query_arguments                 , (qid_t qid), (qid))
 PLX_ASIS(PLX_BOOL                , can_yield                       , (), ())
+PLX_ASIS(void*                   , set_query_data                  , (qid_t qid, unsigned int offset, void *data), (qid, offset, data))
+// TODO: document PL_query_data()
+PLX_ASIS(void*                   , query_data                      , (qid_t qid, unsigned int offset), (qid, offset))
 // [[nodiscard]]
 PLX_WRAP(PLX_BOOL                , call                            , (term_t t, module_t m), (t, m))
 // TODO: Needs special case - see PL_next_solution():
@@ -130,6 +138,8 @@ PLX_ASIS(PLX_BOOL                , raise_exception                 , (term_t exc
 PLX_VOID(void                    , clear_exception                 , (), ())
 // TODO: document PL_yielded()
 PLX_ASIS(term_t                  , yielded                         , (qid_t qid), (qid))
+PLX_EXCE(PLX_BOOL                , set_trace_action                , (term_t action), (action))
+PLX_EXCE(PLX_BOOL                , get_trace_context               , (term_t goal), (goal))
 PLX_EXCE(PLX_BOOL                , assert                          , (term_t term, module_t m, int flags), (term, m, flags))
 PLX_WRAP(term_t                  , new_term_refs                   , (size_t n), (n))
 PLX_WRAP(term_t                  , new_term_ref                    , (), ())
@@ -158,6 +168,8 @@ PLX_ASIS(size_t                  , functor_arity                   , (functor_t 
 PLX_ASIS(PLX_BOOL                , get_atom                        , (term_t t, atom_t *a), (t, a))
 [[nodiscard]]
 PLX_ASIS(PLX_BOOL                , get_bool                        , (term_t t, int *value), (t, value))
+[[nodiscard]]
+PLX_ASIS(PLX_BOOL                , get_stdbool                     , (term_t t, bool *value), (t, value))
 [[nodiscard]]
 PLX_ASIS(PLX_BOOL                , get_atom_chars                  , (term_t t, char **a), (t, a))
 [[nodiscard]]
@@ -310,6 +322,10 @@ PLX_ASIS(PLX_BOOL                , get_wchars                      , (term_t l, 
 // TODO: document PL_utf8_strlen
 // [[nodiscard]]
 PLX_ASIS(size_t                  , utf8_strlen                     , (const char *s, size_t len), (s, len))
+PLX_ASIS(unsigned int            , ctype_flags                     , (int chr), (chr))
+PLX_ASIS(int                     , toupper                         , (int chr), (chr))
+PLX_ASIS(int                     , tolower                         , (int chr), (chr))
+PLX_ASIS(int                     , totitle                         , (int chr), (chr))
 // [[nodiscard]]
 PLX_ASIS(PLX_BOOL                , get_int64                       , (term_t t, int64_t *i), (t, i))
 // [[nodiscard]]
@@ -333,6 +349,7 @@ PLX_EXCE(PLX_BOOL                , get_uint64_ex                   , (term_t t, 
 PLX_EXCE(PLX_BOOL                , get_intptr_ex                   , (term_t t, intptr_t *i), (t, i))
 PLX_EXCE(PLX_BOOL                , get_size_ex                     , (term_t t, size_t *i), (t, i))
 PLX_EXCE(PLX_BOOL                , get_bool_ex                     , (term_t t, int *i), (t, i))
+PLX_EXCE(PLX_BOOL                , get_stdbool_ex                  , (term_t t, bool *i), (t, i))
 PLX_EXCE(PLX_BOOL                , get_float_ex                    , (term_t t, double *f), (t, f))
 PLX_EXCE(PLX_BOOL                , get_char_ex                     , (term_t t, int *p, int eof), (t, p, eof))
 PLX_EXCE(PLX_BOOL                , unify_bool_ex                   , (term_t t, int val), (t, val))
@@ -490,6 +507,7 @@ PLX_VOID(void                    , add_to_protocol                 , (const char
 PLX_ASIS(char *                  , prompt_string                   , (IOSTREAM *fd), (fd))
 PLX_VOID(void                    , write_prompt                    , (bool dowrite), (dowrite))
 PLX_VOID(void                    , prompt_next                     , (IOSTREAM *fd), (fd))
+PLX_ASIS(bool                    , prompt_is_continuation          , (IOSTREAM *in), (in))
 PLX_ASIS(char *                  , atom_generator                  , (const char *prefix, int state), (prefix, state))
 PLX_ASIS(pl_wchar_t*             , atom_generator_w                , (const pl_wchar_t *pref, pl_wchar_t *buffer, size_t buflen, int state), (pref, buffer, buflen, state))
 

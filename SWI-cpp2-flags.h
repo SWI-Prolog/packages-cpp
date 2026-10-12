@@ -43,7 +43,7 @@
 
 // TODO: add documentation to pl2cpp.doc
 
-/* WARNING: experimetal code, subject to change
+/* WARNING: experimental code, subject to change
 
    Class \ctype{PlOptionsFlag} contains utilities for translating between a
    list of strings and an flag of bits. The flag is designated as

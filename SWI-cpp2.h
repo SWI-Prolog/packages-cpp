@@ -1546,7 +1546,7 @@ public:
                                      av.termv())),
       flags_(flags)
   { }
-  // TODO; Should resolve module only once.
+  // TODO: Should resolve module only once.
   PlQuery(const std::string& module, const std::string& name, const PlTermv& av, int flags = PL_Q_PASS_EXCEPTION)
     : WrappedC<qid_t>(Plx_open_query(PlModule(module).unwrap(),
                                      flags,
@@ -1589,6 +1589,12 @@ public:
   { if ( not_null() )
       Plx_cut_query(unwrap());
     set_null();
+  }
+
+  /* TODO: PlEngine query_engine(); */
+
+  PlTerm query_arguments()
+  { return PlTerm(Plx_query_arguments(unwrap()));
   }
 
   void close_destroy()

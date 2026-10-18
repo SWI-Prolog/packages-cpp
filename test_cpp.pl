@@ -54,8 +54,10 @@
 :- dynamic user:file_search_path/2.
 :- multifile user:file_search_path/2.
 
-:- prolog_load_context(directory, Dir),
-    asserta(user:file_search_path(my_program_home, Dir)).
+here.
+user:file_search_path(cpp_test_home, Dir) :-
+    source_file(here, File),
+    file_directory_name(File, Dir).
 
 :- multifile user:portray/1.
 
@@ -994,20 +996,19 @@ test(blob_portray, S == "MyBlob(closed)") :-
     close_my_blob(B),
     with_output_to(string(S), print(B)).
 
-expected_file_name_my_program_home(ShortPath, AbsPathOS) :-
-    once(user:file_search_path(my_program_home, Home)),
-    concat_atom([Home, '/', ShortPath], AbsPath0),
+expected_file_name_cpp_test_home(ShortPath, AbsPathOS) :-
+    absolute_file_name(cpp_test_home(ShortPath), AbsPath0),
     prolog_to_os_filename(AbsPath0, AbsPathOS).
 
-expected_file_name_my_program_home_string(ShortPath, AbsPathOS) :-
-    expected_file_name_my_program_home(ShortPath, AbsPathOS0),
+expected_file_name_cpp_test_home_string(ShortPath, AbsPathOS) :-
+    expected_file_name_cpp_test_home(ShortPath, AbsPathOS0),
     atom_string(AbsPathOS0, AbsPathOS).
 
 test(file_blob, Read == "% -*- mode: Prolog; coding: utf-8 -*-\n\n") :-
-    my_file_open(File, my_program_home('test_cpp.pl'), 'r', [search,absolute,ospath]),
+    my_file_open(File, cpp_test_home('test_cpp.pl'), 'r', [search,absolute,ospath]),
     print(File), nl,
-    absolute_file_name(my_program_home('test_cpp.pl'), Abs, [access(read)]),
-    expected_file_name_my_program_home('test_cpp.pl', AbsPathOS_atom),
+    absolute_file_name(cpp_test_home('test_cpp.pl'), Abs, [access(read)]),
+    expected_file_name_cpp_test_home('test_cpp.pl', AbsPathOS_atom),
     assertion(prolog_to_os_filename(Abs, AbsPathOS_atom)),
     my_file_filename_atom(File, Filename),
     assertion(Filename == Abs),
@@ -1015,22 +1016,22 @@ test(file_blob, Read == "% -*- mode: Prolog; coding: utf-8 -*-\n\n") :-
     my_file_close(File).
 % TODO: the following uses uninstantiated F, so explicit catch/3 is done
 % test(file_blob, error(existence_error(my_file_blob_open,F))) :-
-%     expected_file_name_my_program_home('non-existent-file', F0),
+%     expected_file_name_cpp_test_home('non-existent-file', F0),
 %     atom_string(F0, F),
-%     my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath]).
+%     my_file_open(_File, cpp_test_home('non-existent-file'), 'r', [search,absolute,ospath]).
 test(file_blob, error((existence_error(my_file_blob_open,PlF)))) :-
-    expected_file_name_my_program_home_string('non-existent-file', F),
+    expected_file_name_cpp_test_home_string('non-existent-file', F),
     prolog_to_os_filename(PlF, F),
-    my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath]).
-test(file_blob, error(existence_error(source_sink,my_program_home('non-existent-file')))) :-
-    my_file_open(_File, my_program_home('non-existent-file'), 'r', [search,absolute,ospath,read]).
-test(file_blob, error(existence_error(source_sink,my_program_home('non-existent-file')))) :-
-    absolute_file_name(my_program_home('non-existent-file'), _Abs, [access(read)]).
+    my_file_open(_File, cpp_test_home('non-existent-file'), 'r', [search,absolute,ospath]).
+test(file_blob, error(existence_error(source_sink,cpp_test_home('non-existent-file')))) :-
+    my_file_open(_File, cpp_test_home('non-existent-file'), 'r', [search,absolute,ospath,read]).
+test(file_blob, error(existence_error(source_sink,cpp_test_home('non-existent-file')))) :-
+    absolute_file_name(cpp_test_home('non-existent-file'), _Abs, [access(read)]).
 
 test(option_flags, error(domain_error('MyFileBlob-options',foo))) :-
-    my_file_open(_File, my_program_home('test_cpp.pl'), 'r', [foo,search,absolute,ospath,read]).
+    my_file_open(_File, cpp_test_home('test_cpp.pl'), 'r', [foo,search,absolute,ospath,read]).
 test(option_flags, error(type_error('atom or string',access(read)))) :-
-    my_file_open(_File, my_program_home('test_cpp.pl'), 'r', [search,absolute,ospath,access(read)]).
+    my_file_open(_File, cpp_test_home('test_cpp.pl'), 'r', [search,absolute,ospath,access(read)]).
 
 test(nchars_flags, F-S == 0x43f-"xinteger,all") :-
     nchars_flags([xinteger,all,atomic,number], F),

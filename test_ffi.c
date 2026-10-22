@@ -787,6 +787,70 @@ arg_values_ffi(term_t term, term_t from_t, term_t count_t,
 }
 
 
+/* list_slice_ffi(+List, +Start, +Length, +Flags, -Elems, -Count) tests
+   PL_get_list_slice().  Length -1 scans to the end.  Elems is a list
+   of Index-Elem.  The callback stops with failure on the atom `stop`,
+   raises an exception on `throw` and calls garbage_collect/0 on `gc`
+   to verify the scan survives GC.  Flags is [] or [exception].
+*/
+
+typedef struct
+{ term_t tail;
+  term_t head;
+  atom_t stop;
+  atom_t throw;
+  atom_t gc;
+} slice_closure;
+
+static int
+slice_elem(term_t elem, size_t index, void *closure)
+{ slice_closure *c = closure;
+  atom_t a;
+
+  if ( PL_get_atom(elem, &a) )
+  { if ( a == c->stop )
+      return FALSE;
+    if ( a == c->throw )
+      return PL_domain_error("no_throw", elem);
+    if ( a == c->gc &&
+	 !PL_call_predicate(NULL, PL_Q_PASS_EXCEPTION,
+			    PL_predicate("garbage_collect", 0, "system"),
+			    0) )
+      return FALSE;
+  }
+
+  return ( PL_unify_list(c->tail, c->head, c->tail) &&
+	   PL_unify_term(c->head, PL_FUNCTOR_CHARS, "-", 2,
+			          PL_INT64, (int64_t)index,
+			          PL_TERM, elem) );
+}
+
+static foreign_t
+list_slice_ffi(term_t list, term_t start_t, term_t length_t,
+	       term_t flags_t, term_t elems, term_t count_t)
+{ size_t start, length, count;
+  int64_t l;
+  unsigned int flags = 0;
+  slice_closure c;
+
+  if ( !PL_get_size_ex(start_t, &start) ||
+       !PL_get_int64_ex(length_t, &l) )
+    return FALSE;
+  length = l < 0 ? (size_t)-1 : (size_t)l;
+  if ( !PL_is_variable(flags_t) && !PL_get_nil(flags_t) )
+    flags = CVT_EXCEPTION;
+  c.tail  = PL_copy_term_ref(elems);
+  c.head  = PL_new_term_ref();
+  c.stop  = PL_new_atom("stop");
+  c.throw = PL_new_atom("throw");
+  c.gc    = PL_new_atom("gc");
+
+  return ( PL_get_list_slice(list, start, length, slice_elem, &c,
+			     &count, flags) &&
+	   PL_unify_nil(c.tail) &&
+	   PL_unify_uint64(count_t, count) );
+}
+
 /* These are used for testing install/uninstall */
 static char* range_ffi_str;
 #define RANGE_FFI_STR_LEN 100
@@ -828,6 +892,7 @@ install_test_ffi(void)
   PL_register_foreign("throw_resource_error_ffi",        1, throw_resource_error_ffi, 0);
   PL_register_foreign("int_info_ffi",                    5, int_info_ffi, 0);
   PL_register_foreign("arg_values_ffi",                  5, arg_values_ffi, 0);
+  PL_register_foreign("list_slice_ffi",                  6, list_slice_ffi, 0);
 }
 
 install_t

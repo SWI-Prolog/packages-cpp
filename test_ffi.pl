@@ -58,7 +58,8 @@ test_ffi :-
                 wchar,
                 scan,
                 call,
-                arg_values
+                arg_values,
+                list_slice
 	      ]).
 
 % Some of the tests can result in crashes if there's a bug, so the
@@ -508,3 +509,83 @@ test(allow_stack, Vs == [string("s")]) :-
     arg_values_ffi(f("s"), 1, 1, [allow_stack], Vs).
 
 :- end_tests(arg_values).
+
+
+:- begin_tests(list_slice).
+
+test(all, [Es-N == [0-a, 1-b, 2-c]-3]) :-
+    list_slice_ffi([a,b,c], 0, -1, [], Es, N).
+test(empty, [Es-N == []-0]) :-
+    list_slice_ffi([], 0, -1, [], Es, N).
+test(slice, [Es-N == [0-b, 1-c]-2]) :-
+    list_slice_ffi([a,b,c,d], 1, 2, [], Es, N).
+test(slice, [Es-N == [0-c, 1-d]-2]) :-
+    list_slice_ffi([a,b,c,d], 2, -1, [], Es, N).
+test(slice, [Es-N == []-0]) :-
+    list_slice_ffi([a,b,c,d], 4, -1, [], Es, N).
+test(slice, [Es-N == []-0]) :-
+    list_slice_ffi([a,b,c,d], 1, 0, [], Es, N).
+test(slice_open_tail, [Es == [0-a, 1-b]]) :-
+    list_slice_ffi([a,b|_], 0, 2, [], Es, _).
+test(short, fail) :-
+    list_slice_ffi([a,b,c], 1, 3, [], _, _).
+test(short, fail) :-
+    list_slice_ffi([a,b,c], 4, -1, [], _, _).
+test(short, fail) :-
+    list_slice_ffi([a,b,c], 1, 3, [exception], _, _).
+test(partial, fail) :-
+    list_slice_ffi([a,b|_], 0, -1, [], _, _).
+test(partial, error(instantiation_error)) :-
+    list_slice_ffi([a,b|_], 0, -1, [exception], _, _).
+test(partial, error(instantiation_error)) :-
+    list_slice_ffi(_, 0, -1, [exception], _, _).
+test(not_list, fail) :-
+    list_slice_ffi([a,b|c], 0, -1, [], _, _).
+test(not_list, error(type_error(list, [a,b|c]))) :-
+    list_slice_ffi([a,b|c], 0, -1, [exception], _, _).
+test(not_list, error(type_error(list, foo))) :-
+    list_slice_ffi(foo, 0, -1, [exception], _, _).
+test(stop, fail) :-
+    list_slice_ffi([a,stop,c], 0, -1, [], _, _).
+test(throw, error(domain_error(no_throw, throw))) :-
+    list_slice_ffi([a,throw,c], 0, -1, [], _, _).
+test(cyclic, fail) :-
+    L = [a|L],
+    list_slice_ffi(L, 0, -1, [], _, _).
+test(cyclic, error(type_error(list, _))) :-
+    L = [a|L],
+    list_slice_ffi(L, 0, -1, [exception], _, _).
+test(cyclic, fail) :-
+    numlist(1, 5000, Prefix),
+    append(Prefix, C, L),
+    C = [x,y,z|C],
+    list_slice_ffi(L, 0, -1, [], _, _).
+test(cyclic, fail) :-                   % while skipping to the start
+    L = [a,b|L],
+    list_slice_ffi(L, 100000, 1, [], _, _).
+test(cyclic, [Es == [0-a, 1-b, 2-a]]) :-
+    L = [a,b|L],
+    list_slice_ffi(L, 0, 3, [], Es, _).
+test(long, [N == 1000000, Last == 999999-f(1000000)]) :-
+    numlist(1, 1000000, Ns),
+    maplist(slice_f, Ns, L),
+    list_slice_ffi(L, 0, -1, [], Es, N),
+    last(Es, Last).
+test(gc, [N == 3003, Es == Expected]) :-
+    numlist(1, 1000, Ns),
+    maplist(slice_f, Ns, L0),
+    append([L0, [gc], L0, [gc], L0, [gc]], L),
+    list_slice_ffi(L, 0, -1, [], Es, N),
+    slice_expected(L, Expected).
+
+slice_f(I, f(I)).
+
+slice_expected(L, Expected) :-
+    slice_indexed(L, 0, Expected).
+
+slice_indexed([], _, []).
+slice_indexed([E|T], I, [I-E|Exp]) :-
+    I1 is I+1,
+    slice_indexed(T, I1, Exp).
+
+:- end_tests(list_slice).

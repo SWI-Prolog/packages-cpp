@@ -57,7 +57,8 @@ test_ffi :-
     run_tests([ ffi,
                 wchar,
                 scan,
-                call
+                call,
+                arg_values
 	      ]).
 
 % Some of the tests can result in crashes if there's a bug, so the
@@ -433,3 +434,77 @@ ffi_findall_bug_p(L) :-
     ffi_findall_bug_(ffi_p(_), L).
 
 :- end_tests(call).
+
+
+:- begin_tests(arg_values).
+
+test(types, Vs == [ var, atom(a), string("s"), int(1), float(2.5), nil,
+                    list_pair('[|]',2), term(g,2), blob ]) :-
+    current_output(S),
+    arg_values_ffi(f(_, a, "s", 1, 2.5, [], [a], g(b,c), S), 1, 9, [], Vs).
+test(dict, [Name == DictName, Arity == 3]) :-
+    Dict = _{a:1},
+    compound_name_arity(Dict, DictName, _),
+    arg_values_ffi(f(Dict), 1, 1, [], [dict(Name,Arity)]).
+test(range, Vs == [atom(b), atom(c)]) :-
+    arg_values_ffi(f(a,b,c), 2, 2, [], Vs).
+test(range, Vs == []) :-
+    arg_values_ffi(f(a,b,c), 4, 0, [], Vs).
+test(range, fail) :-
+    arg_values_ffi(f(a,b,c), 3, 2, [], _).
+test(range, fail) :-
+    arg_values_ffi(f(a,b,c), 0, 1, [], _).
+test(not_compound, fail) :-
+    arg_values_ffi(foo, 1, 1, [], _).
+test(not_compound, error(type_error(compound, foo))) :-
+    arg_values_ffi(foo, 1, 1, [exception], _).
+test(atom_text, Vs == [atom_text("a"), atom_text(""), nil]) :-
+    arg_values_ffi(f(a, '', []), 1, 3, [atom], Vs).
+test(as_float, Vs == [float(1.0), float(2.5), float(0.5), atom(a)]) :-
+    arg_values_ffi(f(1, 2.5, 1r2, a), 1, 4, [float], Vs).
+test(as_float, Vs == [float(F)]) :-
+    X is 1<<100,
+    F is float(X),
+    arg_values_ffi(f(X), 1, 1, [float], Vs).
+test(as_float, fail) :-
+    X is 1<<2000,
+    arg_values_ffi(f(X), 1, 1, [float], _).
+test(as_float, error(evaluation_error(float_overflow))) :-
+    X is 1<<2000,
+    arg_values_ffi(f(X), 1, 1, [float, exception], _).
+test(bigint, fail) :-
+    X is 1<<100,
+    arg_values_ffi(f(X), 1, 1, [], _).
+test(bigint, error(representation_error(int64_t))) :-
+    X is 1<<100,
+    arg_values_ffi(f(X), 1, 1, [exception], _).
+test(bigint, Vs == [big_text("1267650600228229401496703205376")]) :-
+    X is 1<<100,
+    arg_values_ffi(f(X), 1, 1, [integer], Vs).
+test(bigint, Vs == [big_text("10000000000000000000000000")]) :-
+    X is 1<<100,
+    arg_values_ffi(f(X), 1, 1, [xinteger], Vs).
+test(rational, fail) :-
+    arg_values_ffi(f(1r3), 1, 1, [integer], _).
+test(rational, error(type_error(integer, 1r3))) :-
+    arg_values_ffi(f(1r3), 1, 1, [exception], _).
+test(rational, Vs == [rat_text("1r3")]) :-
+    arg_values_ffi(f(1r3), 1, 1, [rational], Vs).
+test(encoding, Vs == [string("h\u00e9llo")]) :-
+    arg_values_ffi(f("h\u00e9llo"), 1, 1, [], Vs).
+test(encoding, fail) :-
+    arg_values_ffi(f("h\u20acllo"), 1, 1, [], _).
+test(encoding, error(representation_error(encoding))) :-
+    arg_values_ffi(f("h\u20acllo"), 1, 1, [exception], _).
+test(encoding, Vs == [string("h\u20acllo"), atom_text("\u20ac")]) :-
+    arg_values_ffi(f("h\u20acllo", '\u20ac'), 1, 2, [utf8, atom], Vs).
+test(malloc, Vs == [string("s"), atom_text("a"), big_text(T), int(1)]) :-
+    X is 1<<100,
+    format(string(T), "~d", [X]),
+    arg_values_ffi(f("s", a, X, 1), 1, 4, [malloc, atom, integer], Vs).
+test(malloc, fail) :-			% frees the text before the failure
+    arg_values_ffi(f("s", a, 1r3), 1, 3, [malloc, atom], _).
+test(allow_stack, Vs == [string("s")]) :-
+    arg_values_ffi(f("s"), 1, 1, [allow_stack], Vs).
+
+:- end_tests(arg_values).

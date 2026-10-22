@@ -632,6 +632,161 @@ int_info_ffi(term_t name_a, term_t i1_a, term_t i2_a, term_t i3_a, term_t tv)
 }
 
 
+/* arg_values_ffi(+Term, +From, +Count, +Flags, -Values) tests
+   PL_get_arg_values().  Flags is a list of atoms that map to CVT_*,
+   REP_* and BUF_* flags.  Values is a list of Type(Value) terms.
+*/
+
+static const struct
+{ const char  *name;
+  unsigned int flag;
+} arg_value_flags[] =
+{ { "atom",        CVT_ATOM },
+  { "integer",     CVT_INTEGER },
+  { "xinteger",    CVT_XINTEGER },
+  { "rational",    CVT_RATIONAL },
+  { "float",       PL_AS_FLOAT },
+  { "exception",   CVT_EXCEPTION },
+  { "utf8",        REP_UTF8 },
+  { "malloc",      BUF_MALLOC },
+  { "allow_stack", BUF_ALLOW_STACK },
+  { NULL, 0 }
+};
+
+static int
+is_text_value(const pl_value_t *v, unsigned int flags)
+{ switch(v->type)
+  { case PL_STRING:
+      return TRUE;
+    case PL_ATOM:
+      return !!(flags&CVT_ATOM);
+    case PL_INTEGER:
+    case PL_RATIONAL:
+      return !(flags&PL_AS_FLOAT);
+    default:
+      return FALSE;
+  }
+}
+
+/* Unify t with v.  Frees the text of v if BUF_MALLOC is used */
+
+static int
+unify_arg_value(term_t t, const pl_value_t *v, unsigned int flags)
+{ const char *type;
+  int rep = (flags&REP_UTF8) ? REP_UTF8 : 0;
+  term_t a;
+  int rc;
+
+  switch(v->type)
+  { case PL_VARIABLE:
+      return PL_unify_atom_chars(t, "var");
+    case PL_NIL:
+      return PL_unify_atom_chars(t, "nil");
+    case PL_BLOB:
+      return PL_unify_atom_chars(t, "blob");
+    case PL_ATOM:
+      if ( !(flags&CVT_ATOM) )
+	return PL_unify_term(t, PL_FUNCTOR_CHARS, "atom", 1,
+			          PL_ATOM, v->value.a);
+      type = "atom_text";
+      goto text;
+    case PL_STRING:
+      type = "string";
+      goto text;
+    case PL_INT64:
+      if ( (flags&PL_AS_FLOAT) )
+	return PL_unify_term(t, PL_FUNCTOR_CHARS, "float", 1,
+			          PL_FLOAT, v->value.f);
+      return PL_unify_term(t, PL_FUNCTOR_CHARS, "int", 1,
+			        PL_INT64, v->value.i);
+    case PL_INTEGER:
+    case PL_RATIONAL:
+      if ( (flags&PL_AS_FLOAT) )
+	return PL_unify_term(t, PL_FUNCTOR_CHARS, "float", 1,
+			          PL_FLOAT, v->value.f);
+      type = v->type == PL_INTEGER ? "big_text" : "rat_text";
+      goto text;
+    case PL_FLOAT:
+      return PL_unify_term(t, PL_FUNCTOR_CHARS, "float", 1,
+			        PL_FLOAT, v->value.f);
+    case PL_TERM:
+      type = "term";
+      goto functor;
+    case PL_LIST_PAIR:
+      type = "list_pair";
+      goto functor;
+    case PL_DICT:
+      type = "dict";
+    functor:
+      return PL_unify_term(t, PL_FUNCTOR_CHARS, type, 2,
+			        PL_ATOM, PL_functor_name(v->value.t),
+			        PL_INT64, (int64_t)PL_functor_arity(v->value.t));
+    default:
+      return PL_unify_atom_chars(t, "unknown");
+  }
+
+text:
+  rc = ( (a=PL_new_term_ref()) &&
+	 PL_unify_chars(a, PL_STRING|rep, v->length, v->value.s) &&
+	 PL_unify_term(t, PL_FUNCTOR_CHARS, type, 1, PL_TERM, a) );
+  if ( (flags&BUF_MALLOC) )
+    PL_free(v->value.s);
+  return rc;
+}
+
+static foreign_t
+arg_values_ffi(term_t term, term_t from_t, term_t count_t,
+	       term_t flags_t, term_t values)
+{ size_t from, count;
+  unsigned int flags = 0;
+  term_t tail = PL_copy_term_ref(flags_t);
+  term_t head = PL_new_term_ref();
+  pl_value_t v[10];
+  int rc = TRUE;
+
+  if ( !PL_get_size_ex(from_t, &from) ||
+       !PL_get_size_ex(count_t, &count) )
+    return FALSE;
+  if ( count > 10 )
+    return PL_domain_error("count", count_t);
+  while( PL_get_list(tail, head, tail) )
+  { char *s;
+    int i;
+
+    if ( !PL_get_atom_chars(head, &s) )
+      return PL_type_error("atom", head);
+    for(i=0; arg_value_flags[i].name; i++)
+    { if ( strcmp(arg_value_flags[i].name, s) == 0 )
+      { flags |= arg_value_flags[i].flag;
+	break;
+      }
+    }
+    if ( !arg_value_flags[i].name )
+      return PL_domain_error("arg_value_flag", head);
+  }
+
+  PL_STRINGS_MARK();
+  if ( PL_get_arg_values(term, from, count, v, flags) )
+  { term_t vt = PL_copy_term_ref(values);
+
+    for(size_t i=0; i<count; i++)
+    { if ( rc && PL_unify_list(vt, head, vt) )
+      { rc = unify_arg_value(head, &v[i], flags);
+      } else
+      { rc = FALSE;
+	if ( (flags&BUF_MALLOC) && is_text_value(&v[i], flags) )
+	  PL_free(v[i].value.s);
+      }
+    }
+    rc = rc && PL_unify_nil(vt);
+  } else
+    rc = FALSE;
+  PL_STRINGS_RELEASE();
+
+  return rc;
+}
+
+
 /* These are used for testing install/uninstall */
 static char* range_ffi_str;
 #define RANGE_FFI_STR_LEN 100
@@ -672,6 +827,7 @@ install_test_ffi(void)
   PL_register_foreign("throw_permission_error_ffi",      3, throw_permission_error_ffi, 0);
   PL_register_foreign("throw_resource_error_ffi",        1, throw_resource_error_ffi, 0);
   PL_register_foreign("int_info_ffi",                    5, int_info_ffi, 0);
+  PL_register_foreign("arg_values_ffi",                  5, arg_values_ffi, 0);
 }
 
 install_t

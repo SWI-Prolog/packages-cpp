@@ -1707,7 +1707,11 @@ struct MyBlob : public PlBlob
     if ( name_contains("FAIL_compare") )
       throw MyBlobError("my_blob_compare_error"); // Test error handling
     auto b_data = dynamic_cast<const MyBlob*>(_b_data);
-    return name().compare(b_data->name());
+    // Blob callbacks may return any negative or positive value, not
+    // just -1 or 1.  Exercise this even on platforms where string
+    // comparison happens to return unit values.
+    int rc = name().compare(b_data->name());
+    return rc < 0 ? -42 : rc > 0 ? 42 : 0;
   }
 
   bool write_fields(IOSTREAM *s, int flags) const override

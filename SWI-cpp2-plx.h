@@ -214,6 +214,8 @@ PLX_ASIS(PLX_BOOL                , get_head                        , (term_t l, 
 PLX_ASIS(PLX_BOOL                , get_tail                        , (term_t l, term_t t), (l, t))
 [[nodiscard]]
 PLX_ASIS(PLX_BOOL                , get_nil                         , (term_t l), (l))
+PLX_EXCE(PLX_BOOL                , get_arg_values                  , (term_t t, size_t from, size_t count, pl_value_t *values, unsigned int flags), (t, from, count, values, flags))
+PLX_EXCE(PLX_BOOL                , get_list_slice                  , (term_t list, size_t start, size_t length, pl_list_slice_f func, void *closure, size_t *count, unsigned int flags), (list, start, length, func, closure, count, flags))
 [[nodiscard]]
 [[deprecated]]
 PLX_ASIS(int                     , get_term_value                  , (term_t t, term_value_t *v), (t, v))
